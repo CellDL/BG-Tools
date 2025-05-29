@@ -86,9 +86,7 @@ class NamespaceMap:
             return self.curie(term)
         elif isinstance(term, BNode):
             return str(term)
-        elif isinstance(term, Literal):
-            if (dt := term.datatype) is not None:
-                return f'"{str(term)}"^^{self.simplify(dt)}'
+        elif isinstance(term, Literal) and term.datatype is None:
             return str(term)
         return term
 
