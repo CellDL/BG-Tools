@@ -99,7 +99,7 @@ class BondgraphModelSet:
                                            .replace('%ELEMENT_CLASSES%', ', '.join(framework.element_classes())))
             pprint(self.__query(element_query))
 
-            junction_query = (MODEL_ELEMENTS.replace('%MODEL%', model)
+            junction_query = (MODEL_JUNCTIONS.replace('%MODEL%', model)
                                             .replace('%JUNCTION_CLASSES%', ', '.join(framework.junction_classes())))
             pprint(self.__query(junction_query))
 
