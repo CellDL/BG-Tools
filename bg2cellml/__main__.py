@@ -31,8 +31,8 @@ def main():
     ])
 
 
-    bg_1 = framework.make_model('../bg-rdf/examples/example_1.ttl')
-    bg_2 = framework.make_model('../bg-rdf/examples/example_2.ttl')
+    bg_1 = framework.make_models('../bg-rdf/examples/example_1.ttl')
+    bg_2 = framework.make_models('../bg-rdf/examples/example_2.ttl')
 
 #===============================================================================
 

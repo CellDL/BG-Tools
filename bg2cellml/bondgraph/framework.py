@@ -28,6 +28,8 @@ from rdflib.namespace import XSD
 #===============================================================================
 
 from ..rdf import NamespaceMap
+
+from .bondgraph import BondgraphModelSet
 from .namespaces import BGF, CDT, NAMESPACES
 
 #===============================================================================
@@ -201,8 +203,8 @@ class BondgraphFramework:
     #=======================================
         return [junction.uri for junction in self.__junctions]
 
-    def make_model(self, bondgraph_path: str):
-    #=========================================
-        pass
+    def make_models(self, bondgraph_path: str) -> BondgraphModelSet:
+    #===============================================================
+        return BondgraphModelSet(bondgraph_path, self)
 
 #===============================================================================

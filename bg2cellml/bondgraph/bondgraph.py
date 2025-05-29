@@ -19,6 +19,7 @@
 #===============================================================================
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pprint import pprint
 
@@ -30,9 +31,10 @@ import networkx as nx
 #===============================================================================
 
 from ..rdf import NamespaceMap
-
-from .framework import BondgraphFramework
 from .namespaces import NAMESPACES
+
+if TYPE_CHECKING:
+    from .framework import BondgraphFramework
 
 #===============================================================================
 
@@ -78,8 +80,8 @@ WHERE {{
 
 #===============================================================================
 
-class BondgraphModels:
-    def __init__(self, bondgraph_path: str, framework: BondgraphFramework):
+class BondgraphModelSet:
+    def __init__(self, bondgraph_path: str, framework: 'BondgraphFramework'):
         self.__namespace_map = NamespaceMap(NAMESPACES)
         self.__namespace_map.add_namespace('', f'{Path(bondgraph_path).resolve().as_uri()}#')
         self.__sparql_prefixes = self.__namespace_map.sparql_prefixes()
