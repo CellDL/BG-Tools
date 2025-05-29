@@ -193,4 +193,16 @@ class BondgraphFramework:
         self.__junctions = [JunctionStructure(*row)
                                 for row in sparql_query(self.__knowledge, JUNCTION_STRUCTURES)]
 
+    def element_classes(self) -> list[str]:
+    #======================================
+        return [element.uri for element in self.__elements]
+
+    def junction_classes(self) -> list[str]:
+    #=======================================
+        return [junction.uri for junction in self.__junctions]
+
+    def make_model(self, bondgraph_path: str):
+    #=========================================
+        pass
+
 #===============================================================================

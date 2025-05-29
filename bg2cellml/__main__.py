@@ -18,18 +18,11 @@
 #
 #===============================================================================
 
-from pathlib import Path
-
-#===============================================================================
-
-from bg2cellml.bondgraph import Bondgraph
 from bg2cellml.bondgraph.framework import BondgraphFramework
 
 #===============================================================================
 
 def main():
-    example = Path('../bg-rdf/examples/example_1.ttl')
-
     framework = BondgraphFramework([
         '../bg-rdf/schema/ontology.ttl',
         '../bg-rdf/schema/elements/general.ttl',
@@ -37,7 +30,9 @@ def main():
         '../bg-rdf/schema/elements/electrical.ttl'
     ])
 
-    bg = Bondgraph(example, framework)
+
+    bg_1 = framework.make_model('../bg-rdf/examples/example_1.ttl')
+    bg_2 = framework.make_model('../bg-rdf/examples/example_2.ttl')
 
 #===============================================================================
 
