@@ -1,0 +1,7 @@
+[project]
+name = "bg2cellml"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+    "rdflib>=7.1.4",
+]
