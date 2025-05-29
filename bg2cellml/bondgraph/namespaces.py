@@ -18,7 +18,13 @@
 #
 #===============================================================================
 
-from ..rdf import NamespaceMap
+from ..rdf import Namespace
+
+#===============================================================================
+
+BG = Namespace('https://celldl.org/ontologies/bondgraph#')
+BGF = Namespace('https://celldl.org/ontologies/bondgraph-framework#')
+CDT = Namespace('https://w3id.org/cdt/')
 
 #===============================================================================
 
