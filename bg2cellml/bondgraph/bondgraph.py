@@ -30,63 +30,54 @@ import networkx as nx
 
 #===============================================================================
 
-from ..rdf import NamespaceMap
-from .namespaces import NAMESPACES
+from ..rdf import Identified, NamespaceMap
 
 from .framework import BondgraphFramework as FRAMEWORK
+from .namespaces import NAMESPACES
 
 #===============================================================================
-
-
 #===============================================================================
 
 BONDGRAPH_MODELS = f"""
-SELECT DISTINCT ?model
-WHERE {{
-    ?model a bg:BondGraph .
-}} ORDER BY ?model"""
+    SELECT DISTINCT ?model
+    WHERE {{
+        ?model a bg:BondGraph .
+    }} ORDER BY ?model"""
 
 #===============================================================================
 
 MODEL_BONDS = f"""
-SELECT DISTINCT ?bond ?source ?target
-WHERE {{
-    %MODEL% bg:hasPowerBond ?bond .
-    ?bond bgf:hasSource ?source .
-    ?bond bgf:hasTarget ?target .
-}} ORDER BY ?bond ?source ?target"""
+    SELECT DISTINCT ?bond ?source ?target
+    WHERE {{
+        %MODEL% bg:hasPowerBond ?bond .
+        ?bond bgf:hasSource ?source .
+        ?bond bgf:hasTarget ?target .
+    }} ORDER BY ?bond ?source ?target"""
 
 #===============================================================================
 
 MODEL_ELEMENTS = f"""
-SELECT DISTINCT ?element ?type
-WHERE {{
-    %MODEL% bg:hasBondElement ?element .
-    ?element a ?type .
-    OPTIONAL {{ ?element bgf:parameterValue ?param }}
-    OPTIONAL {{ ?element bgf:stateValue ?state }}
-    FILTER (?type IN ({', '.join(FRAMEWORK.element_classes())}))
-}} ORDER BY ?element"""
-
-MODEL_JUNCTIONS = f"""
-SELECT DISTINCT ?junction ?type ?domain
-WHERE {{
-    %MODEL% bg:hasJunctionStructure ?junction .
-    ?junction a ?type .
-    OPTIONAL {{ ?junction bgf:hasDomain ?domain }}
-    FILTER (?type IN ({', '.join(FRAMEWORK.junction_classes())}))
-}} ORDER BY ?junction"""
+    SELECT DISTINCT ?element ?type
+    WHERE {{
+        %MODEL% bg:hasBondElement ?element .
+        ?element a ?type .
+        OPTIONAL {{ ?element bgf:parameterValue ?param }}
+        OPTIONAL {{ ?element bgf:stateValue ?state }}
+        FILTER (?type IN ({', '.join(FRAMEWORK.element_classes())}))
+    }} ORDER BY ?element"""
 
 #===============================================================================
 
-class Identified:
-    def __init__(self, uri: str):
-        self.__uri = uri
+MODEL_JUNCTIONS = f"""
+    SELECT DISTINCT ?junction ?type ?domain
+    WHERE {{
+        %MODEL% bg:hasJunctionStructure ?junction .
+        ?junction a ?type .
+        OPTIONAL {{ ?junction bgf:hasDomain ?domain }}
+        FILTER (?type IN ({', '.join(FRAMEWORK.junction_classes())}))
+    }} ORDER BY ?junction"""
 
-    @property
-    def uri(self):
-        return self.__uri
-
+#===============================================================================
 #===============================================================================
 
 class BondgraphBond(Identified):

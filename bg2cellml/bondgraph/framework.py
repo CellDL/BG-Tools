@@ -70,20 +70,20 @@ class Variable:
 #===============================================================================
 
 ELEMENT_PORTS = f"""
-SELECT DISTINCT ?port ?portNumber ?domain ?flowSymbol ?potentialSymbol
-WHERE {{
-    %ELEMENT_URI% bgf:hasPort ?port .
-    ?port bgf:hasDomain ?domain ;
-        bgf:hasFlow [
-            a bgf:Variable ;
-            bgf:hasSymbol ?flowSymbol
-        ] ;
-        bgf:hasPotential [
-            a bgf:Variable ;
-            bgf:hasSymbol ?potentialSymbol
-        ] .
-    OPTIONAL {{ ?port bgf:portNumber ?portNumber }}
-}} ORDER BY ?port"""
+    SELECT DISTINCT ?port ?portNumber ?domain ?flowSymbol ?potentialSymbol
+    WHERE {{
+        %ELEMENT_URI% bgf:hasPort ?port .
+        ?port bgf:hasDomain ?domain ;
+            bgf:hasFlow [
+                a bgf:Variable ;
+                bgf:hasSymbol ?flowSymbol
+            ] ;
+            bgf:hasPotential [
+                a bgf:Variable ;
+                bgf:hasSymbol ?potentialSymbol
+            ] .
+        OPTIONAL {{ ?port bgf:portNumber ?portNumber }}
+    }} ORDER BY ?port"""
 
 #===============================================================================
 
@@ -163,21 +163,21 @@ class JunctionStructure:
 #===============================================================================
 
 ELEMENT_DEFINITIONS = f"""
-SELECT DISTINCT ?definition ?label ?relation
-WHERE {{
-    ?definition a bgf:NodeDefinition ;
-      rdfs:subClassOf bg:BondElement ;
-      bgf:constitutiveRelation ?relation .
-    OPTIONAL {{ ?definition rdfs:label ?label }}
-}} ORDER BY ?definition"""
+    SELECT DISTINCT ?definition ?label ?relation
+    WHERE {{
+        ?definition a bgf:NodeDefinition ;
+          rdfs:subClassOf bg:BondElement ;
+          bgf:constitutiveRelation ?relation .
+        OPTIONAL {{ ?definition rdfs:label ?label }}
+    }} ORDER BY ?definition"""
 
 JUNCTION_STRUCTURES = f"""
-SELECT DISTINCT ?junction ?label ?numPorts
-WHERE {{
-    ?junction rdfs:subClassOf bg:JunctionStructure .
-    OPTIONAL {{ ?junction rdfs:label ?label }}
-    OPTIONAL {{ ?junction bgf:numPorts ?numPorts }}
-}} ORDER BY ?junction"""
+    SELECT DISTINCT ?junction ?label ?numPorts
+    WHERE {{
+        ?junction rdfs:subClassOf bg:JunctionStructure .
+        OPTIONAL {{ ?junction rdfs:label ?label }}
+        OPTIONAL {{ ?junction bgf:numPorts ?numPorts }}
+    }} ORDER BY ?junction"""
 
 #===============================================================================
 

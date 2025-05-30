@@ -26,6 +26,16 @@ from rdflib import BNode, Literal, URIRef
 
 #===============================================================================
 
+class Identified:
+    def __init__(self, uri: str):
+        self.__uri = uri
+
+    @property
+    def uri(self):
+        return self.__uri
+
+#===============================================================================
+
 """
 Generate URIRefs for rdflib.
 """
