@@ -119,7 +119,13 @@ class BondgraphModel(Identified):
         for node in self.__junctions:
             self.__graph.add_node(node.uri)
         for bond in self.__bonds:
-            self.__graph.add_edge(bond.source, bond.target)
+            if (bond_source := bond.source) not in self.__graph:
+                raise ValueError(f'No element or junction for source {bond_source} of bond {bond.uri}')
+            if (bond_target := bond.target) not in self.__graph:
+                raise ValueError(f'No element or junction for target {bond_target} of bond {bond.uri}')
+            self.__graph.add_edge(bond_source, bond_target)
+        if not nx.is_weakly_connected(self.__graph):
+            raise ValueError('Resulting network graph is disconnected')
 
 #===============================================================================
 
