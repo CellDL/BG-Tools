@@ -19,7 +19,7 @@
 #===============================================================================
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Optional
 
 from pprint import pprint
 
@@ -33,8 +33,7 @@ import networkx as nx
 from ..rdf import NamespaceMap
 from .namespaces import NAMESPACES
 
-if TYPE_CHECKING:
-    from .framework import BondgraphFramework
+from .framework import BondgraphFramework as FRAMEWORK
 
 #===============================================================================
 
@@ -66,7 +65,7 @@ WHERE {{
     ?element a ?type .
     OPTIONAL {{ ?element bgf:parameterValue ?param }}
     OPTIONAL {{ ?element bgf:stateValue ?state }}
-    FILTER (?type IN (%ELEMENT_CLASSES%))
+    FILTER (?type IN ({', '.join(FRAMEWORK.element_classes())}))
 }} ORDER BY ?element"""
 
 MODEL_JUNCTIONS = f"""
@@ -75,37 +74,75 @@ WHERE {{
     %MODEL% bg:hasJunctionStructure ?junction .
     ?junction a ?type .
     OPTIONAL {{ ?junction bgf:hasDomain ?domain }}
-    FILTER (?type IN (%JUNCTION_CLASSES%))
+    FILTER (?type IN ({', '.join(FRAMEWORK.junction_classes())}))
 }} ORDER BY ?junction"""
 
 #===============================================================================
 
-class BondgraphModelSet:
-    def __init__(self, bondgraph_path: str, framework: 'BondgraphFramework'):
+class Identified:
+    def __init__(self, uri: str):
+        self.__uri = uri
+
+    @property
+    def uri(self):
+        return self.__uri
+
+#===============================================================================
+
+class BondgraphBond(Identified):
+    def __init__(self, uri: str, source: str, target: str):
+        super().__init__(uri)
+        self.__source = source
+        self.__target = target
+
+    @property
+    def source(self):
+        return self.__source
+
+    @property
+    def target(self):
+        return self.__target
+
+#===============================================================================
+
+class BondgraphNode(Identified):
+    def __init__(self, uri: str, type: str, domain: Optional[str]=None):
+        super().__init__(uri)
+        self.__type = type
+        self.__domain = domain
+
+#===============================================================================
+
+class BondgraphModel(Identified):
+    def __init__(self, source: 'BondgraphModelSource', uri: str):
+        super().__init__(uri)
+        self.__elements = [BondgraphNode(*row)
+                            for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
+        self.__junctions = [BondgraphNode(*row)
+                            for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
+        self.__bonds = [BondgraphBond(*row)
+                            for row in source.sparql_query(MODEL_BONDS.replace('%MODEL%', uri))]
+        self.__graph = nx.DiGraph()
+        for node in self.__elements:
+            self.__graph.add_node(node.uri)
+        for node in self.__junctions:
+            self.__graph.add_node(node.uri)
+        for bond in self.__bonds:
+            self.__graph.add_edge(bond.source, bond.target)
+
+#===============================================================================
+
+class BondgraphModelSource:
+    def __init__(self, bondgraph_path: str):
         self.__namespace_map = NamespaceMap(NAMESPACES)
         self.__namespace_map.add_namespace('', f'{Path(bondgraph_path).resolve().as_uri()}#')
         self.__sparql_prefixes = self.__namespace_map.sparql_prefixes()
-
         self.__rdf = rdflib.Graph()
         self.__rdf.parse(bondgraph_path, format='turtle')
+        self.__models = [BondgraphModel(self, row[0]) for row in self.sparql_query(BONDGRAPH_MODELS)]
 
-        self.__graph = nx.DiGraph()
-
-        self.__model_uris = [row[0] for row in self.__query(BONDGRAPH_MODELS)]
-
-        for model in self.__model_uris:
-            print(model)
-            element_query = (MODEL_ELEMENTS.replace('%MODEL%', model)
-                                           .replace('%ELEMENT_CLASSES%', ', '.join(framework.element_classes())))
-            pprint(self.__query(element_query))
-
-            junction_query = (MODEL_JUNCTIONS.replace('%MODEL%', model)
-                                            .replace('%JUNCTION_CLASSES%', ', '.join(framework.junction_classes())))
-            pprint(self.__query(junction_query))
-
-            pprint(self.__query(MODEL_BONDS.replace('%MODEL%', model)))
-
-    def __query(self, query: str) -> list[list]:
+    def sparql_query(self, query: str) -> list[list]:
+    #================================================
         query_result = self.__rdf.query(f'{self.__sparql_prefixes}\n{query}')
         if query_result is not None:
             return [[self.__namespace_map.simplify(term) for term in row]   # type: ignore

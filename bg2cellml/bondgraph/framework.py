@@ -29,7 +29,6 @@ from rdflib.namespace import XSD
 
 from ..rdf import NamespaceMap
 
-from .bondgraph import BondgraphModelSet
 from .namespaces import BGF, CDT, NAMESPACES
 
 #===============================================================================
@@ -182,7 +181,14 @@ WHERE {{
 
 #===============================================================================
 
-class BondgraphFramework:
+class _BondgraphFramework:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(_BondgraphFramework, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, bg_knowledge: list[str]):
         self.__knowledge = rdflib.Graph()
         for knowledge in bg_knowledge:
@@ -203,8 +209,13 @@ class BondgraphFramework:
     #=======================================
         return [junction.uri for junction in self.__junctions]
 
-    def make_models(self, bondgraph_path: str) -> BondgraphModelSet:
-    #===============================================================
-        return BondgraphModelSet(bondgraph_path, self)
+#===============================================================================
+
+BondgraphFramework = _BondgraphFramework([
+    '../bg-rdf/schema/ontology.ttl',
+    '../bg-rdf/schema/elements/general.ttl',
+    '../bg-rdf/schema/elements/biochemical.ttl',
+    '../bg-rdf/schema/elements/electrical.ttl'
+])
 
 #===============================================================================

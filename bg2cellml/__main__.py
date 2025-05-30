@@ -18,21 +18,14 @@
 #
 #===============================================================================
 
-from bg2cellml.bondgraph.framework import BondgraphFramework
+from bg2cellml.bondgraph import BondgraphModelSource
 
 #===============================================================================
 
 def main():
-    framework = BondgraphFramework([
-        '../bg-rdf/schema/ontology.ttl',
-        '../bg-rdf/schema/elements/general.ttl',
-        '../bg-rdf/schema/elements/biochemical.ttl',
-        '../bg-rdf/schema/elements/electrical.ttl'
-    ])
 
-
-    bg_1 = framework.make_models('../bg-rdf/examples/example_1.ttl')
-    bg_2 = framework.make_models('../bg-rdf/examples/example_2.ttl')
+    ex_1 = BondgraphModelSource('../bg-rdf/examples/example_1.ttl')
+    #ex_2 = BondgraphModelSource('../bg-rdf/examples/example_2.ttl')
 
 #===============================================================================
 
