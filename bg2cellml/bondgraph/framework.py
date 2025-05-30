@@ -88,14 +88,14 @@ ELEMENT_PORTS = f"""
 #===============================================================================
 
 ELEMENT_VARIABLES = f"""
-SELECT DISTINCT ?variable ?varType ?symbol ?units
-WHERE {{
-    %ELEMENT_URI% %VAR_RELN% ?variable .
-    ?variable a ?varType ;
-        bgf:hasSymbol ?symbol ;
-        bgf:hasUnits ?units .
-    FILTER (?varType IN (bgf:Variable, bgf:Constant))
-}} ORDER BY ?variable"""
+    SELECT DISTINCT ?variable ?varType ?symbol ?units
+    WHERE {{
+        %ELEMENT_URI% %VAR_RELN% ?variable .
+        ?variable a ?varType ;
+            bgf:hasSymbol ?symbol ;
+            bgf:hasUnits ?units .
+        FILTER (?varType IN (bgf:Variable, bgf:Constant))
+    }} ORDER BY ?variable"""
 
 #===============================================================================
 
