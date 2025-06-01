@@ -53,8 +53,8 @@ class Units:
     def __init__(self, units: str|pint.Unit):
         if isinstance(units, str):
             units = unit_registry[units]
-        self.__units = pint.Quantity(1, units)
-        self.__name = Units.normalise_name(str(self.__units.u))
+        self.__units = units
+        self.__name = Units.normalise_name(str(self.__units))
 
     @classmethod
     def from_ucum(cls, ucum_units: Literal|str) -> Self:
@@ -75,28 +75,27 @@ class Units:
         return name
 
     def __eq__(self, other):
-    #=======================
-        return self.__units.u == other.__units.u
+        return self.__units == other.__units
 
     def __str__(self):
-    #=================
-        return str(self.__units.u)
+        return str(self.__units)
 
     @property
     def name(self):
         return self.__name
 
-    @property
-    def units(self):
-        return self.__units
-
     def base_items(self):
     #====================
+        unit_quantity = pint.Quantity(1, self.__units)
         return PREFERRED_BASE_ITEMS.get(str(self),
-                                        self.__units.unit_items())
+                                        unit_quantity.unit_items())
         ## if not PREFERRED_BASE_ITEMS start by going through
         ## self.__pint_units.unit_items() and only go to_base_units() if not a known
         ## CELLML_UNIT...
+
+    def is_compatible_with(self, other: Self):
+    #=========================================
+        return self.__units.is_compatible_with(other.__units)
 
 #===============================================================================
 
@@ -112,15 +111,23 @@ class Value:
         else:
             raise TypeError(f'Literal value has unexpected datatype: {value.datatype}')
 
+    def __str__(self):
+        return f'{self.__value} {self.__units}'
+
     @property
     def units(self):
-    #===============
         return self.__units
 
     @property
-    def value(self):
-    #===============
+    def value(self) -> float:
         return self.__value
+
+    def set_units(self, units: Units):
+    #=================================
+        if self.__units is None:
+            self.__units = units
+        elif units != self.__units:
+            raise ValueError(f'Can not reassign Units of a Value ({self.__units} != {units})')
 
     def set_value(self, value: float):
     #================================
