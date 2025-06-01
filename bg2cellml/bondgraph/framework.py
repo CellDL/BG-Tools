@@ -18,7 +18,7 @@
 #
 #===============================================================================
 
-from typing import Optional
+from typing import Optional, Self
 
 #===============================================================================
 
@@ -27,10 +27,12 @@ from rdflib.namespace import XSD
 
 #===============================================================================
 
-from ..rdf import NamespaceMap
+from ..rdf import Labelled, NamespaceMap
+from ..units import Units, Value
 
-from .namespaces import BGF, CDT, NAMESPACES
+from .namespaces import BGF, NAMESPACES
 
+#===============================================================================
 #===============================================================================
 
 NAMESPACE_MAP = NamespaceMap(NAMESPACES)
@@ -46,130 +48,212 @@ def sparql_query(rdf_graph: rdflib.Graph, query: str) -> list[list]:
                                                     for row in query_result]
     return []
 
-def optional_integer(value: Optional[rdflib.Literal]):
-#=====================================================
+def optional_integer(value: Optional[rdflib.Literal], default: Optional[int]=None) -> Optional[int]:
+#===================================================================================================
     if value is not None and value.datatype == XSD.integer:
-        return int(value.value)
+        return int(value)
+    return default
+
+#===============================================================================
+#===============================================================================
+
+ELEMENT_VARIABLES = f"""
+    SELECT DISTINCT ?symbol ?units ?value
+    WHERE {{
+        %ELEMENT_URI% bgf:hasVariable ?variable .
+        ?variable bgf:hasSymbol ?symbol .
+        OPTIONAL {{ ?variable bgf:hasUnits ?units }}
+        OPTIONAL {{ ?variable bgf:hasValue ?value }}
+    }} ORDER BY ?variable"""
+
+#===============================================================================
+
+class TemplateVariable:
+    def __init__(self, element_uri: str, symbol: str, units: Optional[rdflib.Literal], value: Optional[rdflib.Literal]):
+        self.__element_uri = element_uri
+        self.__symbol = symbol
+        self.__units = Units.from_ucum(units) if units is not None else None
+        if value is not None:
+            self.__value = Value(value)
+            if self.__units is None and self.__value.units is not None:
+                self.__units = self.__value.units
+        else:
+            self.__value = None
+        if self.__units is None:
+            raise ValueError(f'Variable {symbol} for {element_uri} has no Units specified')
+        if self.__value is not None:
+            if self.__value.units is None:
+                self.__value.set_units(self.__units)
+            elif not self.__units.is_compatible_with(self.__value.units):
+                raise ValueError(f'Value for variable {symbol} has incompatible units ({self.__value.units} != {self.__units})')
+
+    @property
+    def element_uri(self):
+        return self.__element_uri
+
+    @property
+    def symbol(self):
+        return self.__symbol
+
+    @property
+    def value(self):
+        return self.__value
+
+    @property
+    def units(self):
+        return self.__units
+
+    def set_value(self, value: Value):
+    #=================================
+        self.__value = value
+        if self.__value.units is None:
+            self.__value.set_units(self.__units)                        # type: ignore
+        elif not self.__units.is_compatible_with(self.__value.units):   # type: ignore
+            raise ValueError(
+                f'Value for variable {self.__symbol} has incompatible units ({self.__units} != {self.__value.units})') # type: ignore
+
+#===============================================================================
+#===============================================================================
+
+DOMAIN_QUERY = f"""
+    SELECT DISTINCT ?domain ?label ?flowUnits ?potentialUnits
+    WHERE {{
+        ?domain a bgf:Domain ;
+            bgf:hasFlow [
+                bgf:hasUnits ?flowUnits
+            ] ;
+            bgf:hasPotential [
+                bgf:hasUnits ?potentialUnits
+            ] .
+        OPTIONAL {{ ?domain rdfs:label ?label }}
+    }} ORDER BY ?domain"""
+
+#===============================================================================
+
+class Domain(Labelled):
+    def __init__(self, uri: str, label: Optional[str], flow_units: rdflib.Literal, potential_units: rdflib.Literal):
+        super().__init__(uri, label)
+        self.__flow_units = Units.from_ucum(flow_units)
+        self.__potential_units = Units.from_ucum(potential_units)
+
+    @property
+    def flow_units(self):
+        return self.__flow_units
+
+    @property
+    def potential_units(self):
+        return self.__potential_units
+
+#===============================================================================
+#===============================================================================
+
+ELEMENT_PORTS = f"""
+    SELECT DISTINCT ?portNumber ?domain ?flowSymbol ?potentialSymbol
+    WHERE {{
+        %ELEMENT_URI% bgf:hasPort ?port .
+        ?port bgf:hasDomain ?domain ;
+            bgf:hasFlow [
+                bgf:hasSymbol ?flowSymbol
+            ] ;
+            bgf:hasPotential [
+                bgf:hasSymbol ?potentialSymbol
+            ] .
+        OPTIONAL {{ ?port bgf:portNumber ?portNumber }}
+    }}
+    ORDER BY ?port"""
 
 #===============================================================================
 
 class PowerPort:
     def __init__(self, element_uri: str, number: Optional[rdflib.Literal], domain: str, flow: str, potential: str):
-        self.__element = element_uri
-        self.__number = optional_integer(number)
-
-#===============================================================================
-
-class Variable:
-    def __init__(self, element_uri: str, type: str, symbol: str, units: rdflib.Literal):
-        self.__element = element_uri
-        self.__type = type
-        self.__symbol = symbol
-        self.__units = units.value if units.datatype == CDT.ucumunit else None
-
-#===============================================================================
-
-ELEMENT_PORTS = f"""
-    SELECT DISTINCT ?port ?portNumber ?domain ?flowSymbol ?potentialSymbol
-    WHERE {{
-        %ELEMENT_URI% bgf:hasPort ?port .
-        ?port bgf:hasDomain ?domain ;
-            bgf:hasFlow [
-                a bgf:Variable ;
-                bgf:hasSymbol ?flowSymbol
-            ] ;
-            bgf:hasPotential [
-                a bgf:Variable ;
-                bgf:hasSymbol ?potentialSymbol
-            ] .
-        OPTIONAL {{ ?port bgf:portNumber ?portNumber }}
-    }} ORDER BY ?port"""
-
-#===============================================================================
-
-ELEMENT_VARIABLES = f"""
-    SELECT DISTINCT ?variable ?varType ?symbol ?units
-    WHERE {{
-        %ELEMENT_URI% %VAR_RELN% ?variable .
-        ?variable a ?varType ;
-            bgf:hasSymbol ?symbol ;
-            bgf:hasUnits ?units .
-        FILTER (?varType IN (bgf:Variable, bgf:Constant))
-    }} ORDER BY ?variable"""
-
-#===============================================================================
-
-class BondElement:
-    def __init__(self, uri: str, label: Optional[str], relation: str|rdflib.Literal):
-        self.__uri = uri
-        self.__label = label
-        if isinstance(relation, str):
-            # Do we insist on datatyping? Or default to MathML ??
-            self.__relation = relation
-        elif isinstance(relation, rdflib.Literal) and relation.datatype == BGF.mathml:
-            self.__relation = relation.value
-        else:
-            # raise an error?
-            self.__relation = ''
-        self.__ports = []
-        self.__parameters = []
-        self.__states = []
+        self.__element_uri = element_uri
+        self.__domain_uri = domain
+        self.__flow_symbol = flow
+        self.__potential_symbol = potential
+        self.__port_number = optional_integer(number, 0)
 
     @property
-    def label(self):
-        return self.__label
+    def element_uri(self):
+        return self.__element_uri
 
     @property
-    def uri(self):
-        return self.__uri
+    def domain_uri(self):
+        return self.__domain_uri
 
-    def add_variables(self, knowledge: rdflib.Graph):
-    #================================================
-        self.__add_ports(knowledge)
-        self.__add_parameters_and_states(knowledge)
+    @property
+    def flow_symbol(self):
+        return self.__flow_symbol
 
-    def __add_ports(self, knowledge: rdflib.Graph):
-    #==============================================
-        self.__ports.extend([PowerPort(self.__uri, *row[1:])
-                                for row in sparql_query(knowledge,
-                                                        ELEMENT_PORTS.replace('%ELEMENT_URI%', self.__uri))])
+    @property
+    def port_number(self):
+        return self.__port_number
 
-    def __add_parameters_and_states(self, knowledge: rdflib.Graph):
-    #==============================================================
-        self.__parameters.extend([Variable(self.__uri, *row[1:])
-                                for row in sparql_query(knowledge,
-                                                        ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.__uri)
-                                                                         .replace('%VAR_RELN%', 'bgf:hasParameter'))])
-        self.__states.extend([Variable(self.__uri, *row[1:])
-                                for row in sparql_query(knowledge,
-                                                        ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.__uri)
-                                                                         .replace('%VAR_RELN%', 'bgf:hasState'))])
+    @property
+    def potential_symbol(self):
+        return self.__potential_symbol
 
 #===============================================================================
-
-class JunctionStructure:
-    def __init__(self, uri: str, label: Optional[str], num_ports: Optional[rdflib.Literal]):
-        self.__uri = uri
-        self.__num_ports = optional_integer(num_ports)
-
-    @property
-    def num_ports(self):
-        return self.__num_ports
-
-    @property
-    def uri(self):
-        return self.__uri
-
 #===============================================================================
 
 ELEMENT_DEFINITIONS = f"""
     SELECT DISTINCT ?definition ?label ?relation
     WHERE {{
-        ?definition a bgf:NodeDefinition ;
+        ?definition a bgf:ElementTemplate ;
           rdfs:subClassOf bg:BondElement ;
           bgf:constitutiveRelation ?relation .
         OPTIONAL {{ ?definition rdfs:label ?label }}
     }} ORDER BY ?definition"""
+
+#===============================================================================
+
+class ElementTemplate(Labelled):
+    def __init__(self, uri: str, label: Optional[str], relation: str|rdflib.Literal):
+        super().__init__(uri, label)
+        self.__relation = None
+        if isinstance(relation, rdflib.Literal):
+            if relation.datatype == BGF.mathml:
+                self.__relation = str(relation)
+        else:
+            # Do we insist on datatyping? Default to MathML ??
+            self.__relation = relation
+        if self.__relation is None:
+            raise ValueError(f'BondElement {uri} has no constitutive relation')
+        self.__ports = []
+        self.__variables = []
+
+    @classmethod
+    def from_knowledge(cls, knowledge: rdflib.Graph, *args) -> Self:
+        self = cls(*args)
+        self.__add_ports(knowledge)
+        self.__add_variables(knowledge)
+        return self
+
+    @property
+    def constitutive_relation(self) -> str:
+        return self.__relation                  # type: ignore
+
+    @property
+    def ports(self):
+        return self.__ports
+
+    @property
+    def variables(self):
+        return self.__variables
+
+    def __add_ports(self, knowledge: rdflib.Graph):
+    #==============================================
+        self.__ports.extend([PowerPort(self.uri, *row)
+                                for row in sparql_query(knowledge,
+                                                        ELEMENT_PORTS.replace('%ELEMENT_URI%', self.uri))])
+
+    def __add_variables(self, knowledge: rdflib.Graph):
+    #==================================================
+        self.__variables.extend([TemplateVariable(self.uri, *row)
+                                for row in sparql_query(knowledge,
+                                                        ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri))])
+
+#===============================================================================
+#===============================================================================
 
 JUNCTION_STRUCTURES = f"""
     SELECT DISTINCT ?junction ?label ?numPorts
@@ -179,6 +263,18 @@ JUNCTION_STRUCTURES = f"""
         OPTIONAL {{ ?junction bgf:numPorts ?numPorts }}
     }} ORDER BY ?junction"""
 
+#===============================================================================
+
+class JunctionStructure(Labelled):
+    def __init__(self, uri: str, label: Optional[str], num_ports: Optional[rdflib.Literal]):
+        super().__init__(uri, label)
+        self.__num_ports = optional_integer(num_ports)
+
+    @property
+    def num_ports(self):
+        return self.__num_ports
+
+#===============================================================================
 #===============================================================================
 
 class _BondgraphFramework:
@@ -193,22 +289,34 @@ class _BondgraphFramework:
         self.__knowledge = rdflib.Graph()
         for knowledge in bg_knowledge:
             self.__knowledge.parse(knowledge, format='turtle')
-        self.__elements: list[BondElement] = []
-        for row in sparql_query(self.__knowledge, ELEMENT_DEFINITIONS):
-            bond_element = BondElement(*row)
-            bond_element.add_variables(self.__knowledge)
-            self.__elements.append(bond_element)
-        self.__junctions = [JunctionStructure(*row)
-                                for row in sparql_query(self.__knowledge, JUNCTION_STRUCTURES)]
+        self.__domains = {row[0]: Domain(*row)
+                                for row in sparql_query(self.__knowledge, DOMAIN_QUERY)}
+        self.__elements = {row[0]: ElementTemplate.from_knowledge(self.__knowledge, *row)
+                                for row in sparql_query(self.__knowledge, ELEMENT_DEFINITIONS)}
+        self.__junctions = {row[0]: JunctionStructure(*row)
+                                for row in sparql_query(self.__knowledge, JUNCTION_STRUCTURES)}
+
+    def domain(self, uri: str) -> Optional[Domain]:
+    #==============================================
+        return self.__domains.get(uri)
+
+    def element(self, uri: str) -> Optional[ElementTemplate]:
+    #========================================================
+        return self.__elements.get(uri)
 
     def element_classes(self) -> list[str]:
     #======================================
-        return [element.uri for element in self.__elements]
+        return list(self.__elements.keys())
+
+    def junction(self, uri: str) -> Optional[JunctionStructure]:
+    #===========================================================
+        return self.__junctions.get(uri)
 
     def junction_classes(self) -> list[str]:
     #=======================================
-        return [junction.uri for junction in self.__junctions]
+        return list(self.__junctions.keys())
 
+#===============================================================================
 #===============================================================================
 
 BondgraphFramework = _BondgraphFramework([
@@ -218,4 +326,5 @@ BondgraphFramework = _BondgraphFramework([
     '../bg-rdf/schema/elements/electrical.ttl'
 ])
 
+#===============================================================================
 #===============================================================================
