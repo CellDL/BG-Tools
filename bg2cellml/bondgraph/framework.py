@@ -35,8 +35,10 @@ from .namespaces import BGF, CDT, NAMESPACES
 
 #===============================================================================
 
-TIME_SYMBOL = 't'
-TIME_UCUMUNIT = rdflib.Literal('s', datatype=CDT.ucumunit)
+# Variable of integration
+
+VOI_SYMBOL = 't'
+VOI_UCUMUNIT = rdflib.Literal('s', datatype=CDT.ucumunit)
 
 #===============================================================================
 
@@ -69,15 +71,15 @@ ELEMENT_VARIABLES = f"""
         ?variable bgf:hasSymbol ?symbol .
         OPTIONAL {{ ?variable bgf:hasUnits ?units }}
         OPTIONAL {{ ?variable bgf:hasValue ?value }}
-    }} ORDER BY ?variable"""
+    }}"""
 
 #===============================================================================
 
 class TemplateVariable:
-    def __init__(self, element_uri: str, symbol: str, units: Optional[rdflib.Literal], value: Optional[rdflib.Literal]):
+    def __init__(self, element_uri: str, symbol: str, units: Optional[rdflib.Literal|Units], value: Optional[rdflib.Literal]):
         self.__element_uri = element_uri
         self.__symbol = symbol
-        self.__units = Units.from_ucum(units) if units is not None else None
+        self.__units = Units.from_ucum(units) if isinstance(units, rdflib.Literal) else units
         if value is not None:
             self.__value = Value(value)
             if self.__units is None and self.__value.units is not None:
@@ -91,6 +93,9 @@ class TemplateVariable:
                 self.__value.set_units(self.__units)
             elif not self.__units.is_compatible_with(self.__value.units):
                 raise ValueError(f'Value for variable {symbol} has incompatible units ({self.__value.units} != {self.__units})')
+
+    def __str__(self):
+        return f'{self.__symbol} ({self.__units})'
 
     @property
     def element_uri(self):
@@ -123,7 +128,8 @@ class TemplateVariable:
 DOMAIN_QUERY = f"""
     SELECT DISTINCT ?domain ?label ?flowUnits ?potentialUnits
     WHERE {{
-        ?domain a bgf:Domain ;
+        ?domain
+            a bgf:Domain ;
             bgf:hasFlow [
                 bgf:hasUnits ?flowUnits
             ] ;
@@ -133,6 +139,17 @@ DOMAIN_QUERY = f"""
         OPTIONAL {{ ?domain rdfs:label ?label }}
     }} ORDER BY ?domain"""
 
+DOMAIN_CONSTANTS = f"""
+    SELECT DISTINCT ?symbol ?value
+    WHERE {{
+        %DOMAIN_URI%
+            a bgf:Domain ;
+            bgf:hasConstant [
+                bgf:hasSymbol ?symbol ;
+                bgf:hasValue ?value
+            ] .
+    }}"""
+
 #===============================================================================
 
 class Domain(Labelled):
@@ -140,6 +157,17 @@ class Domain(Labelled):
         super().__init__(uri, label)
         self.__flow_units = Units.from_ucum(flow_units)
         self.__potential_units = Units.from_ucum(potential_units)
+        self.__constants: list[TemplateVariable] = []
+
+    @classmethod
+    def from_framework(cls, framework: '_BondgraphFramework', *args) -> Self:
+        self = cls(*args)
+        self.__add_constants(framework)
+        return self
+
+    @property
+    def constants(self):
+        return self.__constants
 
     @property
     def flow_units(self):
@@ -149,14 +177,20 @@ class Domain(Labelled):
     def potential_units(self):
         return self.__potential_units
 
+    def __add_constants(self, framework: '_BondgraphFramework'):
+    #===========================================================
+        self.__constants.extend([TemplateVariable(self.uri, row[0], None, row[1])
+                                for row in sparql_query(framework.knowledge,
+                                                        DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri))])
+
 #===============================================================================
 #===============================================================================
 
 ELEMENT_PORTS = f"""
-    SELECT DISTINCT ?portNumber ?domain ?flowSymbol ?potentialSymbol
+    SELECT DISTINCT ?portNumber ?flowSymbol ?potentialSymbol
     WHERE {{
         %ELEMENT_URI% bgf:hasPort ?port .
-        ?port bgf:hasDomain ?domain ;
+        ?port
             bgf:hasFlow [
                 bgf:hasSymbol ?flowSymbol
             ] ;
@@ -170,50 +204,49 @@ ELEMENT_PORTS = f"""
 #===============================================================================
 
 class PowerPort:
-    def __init__(self, element_uri: str, number: Optional[rdflib.Literal], domain: str, flow: str, potential: str):
-        self.__element_uri = element_uri
-        self.__domain_uri = domain
-        self.__flow_symbol = flow
-        self.__potential_symbol = potential
+    def __init__(self, element: 'ElementTemplate', number: Optional[rdflib.Literal],
+                                        flow_symbol: str, potential_symbol: str):
+        self.__element = element
         self.__port_number = optional_integer(number, 0)
+        self.__flow = TemplateVariable(element.uri, flow_symbol, element.domain.flow_units, None)
+        self.__potential = TemplateVariable(element.uri, potential_symbol, element.domain.potential_units, None)
 
     @property
-    def element_uri(self):
-        return self.__element_uri
+    def element(self):
+        return self.__element
 
     @property
-    def domain_uri(self):
-        return self.__domain_uri
-
-    @property
-    def flow_symbol(self):
-        return self.__flow_symbol
+    def flow(self):
+        return self.__flow
 
     @property
     def port_number(self):
         return self.__port_number
 
     @property
-    def potential_symbol(self):
-        return self.__potential_symbol
+    def potential(self):
+        return self.__potential
 
 #===============================================================================
 #===============================================================================
 
 ELEMENT_DEFINITIONS = f"""
-    SELECT DISTINCT ?definition ?label ?relation
+    SELECT DISTINCT ?uri ?label ?domain ?relation
     WHERE {{
-        ?definition a bgf:ElementTemplate ;
-          rdfs:subClassOf bg:BondElement ;
-          bgf:constitutiveRelation ?relation .
-        OPTIONAL {{ ?definition rdfs:label ?label }}
-    }} ORDER BY ?definition"""
+        ?uri
+            a bgf:ElementTemplate ;
+            rdfs:subClassOf bg:BondElement ;
+            bgf:hasDomain ?domain ;
+            bgf:constitutiveRelation ?relation .
+        OPTIONAL {{ ?uri rdfs:label ?label }}
+    }} ORDER BY ?uri"""
 
 #===============================================================================
 
 class ElementTemplate(Labelled):
-    def __init__(self, uri: str, label: Optional[str], relation: str|rdflib.Literal):
+    def __init__(self, uri: str, label: Optional[str], domain: Domain, relation: str|rdflib.Literal):
         super().__init__(uri, label)
+        self.__domain = domain
         mathml = None
         if isinstance(relation, rdflib.Literal):
             if relation.datatype == BGF.mathml:
@@ -223,22 +256,28 @@ class ElementTemplate(Labelled):
             mathml = relation
         if mathml is None:
             raise ValueError(f'BondElement {uri} has no constitutive relation')
-        self.__time_variable = TemplateVariable(self.uri, TIME_SYMBOL, TIME_UCUMUNIT, None)
         self.__relation = MathML.from_string(mathml)
-        self.__ports = []
-        self.__variables = []
+        self.__ports: list[PowerPort] = []
+        self.__variables: list[TemplateVariable] = []
+        self.__voi_variable = TemplateVariable(self.uri, VOI_SYMBOL, VOI_UCUMUNIT, None)
 
     @classmethod
-    def from_knowledge(cls, knowledge: rdflib.Graph, *args) -> Self:
-        self = cls(*args)
-        self.__add_ports(knowledge)
-        self.__add_variables(knowledge)
+    def from_framework(cls, framework: '_BondgraphFramework', uri, label, domain_uri, relation) -> Self:
+        if (domain := framework.domain(domain_uri)) is None:
+            raise ValueError(f'Unknown domain {domain_uri} for {uri} element')
+        self = cls(uri, label, domain, relation)
+        self.__add_ports(framework)
+        self.__add_variables(framework)
         self.__check_symbols()
         return self
 
     @property
     def constitutive_relation(self) -> MathML:
         return self.__relation
+
+    @property
+    def domain(self):
+        return self.__domain
 
     @property
     def ports(self):
@@ -248,16 +287,20 @@ class ElementTemplate(Labelled):
     def variables(self):
         return self.__variables
 
-    def __add_ports(self, knowledge: rdflib.Graph):
-    #==============================================
-        self.__ports.extend([PowerPort(self.uri, *row)
-                                for row in sparql_query(knowledge,
+    @property
+    def voi_variable(self):
+        return self.__voi_variable
+
+    def __add_ports(self, framework: '_BondgraphFramework'):
+    #=======================================================
+        self.__ports.extend([PowerPort(self, *row)
+                                for row in sparql_query(framework.knowledge,
                                                         ELEMENT_PORTS.replace('%ELEMENT_URI%', self.uri))])
 
-    def __add_variables(self, knowledge: rdflib.Graph):
-    #==================================================
+    def __add_variables(self, framework: '_BondgraphFramework'):
+    #===========================================================
         self.__variables.extend([TemplateVariable(self.uri, *row)
-                                for row in sparql_query(knowledge,
+                                for row in sparql_query(framework.knowledge,
                                                         ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri))])
 
     def __check_symbols(self):
@@ -269,16 +312,17 @@ class ElementTemplate(Labelled):
             elif unique:
                 raise ValueError(f'Duplicate symbol `{symbol}` for {self.uri}')
         for port in self.__ports:
-            add_symbol(port.flow_symbol, False)
-            add_symbol(port.potential_symbol, False)
+            add_symbol(port.flow.symbol, False)
+            add_symbol(port.potential.symbol, False)
         for variable in self.__variables:
             add_symbol(variable.symbol)
         eqn_symbols = self.__relation.symbols
-        print(symbols, eqn_symbols)   ## <<<<<<<<<<<<<<<<<<<<
         if len(symbols) > len(eqn_symbols):
             raise ValueError(f"{self.uri} has variables that are not in it's constitutive relation")
+        symbols.extend([c.symbol for c in self.__domain.constants])
+        symbols.append(self.__voi_variable.symbol)
         for eqn_symbol in eqn_symbols:
-            if eqn_symbol != self.__time_variable.symbol and eqn_symbol not in symbols:
+            if eqn_symbol not in symbols:
                 raise ValueError(f'Constitutive relation of {self.uri} has undeclared symbol {eqn_symbol}')
 
 #===============================================================================
@@ -318,12 +362,17 @@ class _BondgraphFramework:
         self.__knowledge = rdflib.Graph()
         for knowledge in bg_knowledge:
             self.__knowledge.parse(knowledge, format='turtle')
-        self.__domains = {row[0]: Domain(*row)
+        self.__domains = {row[0]: Domain.from_framework(self, *row)
                                 for row in sparql_query(self.__knowledge, DOMAIN_QUERY)}
-        self.__elements = {row[0]: ElementTemplate.from_knowledge(self.__knowledge, *row)
+        self.__elements = {row[0]: ElementTemplate.from_framework(self, *row)
                                 for row in sparql_query(self.__knowledge, ELEMENT_DEFINITIONS)}
         self.__junctions = {row[0]: JunctionStructure(*row)
                                 for row in sparql_query(self.__knowledge, JUNCTION_STRUCTURES)}
+
+
+    @property
+    def knowledge(self):
+        return self.__knowledge
 
     def domain(self, uri: str) -> Optional[Domain]:
     #==============================================
