@@ -1,0 +1,64 @@
+#===============================================================================
+#
+#  CellDL and bondgraph tools
+#
+#  Copyright (c) 2020 - 2025 David Brooks
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+#===============================================================================
+
+from collections import defaultdict
+from copy import deepcopy
+
+#===============================================================================
+
+import lxml.etree as etree
+
+#===============================================================================
+
+class MathML:
+    def __init__(self, mathml: etree.Element):
+        self.__mathml = mathml
+        self.__symbols = defaultdict(list)
+        for element in self.__mathml.findall('.//{http://www.w3.org/1998/Math/MathML}ci'):
+            self.__symbols[element.text].append(element)
+
+    @classmethod
+    def from_string(cls, formulae: str) -> 'MathML':
+        return cls(etree.fromstring(formulae))
+
+    @property
+    def mathml(self) -> etree.Element:
+        return self.__mathml
+
+    @property
+    def symbols(self) -> list[str]:
+        return list(self.__symbols.keys())
+
+    def copy(self) -> 'MathML':
+    #==========================
+        return MathML(deepcopy(self.__mathml))
+
+    def substitute(self, symbol: str, replacement: str):
+    #===================================================
+        if symbol not in self.__symbols:
+            raise ValueError(f'Symbol {symbol} not in formulae, cannot substitute it')
+        elif replacement in self.__symbols:
+            raise ValueError(f'Symbol {replacement} is already in formulae, cannot substitute to it')
+        for element in self.__symbols[symbol]:
+            element.text = replacement
+        self.__symbols[replacement] = self.__symbols[symbol]
+        del self.__symbols[symbol]
+
+#===============================================================================

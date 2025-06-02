@@ -30,9 +30,14 @@ from rdflib.namespace import XSD
 from ..rdf import Labelled, NamespaceMap
 from ..units import Units, Value
 
-from .namespaces import BGF, NAMESPACES
+from ..mathml import MathML
+from .namespaces import BGF, CDT, NAMESPACES
 
 #===============================================================================
+
+TIME_SYMBOL = 't'
+TIME_UCUMUNIT = rdflib.Literal('s', datatype=CDT.ucumunit)
+
 #===============================================================================
 
 NAMESPACE_MAP = NamespaceMap(NAMESPACES)
@@ -209,15 +214,17 @@ ELEMENT_DEFINITIONS = f"""
 class ElementTemplate(Labelled):
     def __init__(self, uri: str, label: Optional[str], relation: str|rdflib.Literal):
         super().__init__(uri, label)
-        self.__relation = None
+        mathml = None
         if isinstance(relation, rdflib.Literal):
             if relation.datatype == BGF.mathml:
-                self.__relation = str(relation)
+                mathml = str(relation)
         else:
             # Do we insist on datatyping? Default to MathML ??
-            self.__relation = relation
-        if self.__relation is None:
+            mathml = relation
+        if mathml is None:
             raise ValueError(f'BondElement {uri} has no constitutive relation')
+        self.__time_variable = TemplateVariable(self.uri, TIME_SYMBOL, TIME_UCUMUNIT, None)
+        self.__relation = MathML.from_string(mathml)
         self.__ports = []
         self.__variables = []
 
@@ -226,11 +233,12 @@ class ElementTemplate(Labelled):
         self = cls(*args)
         self.__add_ports(knowledge)
         self.__add_variables(knowledge)
+        self.__check_symbols()
         return self
 
     @property
-    def constitutive_relation(self) -> str:
-        return self.__relation                  # type: ignore
+    def constitutive_relation(self) -> MathML:
+        return self.__relation
 
     @property
     def ports(self):
@@ -251,6 +259,27 @@ class ElementTemplate(Labelled):
         self.__variables.extend([TemplateVariable(self.uri, *row)
                                 for row in sparql_query(knowledge,
                                                         ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri))])
+
+    def __check_symbols(self):
+    #=========================
+        symbols = []
+        def add_symbol(symbol: str, unique=True):
+            if symbol not in symbols:
+                symbols.append(symbol)
+            elif unique:
+                raise ValueError(f'Duplicate symbol `{symbol}` for {self.uri}')
+        for port in self.__ports:
+            add_symbol(port.flow_symbol, False)
+            add_symbol(port.potential_symbol, False)
+        for variable in self.__variables:
+            add_symbol(variable.symbol)
+        eqn_symbols = self.__relation.symbols
+        print(symbols, eqn_symbols)   ## <<<<<<<<<<<<<<<<<<<<
+        if len(symbols) > len(eqn_symbols):
+            raise ValueError(f"{self.uri} has variables that are not in it's constitutive relation")
+        for eqn_symbol in eqn_symbols:
+            if eqn_symbol != self.__time_variable.symbol and eqn_symbol not in symbols:
+                raise ValueError(f'Constitutive relation of {self.uri} has undeclared symbol {eqn_symbol}')
 
 #===============================================================================
 #===============================================================================
