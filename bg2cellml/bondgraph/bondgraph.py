@@ -31,6 +31,7 @@ import networkx as nx
 #===============================================================================
 
 from ..rdf import Labelled, NamespaceMap
+from ..units import Value
 
 from .framework import BondgraphFramework as FRAMEWORK
 from .namespaces import NAMESPACES
@@ -59,25 +60,39 @@ MODEL_BONDS = f"""
 #===============================================================================
 
 MODEL_ELEMENTS = f"""
-    SELECT DISTINCT ?element ?type
+    SELECT DISTINCT ?uri ?type ?label
     WHERE {{
-        %MODEL% bg:hasBondElement ?element .
-        ?element a ?type .
-        OPTIONAL {{ ?element bgf:parameterValue ?param }}
-        OPTIONAL {{ ?element bgf:stateValue ?state }}
+        %MODEL% bg:hasBondElement ?uri .
+        ?uri a ?type .
+        OPTIONAL {{ ?uri rdfs:label ?label }}
         FILTER (?type IN ({', '.join(FRAMEWORK.element_classes())}))
-    }} ORDER BY ?element"""
+    }} ORDER BY ?uri"""
+
+#===============================================================================
+
+ELEMENT_VARIABLES = f"""
+    SELECT DISTINCT ?symbol ?value
+    WHERE {{
+        %ELEMENT_URI% bgf:hasVariable [
+            bgf:hasSymbol ?symbol ;
+            bgf:hasValue ?value
+        ] .
+    }}"""
 
 #===============================================================================
 
 MODEL_JUNCTIONS = f"""
-    SELECT DISTINCT ?junction ?type ?domain
+    SELECT DISTINCT ?uri ?type ?label ?flow ?potential
     WHERE {{
-        %MODEL% bg:hasJunctionStructure ?junction .
-        ?junction a ?type .
-        OPTIONAL {{ ?junction bgf:hasDomain ?domain }}
+        %MODEL% bg:hasJunctionStructure ?uri .
+        ?uri a ?type .
+        OPTIONAL {{ ?uri rdfs:label ?label }}
+        OPTIONAL {{ ?uri bgf:hasFlow [
+             bgf:hasValue ?flow ] }}
+        OPTIONAL {{ ?uri bgf:hasPotential [
+             bgf:hasValue ?potential ] }}
         FILTER (?type IN ({', '.join(FRAMEWORK.junction_classes())}))
-    }} ORDER BY ?junction"""
+    }} ORDER BY ?uri"""
 
 #===============================================================================
 #===============================================================================
@@ -98,20 +113,40 @@ class BondgraphBond(Labelled):
 
 #===============================================================================
 
-class BondgraphNode(Identified):
-    def __init__(self, uri: str, type: str, domain: Optional[str]=None):
-        super().__init__(uri)
-        self.__type = type
-        self.__domain = domain
+class BondgraphElement(Labelled):
+    def __init__(self, uri: str, template: str, label: Optional[str], params: dict[str, Value], states: dict[str, Value]):
+        super().__init__(uri, label)
+        self.__template = FRAMEWORK.element(template)
+        if self.__template is None:
+            raise ValueError(f'Unknown BondElement {template} for node {uri}')
+        self.__relation = self.__template.constitutive_relation
+        self.__variables = self.__template.variables
 
 #===============================================================================
 
-        self.__elements = [BondgraphNode(*row)
-                            for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
-        self.__junctions = [BondgraphNode(*row)
+class BondgraphJunction(Labelled):
+    def __init__(self, uri, type: str, label: Optional[str], flow: Optional[rdflib.Literal], potential: Optional[rdflib.Literal]):
+        super().__init__(uri, label)
+        self.__junction = FRAMEWORK.junction(type)
+        self.__flow = Value(flow) if flow is not None else None
+        self.__potential = Value(potential) if potential is not None else None
+
+#===============================================================================
+
 class BondgraphModel(Labelled):
     def __init__(self, source: 'BondgraphModelSource', uri: str, label: Optional[str]=None):
         super().__init__(uri, label)
+        self.__elements = []
+        for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri)):
+            element_uri = row[0]
+            params = {row[1]: Value(row[2]) for row in
+                        source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', element_uri)
+                                                             .replace('%VAR_RELN%', 'bgf:parameterValue'))}
+            states = {row[1]: Value(row[2]) for row in
+                        source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', element_uri)
+                                                             .replace('%VAR_RELN%', 'bgf:stateValue'))}
+            self.__elements.append(BondgraphElement(element_uri, row[1], row[2], params, states))
+        self.__junctions = [BondgraphJunction(*row)
                             for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(*row)
                             for row in source.sparql_query(MODEL_BONDS.replace('%MODEL%', uri))]
