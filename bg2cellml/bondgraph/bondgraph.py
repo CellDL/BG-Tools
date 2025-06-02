@@ -87,10 +87,16 @@ MODEL_JUNCTIONS = f"""
         %MODEL% bg:hasJunctionStructure ?uri .
         ?uri a ?type .
         OPTIONAL {{ ?uri rdfs:label ?label }}
-        OPTIONAL {{ ?uri bgf:hasFlow [
-             bgf:hasValue ?flow ] }}
-        OPTIONAL {{ ?uri bgf:hasPotential [
-             bgf:hasValue ?potential ] }}
+        OPTIONAL {{
+            ?uri bgf:hasFlow [
+                bgf:hasValue ?flow
+            ]
+        }}
+        OPTIONAL {{
+            ?uri bgf:hasPotential [
+                bgf:hasValue ?potential
+            ]
+        }}
         FILTER (?type IN ({', '.join(FRAMEWORK.junction_classes())}))
     }} ORDER BY ?uri"""
 
@@ -143,7 +149,7 @@ class BondgraphModel(Labelled):
                         source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', element_uri))}
             self.__elements.append(BondgraphElement(element_uri, row[1], row[2], values))
         self.__junctions = [BondgraphJunction(*row)
-                            for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
+                                for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(*row)
                             for row in source.sparql_query(MODEL_BONDS.replace('%MODEL%', uri))]
         self.__graph = nx.DiGraph()
