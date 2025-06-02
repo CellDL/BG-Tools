@@ -30,7 +30,7 @@ import networkx as nx
 
 #===============================================================================
 
-from ..rdf import Identified, NamespaceMap
+from ..rdf import Labelled, NamespaceMap
 
 from .framework import BondgraphFramework as FRAMEWORK
 from .namespaces import NAMESPACES
@@ -39,20 +39,22 @@ from .namespaces import NAMESPACES
 #===============================================================================
 
 BONDGRAPH_MODELS = f"""
-    SELECT DISTINCT ?model
+    SELECT DISTINCT ?uri ?label
     WHERE {{
-        ?model a bg:BondGraph .
-    }} ORDER BY ?model"""
+        ?uri a bg:BondGraph .
+        OPTIONAL {{ ?uri rdfs:label ?label }}
+    }} ORDER BY ?uri"""
 
 #===============================================================================
 
 MODEL_BONDS = f"""
-    SELECT DISTINCT ?bond ?source ?target
+    SELECT DISTINCT ?uri ?source ?target ?label
     WHERE {{
-        %MODEL% bg:hasPowerBond ?bond .
-        ?bond bgf:hasSource ?source .
-        ?bond bgf:hasTarget ?target .
-    }} ORDER BY ?bond ?source ?target"""
+        %MODEL% bg:hasPowerBond ?uri .
+        ?uri bgf:hasSource ?source .
+        ?uri bgf:hasTarget ?target .
+        OPTIONAL {{ ?uri rdfs:label ?label }}
+    }} ORDER BY ?uri ?source ?target"""
 
 #===============================================================================
 
@@ -80,9 +82,9 @@ MODEL_JUNCTIONS = f"""
 #===============================================================================
 #===============================================================================
 
-class BondgraphBond(Identified):
-    def __init__(self, uri: str, source: str, target: str):
-        super().__init__(uri)
+class BondgraphBond(Labelled):
+    def __init__(self, uri: str, source: str, target: str, label: Optional[str]=None):
+        super().__init__(uri, label)
         self.__source = source
         self.__target = target
 
@@ -104,12 +106,12 @@ class BondgraphNode(Identified):
 
 #===============================================================================
 
-class BondgraphModel(Identified):
-    def __init__(self, source: 'BondgraphModelSource', uri: str):
-        super().__init__(uri)
         self.__elements = [BondgraphNode(*row)
                             for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
         self.__junctions = [BondgraphNode(*row)
+class BondgraphModel(Labelled):
+    def __init__(self, source: 'BondgraphModelSource', uri: str, label: Optional[str]=None):
+        super().__init__(uri, label)
                             for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(*row)
                             for row in source.sparql_query(MODEL_BONDS.replace('%MODEL%', uri))]
@@ -136,7 +138,7 @@ class BondgraphModelSource:
         self.__sparql_prefixes = self.__namespace_map.sparql_prefixes()
         self.__rdf = rdflib.Graph()
         self.__rdf.parse(bondgraph_path, format='turtle')
-        self.__models = [BondgraphModel(self, row[0]) for row in self.sparql_query(BONDGRAPH_MODELS)]
+        self.__models = [BondgraphModel(self, *row) for row in self.sparql_query(BONDGRAPH_MODELS)]
 
     def sparql_query(self, query: str) -> list[list]:
     #================================================
