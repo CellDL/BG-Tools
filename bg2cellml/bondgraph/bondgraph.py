@@ -39,24 +39,16 @@ from .namespaces import NAMESPACES
 #===============================================================================
 #===============================================================================
 
-BONDGRAPH_MODELS = f"""
-    SELECT DISTINCT ?uri ?label
+ELEMENT_VARIABLES = f"""
+    SELECT DISTINCT ?symbol ?value
     WHERE {{
-        ?uri a bg:BondGraph .
-        OPTIONAL {{ ?uri rdfs:label ?label }}
-    }} ORDER BY ?uri"""
+        %ELEMENT_URI% bgf:hasVariable [
+            bgf:hasSymbol ?symbol ;
+            bgf:hasValue ?value
+        ] .
+    }}"""
 
 #===============================================================================
-
-MODEL_BONDS = f"""
-    SELECT DISTINCT ?uri ?source ?target ?label
-    WHERE {{
-        %MODEL% bg:hasPowerBond ?uri .
-        ?uri bgf:hasSource ?source .
-        ?uri bgf:hasTarget ?target .
-        OPTIONAL {{ ?uri rdfs:label ?label }}
-    }} ORDER BY ?uri ?source ?target"""
-
 #===============================================================================
 
 MODEL_ELEMENTS = f"""
@@ -70,15 +62,47 @@ MODEL_ELEMENTS = f"""
 
 #===============================================================================
 
-ELEMENT_VARIABLES = f"""
-    SELECT DISTINCT ?symbol ?value
-    WHERE {{
-        %ELEMENT_URI% bgf:hasVariable [
-            bgf:hasSymbol ?symbol ;
-            bgf:hasValue ?value
-        ] .
-    }}"""
+class BondgraphElement(Labelled):
+    def __init__(self, uri: str, template: str, label: Optional[str], values: dict[str, Value]):
+        super().__init__(uri, label)
+        # print(uri, [str(v) for v in params.values()], [str(v) for v in states.values()])
+        self.__template = FRAMEWORK.element(template)
+        if self.__template is None:
+            raise ValueError(f'Unknown BondElement {template} for node {uri}')
+        self.__relation = self.__template.constitutive_relation
+        self.__variables = self.__template.variables
 
+#===============================================================================
+#===============================================================================
+
+MODEL_BONDS = f"""
+    SELECT DISTINCT ?uri ?source ?target ?label
+    WHERE {{
+        %MODEL% bg:hasPowerBond ?uri .
+        ?uri bgf:hasSource ?source .
+        ?uri bgf:hasTarget ?target .
+        OPTIONAL {{ ?uri rdfs:label ?label }}
+    }} ORDER BY ?uri ?source ?target"""
+
+
+
+#===============================================================================
+
+class BondgraphBond(Labelled):
+    def __init__(self, model: 'BondgraphModel', uri: str, source: str, target: str, label: Optional[str]=None):
+        super().__init__(uri, label)
+        self.__source = source
+        self.__target = target
+
+    @property
+    def source(self):
+        return self.__source
+
+    @property
+    def target(self):
+        return self.__target
+
+#===============================================================================
 #===============================================================================
 
 MODEL_JUNCTIONS = f"""
@@ -101,34 +125,6 @@ MODEL_JUNCTIONS = f"""
     }} ORDER BY ?uri"""
 
 #===============================================================================
-#===============================================================================
-
-class BondgraphBond(Labelled):
-    def __init__(self, uri: str, source: str, target: str, label: Optional[str]=None):
-        super().__init__(uri, label)
-        self.__source = source
-        self.__target = target
-
-    @property
-    def source(self):
-        return self.__source
-
-    @property
-    def target(self):
-        return self.__target
-
-#===============================================================================
-
-class BondgraphElement(Labelled):
-    def __init__(self, uri: str, template: str, label: Optional[str], values: dict[str, Value]):
-        super().__init__(uri, label)
-        self.__template = FRAMEWORK.element(template)
-        if self.__template is None:
-            raise ValueError(f'Unknown BondElement {template} for node {uri}')
-        self.__relation = self.__template.constitutive_relation
-        self.__variables = self.__template.variables
-
-#===============================================================================
 
 class BondgraphJunction(Labelled):
     def __init__(self, uri, type: str, label: Optional[str], flow: Optional[rdflib.Literal], potential: Optional[rdflib.Literal]):
@@ -136,6 +132,57 @@ class BondgraphJunction(Labelled):
         self.__junction = FRAMEWORK.junction(type)
         self.__flow = Value(flow) if flow is not None else None
         self.__potential = Value(potential) if potential is not None else None
+
+        print(uri, self.__flow, self.__potential)
+
+#===============================================================================
+#===============================================================================
+
+"""
+:u_0
+    a bgf:ZeroNode ;    ## 0-nodes can have a potential value; 1-nodes can have a flow value
+    bgf:hasVariable [  ## has to be compatible with assigned domain....
+        bgf:hasValue "11 J/coulomb"^^cdt:ucum
+    ] .
+
+The terminals of a JS network are the BEs it connects to and these
+determine possible potential (u) and flow (v) symbols for JS nodes.
+
+For each JS subgraph/network (reactions will divide JS network):
+    Build flow and potential matrices to determine their equations.
+        This will include transform nodes (Tf and Gy).
+
+
+Each BE gets specific symbols for its parameter, state, and powerport
+variables (and constants, when the same symbol has different values).
+    ==> constants' registry (node, symbol, value)
+
+
+:R_C_R_circuit
+[[':C_1', 'bgf:ElectricalCapacitor'],
+ [':R_0', 'bgf:ElectricalResistor'],
+ [':R_1', 'bgf:ElectricalResistor']]
+[[':u_0', 'bgf:ZeroNode', 'bgf:Electrical'],
+ [':u_1', 'bgf:ZeroNode', 'bgf:Electrical'],
+ [':v_0', 'bgf:OneNode', 'bgf:Electrical']]
+
+
+[[':u_0.v_0', ':u_0', ':v_0'],
+ [':u_1.C_1', ':u_1', ':C_1'],
+ [':u_1.R_1', ':u_1', ':R_1'],
+ [':v_0.R_0', ':v_0', ':R_0'],
+ [':v_0.u_1', ':v_0', ':u_1']]
+"""
+
+#===============================================================================
+#===============================================================================
+
+BONDGRAPH_MODELS = f"""
+    SELECT DISTINCT ?uri ?label
+    WHERE {{
+        ?uri a bg:BondGraph .
+        OPTIONAL {{ ?uri rdfs:label ?label }}
+    }} ORDER BY ?uri"""
 
 #===============================================================================
 
@@ -150,13 +197,33 @@ class BondgraphModel(Labelled):
             self.__elements.append(BondgraphElement(element_uri, row[1], row[2], values))
         self.__junctions = [BondgraphJunction(*row)
                                 for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
-        self.__bonds = [BondgraphBond(*row)
+        self.__bonds = [BondgraphBond(self, *row)
                             for row in source.sparql_query(MODEL_BONDS.replace('%MODEL%', uri))]
+
+        # Construct network graph of PowerBonds
+        self.__make_bond_network()
+
+        # Check domain consistency and identify gyrators
+        self.__check_domains()
+
+    def __assign_symbols(self):
+    #==========================
+        pass
+
+    def __check_domains(self):
+    #=========================
+        pass
+
+    def __make_bond_network(self):
+    #=============================
         self.__graph = nx.DiGraph()
-        for node in self.__elements:
-            self.__graph.add_node(node.uri)
-        for node in self.__junctions:
-            self.__graph.add_node(node.uri)
+        for element in self.__elements:
+            self.__graph.add_node(element.uri)
+            # Needs power ports of elements as nodes....
+
+        for junction in self.__junctions:
+            self.__graph.add_node(junction.uri)
+
         for bond in self.__bonds:
             if (bond_source := bond.source) not in self.__graph:
                 raise ValueError(f'No element or junction for source {bond_source} of bond {bond.uri}')
@@ -166,6 +233,7 @@ class BondgraphModel(Labelled):
         if not nx.is_weakly_connected(self.__graph):
             raise ValueError('Resulting network graph is disconnected')
 
+#===============================================================================
 #===============================================================================
 
 class BondgraphModelSource:
@@ -185,4 +253,5 @@ class BondgraphModelSource:
                                                                 for row in query_result]
         return []
 
+#===============================================================================
 #===============================================================================
