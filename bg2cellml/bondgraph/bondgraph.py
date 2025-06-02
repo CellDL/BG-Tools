@@ -114,7 +114,7 @@ class BondgraphBond(Labelled):
 #===============================================================================
 
 class BondgraphElement(Labelled):
-    def __init__(self, uri: str, template: str, label: Optional[str], params: dict[str, Value], states: dict[str, Value]):
+    def __init__(self, uri: str, template: str, label: Optional[str], values: dict[str, Value]):
         super().__init__(uri, label)
         self.__template = FRAMEWORK.element(template)
         if self.__template is None:
@@ -139,13 +139,9 @@ class BondgraphModel(Labelled):
         self.__elements = []
         for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri)):
             element_uri = row[0]
-            params = {row[1]: Value(row[2]) for row in
-                        source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', element_uri)
-                                                             .replace('%VAR_RELN%', 'bgf:parameterValue'))}
-            states = {row[1]: Value(row[2]) for row in
-                        source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', element_uri)
-                                                             .replace('%VAR_RELN%', 'bgf:stateValue'))}
-            self.__elements.append(BondgraphElement(element_uri, row[1], row[2], params, states))
+            values = {row[1]: Value(row[2]) for row in
+                        source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', element_uri))}
+            self.__elements.append(BondgraphElement(element_uri, row[1], row[2], values))
         self.__junctions = [BondgraphJunction(*row)
                             for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(*row)
