@@ -32,7 +32,7 @@ from ..bondgraph.namespaces import CDT
 
 #===============================================================================
 
-unit_registry = PintUcumRegistry()
+ucum_registry = PintUcumRegistry()
 
 PREFERRED_BASE_ITEMS = {
     'kilopascal': [
@@ -52,7 +52,7 @@ SUBSTITUTIONS = {
 class Units:
     def __init__(self, units: str|pint.Unit):
         if isinstance(units, str):
-            units = unit_registry[units]
+            units = ucum_registry[units]
         self.__units = units
         self.__name = Units.normalise_name(str(self.__units))
 
@@ -62,7 +62,7 @@ class Units:
          and ucum_units.datatype != CDT.ucumunit
          and ucum_units.datatype is not None):
             raise TypeError(f'Units value has unexpected datatype: {ucum_units.datatype}')
-        return cls(unit_registry.from_ucum(str(ucum_units)))
+        return cls(ucum_registry.from_ucum(str(ucum_units)).u)
 
     @staticmethod
     def normalise_name(name: str) -> str:
