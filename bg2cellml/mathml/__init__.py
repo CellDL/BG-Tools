@@ -36,7 +36,10 @@ class MathML:
 
     @classmethod
     def from_string(cls, formulae: str) -> 'MathML':
-        return cls(etree.fromstring(formulae))
+        try:
+            return cls(etree.fromstring(formulae))
+        except etree.XMLSyntaxError as error:
+            raise ValueError(error)
 
     @property
     def mathml(self) -> etree.Element:

@@ -256,7 +256,10 @@ class ElementTemplate(Labelled):
             mathml = relation
         if mathml is None:
             raise ValueError(f'BondElement {uri} has no constitutive relation')
-        self.__relation = MathML.from_string(mathml)
+        try:
+            self.__relation = MathML.from_string(mathml)
+        except ValueError as error:
+            raise ValueError(f'{self.uri}: {error}')
         self.__ports: list[PowerPort] = []
         self.__variables: list[TemplateVariable] = []
         self.__voi_variable = TemplateVariable(self.uri, VOI_SYMBOL, VOI_UCUMUNIT, None)
