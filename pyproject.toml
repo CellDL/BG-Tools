@@ -1,9 +1,14 @@
 [project]
 name = "bg2cellml"
+description = "Bondgraph RDF tools"
 version = "0.1.0"
+authors = [
+    { name = "David Brooks", email = "d.brooks@auckland.ac.nz"}
+]
 requires-python = "==3.12.*"
 dependencies = [
     "lxml>=5.4.0",
+    "networkx>=3.3",
     "pint>=0.24.4",
     "rdflib>=7.1.4",
     "ucumvert>=0.2.2",
