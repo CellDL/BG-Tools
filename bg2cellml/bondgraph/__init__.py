@@ -18,6 +18,6 @@
 #
 #===============================================================================
 
-from .bondgraph import BondgraphModelSource
+from .bondgraph import BondgraphModel, BondgraphModelSource
 
 #===============================================================================

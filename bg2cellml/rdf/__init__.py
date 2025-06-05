@@ -56,6 +56,21 @@ class Namespace:
 
 #===============================================================================
 
+"""
+Generate URIs for lxml.etree.
+"""
+class XMLNamespace:
+    def __init__(self, ns: str):
+        self.__ns = ns
+
+    def __str__(self):
+        return self.__ns
+
+    def __call__(self, attr: str='') -> str:
+        return f'{{{self.__ns}}}{attr}'
+
+#===============================================================================
+
 class NamespaceMap:
     def __init__(self, ns_map: Optional[dict[str, str]]=None):
         self.__prefix_dict: dict[str, str] = {}

@@ -29,7 +29,7 @@ from sympy.printing.mathml import MathMLContentPrinter
 #===============================================================================
 
 from ..definitions import BONDGRAPH_EQUATIONS
-from ..namespaces import XMLNamespace
+from ..rdf import XMLNamespace
 from ..units import Units
 
 if TYPE_CHECKING:
@@ -187,8 +187,6 @@ class CellMLModel:
 
 def generate_cellml(bondgraph: 'BondgraphModel') -> bytes:
 #=========================================================
-    if bondgraph.disconnected:
-        raise ValueError(f"Bondgraph {bondgraph.__uri} is disconnected -- can't generate CellML")
     cellml = CellMLModel(bondgraph.name)
     for node in bondgraph.nodes:
         cellml.add_node(node)
