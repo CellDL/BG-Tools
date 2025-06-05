@@ -282,19 +282,19 @@ class ElementTemplate(Labelled):
         return self.__relation
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         return self.__domain
 
     @property
-    def ports(self):
+    def ports(self) -> list[PowerPort]:
         return self.__ports
 
     @property
-    def variables(self):
+    def variables(self) -> dict[str, Variable]:
         return self.__variables
 
     @property
-    def voi_variable(self):
+    def voi_variable(self) -> Variable:
         return self.__voi_variable
 
     def __add_ports(self, framework: '_BondgraphFramework'):
