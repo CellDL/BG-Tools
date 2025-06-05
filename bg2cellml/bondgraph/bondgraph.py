@@ -298,8 +298,6 @@ class BondgraphModel(Labelled):
                                 for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(self, *row)
                             for row in source.sparql_query(MODEL_BONDS.replace('%MODEL%', uri))]
-
-        # Construct network graph of PowerBonds
         self.__make_bond_network()
 
         # Check domain consistency and identify gyrators
@@ -317,24 +315,21 @@ class BondgraphModel(Labelled):
     #=========================
         pass
 
+    # Construct network graph of PowerBonds
     def __make_bond_network(self):
     #=============================
         self.__graph = nx.DiGraph()
         for element in self.__elements:
-            self.__graph.add_node(element.uri)
-            # Needs power ports of elements as nodes....
-
+            for port_id, port in element.ports.items():
+                self.__graph.add_node(port_id, type=element.type, port=port)
         for junction in self.__junctions:
-            self.__graph.add_node(junction.uri)
-
+            self.__graph.add_node(junction.uri, type=junction.type, node=junction)
         for bond in self.__bonds:
             if (bond_source := bond.source) not in self.__graph:
                 raise ValueError(f'No element or junction for source {bond_source} of bond {bond.uri}')
             if (bond_target := bond.target) not in self.__graph:
                 raise ValueError(f'No element or junction for target {bond_target} of bond {bond.uri}')
             self.__graph.add_edge(bond_source, bond_target)
-        if not nx.is_weakly_connected(self.__graph):
-            raise ValueError('Resulting network graph is disconnected')
 
 #===============================================================================
 #===============================================================================
