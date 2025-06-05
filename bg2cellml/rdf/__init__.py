@@ -99,8 +99,6 @@ class NamespaceMap:
     #========================
         if isinstance(term, URIRef):
             return self.curie(term)
-        elif isinstance(term, BNode):
-            return str(term)
         elif isinstance(term, Literal) and term.datatype is None:
             return str(term)
         return term
