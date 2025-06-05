@@ -169,6 +169,12 @@ class Domain(Labelled):
         self.__add_constants(framework)
         return self
 
+    def __eq__(self, other):
+        return self.uri == other.uri
+
+    def __str__(self):
+        return self.uri
+
     @property
     def constants(self):
         return self.__constants
