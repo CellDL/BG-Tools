@@ -302,9 +302,9 @@ class ElementTemplate(Labelled):
 
     def __add_variables(self, framework: '_BondgraphFramework'):
     #===========================================================
-        self.__variables.extend([TemplateVariable(self.uri, *row)
+        self.__variables = { row[0]: Variable(self.uri, *row)
                                 for row in sparql_query(framework.knowledge,
-                                                        ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri))])
+                                                        ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)) }
 
     def __check_symbols(self):
     #=========================
@@ -317,8 +317,8 @@ class ElementTemplate(Labelled):
         for port in self.__ports:
             add_symbol(port.flow.symbol, False)
             add_symbol(port.potential.symbol, False)
-        for variable in self.__variables:
-            add_symbol(variable.symbol)
+        for symbol in self.__variables.keys():
+            add_symbol(symbol)
         eqn_symbols = self.__relation.symbols
         if len(symbols) > len(eqn_symbols):
             raise ValueError(f"{self.uri} has variables that are not in it's constitutive relation")
