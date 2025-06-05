@@ -75,7 +75,7 @@ ELEMENT_VARIABLES = f"""
 
 #===============================================================================
 
-class TemplateVariable:
+class Variable:
     def __init__(self, element_uri: str, symbol: str, units: Optional[rdflib.Literal|Units], value: Optional[rdflib.Literal]):
         self.__element_uri = element_uri
         self.__symbol = symbol
@@ -179,7 +179,7 @@ class Domain(Labelled):
 
     def __add_constants(self, framework: '_BondgraphFramework'):
     #===========================================================
-        self.__constants.extend([TemplateVariable(self.uri, row[0], None, row[1])
+        self.__constants.extend([Variable(self.uri, row[0], None, row[1])
                                 for row in sparql_query(framework.knowledge,
                                                         DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri))])
 
@@ -261,8 +261,8 @@ class ElementTemplate(Labelled):
         except ValueError as error:
             raise ValueError(f'{self.uri}: {error}')
         self.__ports: list[PowerPort] = []
-        self.__variables: list[TemplateVariable] = []
-        self.__voi_variable = TemplateVariable(self.uri, VOI_SYMBOL, VOI_UCUMUNIT, None)
+        self.__variables: dict[str, Variable] = {}
+        self.__voi_variable = Variable(self.uri, VOI_SYMBOL, VOI_UCUMUNIT, None)
 
     @classmethod
     def from_framework(cls, framework: '_BondgraphFramework', uri, label, domain_uri, relation) -> Self:
