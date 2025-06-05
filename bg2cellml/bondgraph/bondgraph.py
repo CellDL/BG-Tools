@@ -82,17 +82,29 @@ MODEL_BONDS = f"""
         ?uri bgf:hasSource ?source .
         ?uri bgf:hasTarget ?target .
         OPTIONAL {{ ?uri rdfs:label ?label }}
-    }} ORDER BY ?uri ?source ?target"""
+    }}"""
+
+MODEL_BOND_PORTS = f"""
+    SELECT DISTINCT ?element ?port
+    WHERE {{
+        %MODEL% bg:hasPowerBond %BOND% .
+        %BOND% %BOND_RELN% [
+            bgf:element ?element ;
+            bgf:port ?port
+        ]
+    }}"""
 
 
 
 #===============================================================================
 
 class BondgraphBond(Labelled):
-    def __init__(self, model: 'BondgraphModel', uri: str, source: str, target: str, label: Optional[str]=None):
+    def __init__(self, model: 'BondgraphModel', uri: str,
+                        source: str|rdflib.BNode, target: str|rdflib.BNode, label: Optional[str]=None):
         super().__init__(uri, label)
-        self.__source = source
-        self.__target = target
+        self.__model = model
+        self.__source = self.__get_port(source, 'bgf:hasSource')
+        self.__target = self.__get_port(target, 'bgf:hasTarget')
 
     @property
     def source(self):
@@ -101,6 +113,16 @@ class BondgraphBond(Labelled):
     @property
     def target(self):
         return self.__target
+
+    def __get_port(self, port: str|rdflib.BNode, reln: str) -> str:
+    #==============================================================
+        if isinstance(port, rdflib.BNode):
+            for row in self.__model.source.sparql_query(
+                MODEL_BOND_PORTS.replace('%MODEL%', self.__model.uri)
+                                .replace('%BOND%', self.uri)
+                                .replace('%BOND_RELN%', reln)):
+                return f'{row[0]}_{row[1]}'
+        return port
 
 #===============================================================================
 #===============================================================================
