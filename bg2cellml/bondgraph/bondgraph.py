@@ -291,6 +291,7 @@ BONDGRAPH_MODELS = f"""
 class BondgraphModel(Labelled):
     def __init__(self, source: 'BondgraphModelSource', uri: str, label: Optional[str]=None):
         super().__init__(uri, label)
+        self.__source = source
         self.__elements = [BondgraphElement.for_model(self, *row)
                                 for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
         self.__junctions = [BondgraphJunction(*row)
@@ -307,6 +308,10 @@ class BondgraphModel(Labelled):
     def __assign_symbols(self):
     #==========================
         pass
+
+    @property
+    def source(self):
+        return self.__source
 
     def __check_domains(self):
     #=========================
