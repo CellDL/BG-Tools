@@ -33,7 +33,7 @@ import networkx as nx
 from ..rdf import Labelled, NamespaceMap
 from ..units import Value
 
-from .framework import BondgraphFramework as FRAMEWORK
+from .framework import BondgraphFramework as FRAMEWORK, Domain, Variable
 from .namespaces import NAMESPACES
 
 #===============================================================================
@@ -201,9 +201,39 @@ MODEL_JUNCTIONS = f"""
 class BondgraphJunction(Labelled):
     def __init__(self, uri, type: str, label: Optional[str], flow: Optional[rdflib.Literal], potential: Optional[rdflib.Literal]):
         super().__init__(uri, label)
+        self.__type = type
         self.__junction = FRAMEWORK.junction(type)
-        self.__flow = Value(flow) if flow is not None else None
-        self.__potential = Value(potential) if potential is not None else None
+        if self.__junction is None:
+            raise ValueError(f'Unknown BondElement {type} for node {uri}')
+        self.__num_ports = self.__junction.num_ports
+        self.__port_ids: dict[str, str] = {}
+        self.__domain = None
+        self.__variables: dict[str, Variable] = {}
+        if flow is not None:
+            if type != ONENODE_JUNCTION:
+                raise ValueError(f'{self.uri}: can only set Flow for one-nodes')
+            self.__flow_value = Value(flow)
+        else:
+            self.__flow_value = None
+        if potential is not None:
+            if type != ZERONODE_JUNCTION:
+                raise ValueError(f'{self.uri}: can only set Potential for zero-nodes')
+            self.__potential_value = Value(potential)
+        else:
+            self.__potential_value = None
+
+    @property
+    def num_ports(self):
+        return self.__num_ports
+
+    @property
+    def type(self):
+        return self.__type
+
+    @property
+    def variables(self):
+        return self.__variables
+
 
         print(uri, self.__flow, self.__potential)
 
