@@ -198,28 +198,19 @@ class BondgraphBond(Labelled):
 #===============================================================================
 
 MODEL_JUNCTIONS = f"""
-    SELECT DISTINCT ?uri ?type ?label ?flow ?potential
+    SELECT DISTINCT ?uri ?type ?label ?value
     WHERE {{
         %MODEL% bg:hasJunctionStructure ?uri .
         ?uri a ?type .
         OPTIONAL {{ ?uri rdfs:label ?label }}
-        OPTIONAL {{
-            ?uri bgf:hasFlow [
-                bgf:hasValue ?flow
-            ]
-        }}
-        OPTIONAL {{
-            ?uri bgf:hasPotential [
-                bgf:hasValue ?potential
-            ]
-        }}
+        OPTIONAL {{ ?uri bgf:hasValue ?value }}
         FILTER (?type IN ({', '.join(FRAMEWORK.junction_classes())}))
     }} ORDER BY ?uri"""
 
 #===============================================================================
 
 class BondgraphJunction(Labelled):
-    def __init__(self, uri, type: str, label: Optional[str], flow: Optional[rdflib.Literal], potential: Optional[rdflib.Literal]):
+    def __init__(self, uri, type: str, label: Optional[str], value: Optional[rdflib.Literal]):
         super().__init__(uri, label)
         self.__type = type
         self.__junction = FRAMEWORK.junction(type)
@@ -228,19 +219,8 @@ class BondgraphJunction(Labelled):
         self.__num_ports = self.__junction.num_ports
         self.__port_ids: dict[str, str] = {}
         self.__domain = None
-        self.__variables: dict[str, Variable] = {}
-        if flow is not None:
-            if type != ONENODE_JUNCTION:
-                raise ValueError(f'{self.uri}: can only set Flow for one-nodes')
-            self.__flow_value = Value(flow)
-        else:
-            self.__flow_value = None
-        if potential is not None:
-            if type != ZERONODE_JUNCTION:
-                raise ValueError(f'{self.uri}: can only set Potential for zero-nodes')
-            self.__potential_value = Value(potential)
-        else:
-            self.__potential_value = None
+        self.__value = value
+        self.__variable = None
 
     @property
     def num_ports(self):
@@ -251,13 +231,21 @@ class BondgraphJunction(Labelled):
         return self.__type
 
     @property
-    def variables(self):
-        return self.__variables
+    def variable(self):
+        return self.__variable
 
     def assign_ports_and_domain(self, bond_graph: nx.DiGraph):
     #=========================================================
         node_id = self.uri
         attributes = bond_graph.nodes[node_id]
+        self.__domain = attributes['domain']
+        if self.__type == ONENODE_JUNCTION:
+            self.__variable = Variable(node_id, node_id, self.__domain.flow.units, self.__value)
+        elif self.__type == ONENODE_JUNCTION:
+            self.__variable = Variable(node_id, node_id, self.__domain.potential.units, self.__value)
+        elif self.__type == TRANSFORM_JUNCTION:
+            ## each port needs a domain, if gyrator different domains...
+            pass
         if bond_graph.degree[node_id] > 1:   # type: ignore
             n = 0
             for edge in bond_graph.in_edges(node_id):
@@ -277,7 +265,6 @@ class BondgraphJunction(Labelled):
             self.__port_ids[node_id] = '+'
         elif len(bond_graph.out_edges(node_id)):
             self.__port_ids[node_id] = '-'
-        self.__set_domain(attributes['domain'])
 
     def assign_relations(self, bond_graph: nx.DiGraph):
     #==================================================
@@ -286,9 +273,6 @@ class BondgraphJunction(Labelled):
             adjacent_node = list(undirected_graph[node_id])[0]
             adjacent_port = undirected_graph.nodes[adjacent_node]['port']
 
-    def __set_domain(self, domain: Domain):
-    #======================================
-        self.__domain = domain
 
 
 #===============================================================================
