@@ -357,8 +357,6 @@ class BondgraphModel(Labelled):
         self.__assign_junction_ports()
         self.__assign_junction_relations()
 
-        # Check domain consistency and identify gyrators
-        self.__check_domains()
 
 
     @property
