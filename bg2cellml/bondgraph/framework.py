@@ -126,14 +126,16 @@ class Variable:
 #===============================================================================
 
 DOMAIN_QUERY = f"""
-    SELECT DISTINCT ?domain ?label ?flowUnits ?potentialUnits
+    SELECT DISTINCT ?domain ?label ?flowSymbol ?flowUnits ?potentialSymbol ?potentialUnits
     WHERE {{
         ?domain
             a bgf:Domain ;
             bgf:hasFlow [
+                bgf:hasSymbol ?flowSymbol ;
                 bgf:hasUnits ?flowUnits
             ] ;
             bgf:hasPotential [
+                bgf:hasSymbol ?potentialSymbol ;
                 bgf:hasUnits ?potentialUnits
             ] .
         OPTIONAL {{ ?domain rdfs:label ?label }}
@@ -153,11 +155,13 @@ DOMAIN_CONSTANTS = f"""
 #===============================================================================
 
 class Domain(Labelled):
-    def __init__(self, uri: str, label: Optional[str], flow_units: rdflib.Literal, potential_units: rdflib.Literal):
+    def __init__(self, uri: str, label: Optional[str],
+                    flow_symbol: str, flow_units: rdflib.Literal,
+                    potential_symbol: str, potential_units: rdflib.Literal):
         super().__init__(uri, label)
-        self.__flow_units = Units.from_ucum(flow_units)
-        self.__potential_units = Units.from_ucum(potential_units)
-        self.__constants: list[TemplateVariable] = []
+        self.__flow = Variable(self.uri, flow_symbol, flow_units, None)
+        self.__potential = Variable(self.uri, potential_symbol, potential_units, None)
+        self.__constants: list[Variable] = []
 
     @classmethod
     def from_framework(cls, framework: '_BondgraphFramework', *args) -> Self:
@@ -170,12 +174,12 @@ class Domain(Labelled):
         return self.__constants
 
     @property
-    def flow_units(self):
-        return self.__flow_units
+    def flow(self):
+        return self.__flow
 
     @property
-    def potential_units(self):
-        return self.__potential_units
+    def potential(self):
+        return self.__potential
 
     def __add_constants(self, framework: '_BondgraphFramework'):
     #===========================================================
@@ -186,30 +190,25 @@ class Domain(Labelled):
 #===============================================================================
 #===============================================================================
 
-ELEMENT_PORTS = f"""
-    SELECT DISTINCT ?portNumber ?flowSymbol ?potentialSymbol
+ELEMENT_PORT_IDS = f"""
+    SELECT DISTINCT ?portId
     WHERE {{
-        %ELEMENT_URI% bgf:hasPort ?port .
-        ?port
-            bgf:hasFlow [
-                bgf:hasSymbol ?flowSymbol
-            ] ;
-            bgf:hasPotential [
-                bgf:hasSymbol ?potentialSymbol
-            ] .
-        OPTIONAL {{ ?port bgf:portNumber ?portNumber }}
+        %ELEMENT_URI% bgf:hasPortId ?portId .
     }}
     ORDER BY ?port"""
 
 #===============================================================================
 
 class PowerPort:
-    def __init__(self, element: 'ElementTemplate', number: Optional[rdflib.Literal],
-                                        flow_symbol: str, potential_symbol: str):
+    def __init__(self, element: 'ElementTemplate', id: Optional[str]=None):
         self.__element = element
-        self.__port_number = optional_integer(number, 0)
-        self.__flow = TemplateVariable(element.uri, flow_symbol, element.domain.flow_units, None)
-        self.__potential = TemplateVariable(element.uri, potential_symbol, element.domain.potential_units, None)
+        self.__port_id = id
+        self.__flow = self.__port_variable(element.domain.flow)
+        self.__potential = self.__port_variable(element.domain.potential)
+
+    def __str__(self):
+        id = self.__element.uri if self.__port_id is None else f'{self.__element.uri}:{self.__port_id}'
+        return f'{id}, u: {self.__potential}, v: {self.__flow}'
 
     @property
     def element(self):
@@ -220,12 +219,16 @@ class PowerPort:
         return self.__flow
 
     @property
-    def port_number(self):
-        return self.__port_number
+    def port_id(self) -> Optional[str]:
+        return self.__port_id
 
     @property
     def potential(self):
         return self.__potential
+
+    def __port_variable(self, domain_variable: Variable) -> Variable:
+        symbol = domain_variable.symbol if self.__port_id is None else f'{domain_variable.symbol}_{self.__port_id}'
+        return Variable(self.__element.uri, symbol, domain_variable.units, None)
 
 #===============================================================================
 #===============================================================================
@@ -296,9 +299,12 @@ class ElementTemplate(Labelled):
 
     def __add_ports(self, framework: '_BondgraphFramework'):
     #=======================================================
-        self.__ports.extend([PowerPort(self, *row)
-                                for row in sparql_query(framework.knowledge,
-                                                        ELEMENT_PORTS.replace('%ELEMENT_URI%', self.uri))])
+        port_ids = [str(row[0]) for row in sparql_query(framework.knowledge,
+                        ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri))]
+        if len(port_ids):
+            self.__ports.extend([PowerPort(self, id) for id in port_ids])
+        else:
+            self.__ports.append(PowerPort(self))
 
     def __add_variables(self, framework: '_BondgraphFramework'):
     #===========================================================
