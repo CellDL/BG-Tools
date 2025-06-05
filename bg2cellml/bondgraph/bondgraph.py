@@ -63,14 +63,64 @@ MODEL_ELEMENTS = f"""
 #===============================================================================
 
 class BondgraphElement(Labelled):
-    def __init__(self, uri: str, template: str, label: Optional[str], values: dict[str, Value]):
+    def __init__(self, uri: str, template: str, label: Optional[str]):
         super().__init__(uri, label)
         # print(uri, [str(v) for v in params.values()], [str(v) for v in states.values()])
-        self.__template = FRAMEWORK.element(template)
-        if self.__template is None:
+        bond_element = FRAMEWORK.element(template)
+        if bond_element is None:
             raise ValueError(f'Unknown BondElement {template} for node {uri}')
-        self.__relation = self.__template.constitutive_relation
-        self.__variables = self.__template.variables
+        self.__constitutive_relation = bond_element.constitutive_relation.copy()
+        self.__domain = bond_element.domain
+        self.__type = bond_element.uri
+        self.__ports = {
+            (self.uri if port.port_id is None else f'{self.uri}_{port.port_id}'): port
+                for port in bond_element.ports }
+        self.__variables = bond_element.variables.copy()
+        # Assign variable names, substituting them into the constitutive relation
+        self.__assign_variable_names()
+
+    @classmethod
+    def for_model(cls, model: 'BondgraphModel', *args):
+        self = cls(*args)
+        for row in model.source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)):
+            if row[0] not in self.__variables:
+                raise ValueError(f'Element {self.uri} has unknown symbol {row[0]} for {self.__template.uri}')   # type: ignore
+            self.__variables[row[0]].set_value(Value(row[1]))
+        return self
+
+    @property
+    def domain(self):
+        return self.__domain
+
+    @property
+    def num_ports(self):
+        return len(self.__ports)
+
+    @property
+    def ports(self):
+        return self.__ports
+
+    @property
+    def constitutive_relation(self):
+        return self.__constitutive_relation
+
+    @property
+    def type(self):
+        return self.__type
+
+    @property
+    def variables(self) -> dict[str, Variable]:
+        return self.__variables
+
+    def __assign_variable_names(self):
+    #=================================
+        def substitute(symbol: str, prefix: str):
+            self.__constitutive_relation.substitute(symbol, f'{prefix}_{symbol}')
+        for port_name, port in self.__ports.items():
+            substitute(port.flow.symbol, port_name)
+            substitute(port.potential.symbol, port_name)
+        for symbol in self.__variables.keys():
+            substitute(symbol, self.uri)
 
 #===============================================================================
 #===============================================================================
@@ -211,12 +261,8 @@ BONDGRAPH_MODELS = f"""
 class BondgraphModel(Labelled):
     def __init__(self, source: 'BondgraphModelSource', uri: str, label: Optional[str]=None):
         super().__init__(uri, label)
-        self.__elements = []
-        for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri)):
-            element_uri = row[0]
-            values = {row[1]: Value(row[2]) for row in
-                        source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', element_uri))}
-            self.__elements.append(BondgraphElement(element_uri, row[1], row[2], values))
+        self.__elements = [BondgraphElement.for_model(self, *row)
+                                for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
         self.__junctions = [BondgraphJunction(*row)
                                 for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(self, *row)
