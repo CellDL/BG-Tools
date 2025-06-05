@@ -23,9 +23,8 @@ from bg2cellml.bondgraph import BondgraphModelSource
 #===============================================================================
 
 def main():
-
-    ex_1 = BondgraphModelSource('../bg-rdf/examples/example_1.ttl')
-    #ex_2 = BondgraphModelSource('../bg-rdf/examples/example_2.ttl')
+    ex_1 = BondgraphModelSource('../examples/example_RCR.ttl')
+    #ex_2 = BondgraphModelSource('../examples/example_B1.ttl')
 
 #===============================================================================
 

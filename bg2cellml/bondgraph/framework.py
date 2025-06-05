@@ -398,10 +398,10 @@ class _BondgraphFramework:
 #===============================================================================
 
 BondgraphFramework = _BondgraphFramework([
-    '../bg-rdf/schema/ontology.ttl',
-    '../bg-rdf/schema/elements/general.ttl',
-    '../bg-rdf/schema/elements/biochemical.ttl',
-    '../bg-rdf/schema/elements/electrical.ttl'
+    '../schema/ontology.ttl',
+    '../schema/elements/general.ttl',
+    '../schema/elements/biochemical.ttl',
+    '../schema/elements/electrical.ttl'
 ])
 
 #===============================================================================
