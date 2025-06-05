@@ -101,7 +101,7 @@ class Variable:
                 raise ValueError(f'Value for variable {symbol} has incompatible units ({self.__value.units} != {self.__units})')
 
     def __str__(self):
-        return f'{self.__symbol} ({self.__units})'
+        return f'{self.__symbol} ({self.__value if self.__value is not None else ''}  {self.__units})'
 
     @property
     def element_uri(self):
