@@ -36,10 +36,14 @@ class MathML:
 
     @classmethod
     def from_string(cls, formulae: str) -> 'MathML':
+        parser = etree.XMLParser(remove_blank_text=True)
         try:
-            return cls(etree.fromstring(formulae))
+            return cls(etree.fromstring(formulae, parser))
         except etree.XMLSyntaxError as error:
             raise ValueError(error)
+
+    def __str__(self):
+        return etree.tostring(self.__mathml, encoding='unicode', pretty_print=True)
 
     @property
     def mathml(self) -> etree.Element:
