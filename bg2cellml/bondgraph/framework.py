@@ -385,11 +385,14 @@ JUNCTION_STRUCTURES = f"""
 class JunctionStructure(Labelled):
     def __init__(self, uri: str, label: Optional[str], num_ports: Optional[rdflib.Literal]):
         super().__init__(uri, label)
-        self.__num_ports = optional_integer(num_ports)
+        if uri in [ONENODE_JUNCTION, ZERONODE_JUNCTION]:
+            self.__fixed_ports = None
+        else:
+            self.__fixed_ports = optional_integer(num_ports)
 
     @property
-    def num_ports(self):
-        return self.__num_ports
+    def fixed_ports(self):
+        return self.__fixed_ports
 
 #===============================================================================
 #===============================================================================
