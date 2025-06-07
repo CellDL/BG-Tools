@@ -119,6 +119,13 @@ class Variable:
     def units(self):
         return self.__units
 
+    def copy(self, prefix: Optional[str]=None) -> 'Variable':
+    #========================================================
+        symbol = self.__symbol if prefix is None else f'{prefix}_{self.__symbol}'
+        copy = Variable(self.__element_uri, symbol, self.__units, None)
+        copy.__value = self.__value.copy() if self.__value is not None else None
+        return copy
+
     def set_value(self, value: Value):
     #=================================
         self.__value = value
