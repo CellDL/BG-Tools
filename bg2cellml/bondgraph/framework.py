@@ -84,7 +84,7 @@ ELEMENT_VARIABLES = f"""
 class Variable:
     def __init__(self, element_uri: str, symbol: str, units: Optional[rdflib.Literal|Units], value: Optional[rdflib.Literal]):
         self.__element_uri = element_uri
-        self.__symbol = symbol
+        self.__symbol = symbol.strip(':').replace(':', '_')
         self.__units = Units.from_ucum(units) if isinstance(units, rdflib.Literal) else units
         if value is not None:
             self.__value = Value.from_literal(value)
