@@ -100,16 +100,22 @@ class Units:
 #===============================================================================
 
 class Value:
-    def __init__(self, value: Literal):
-        if value.datatype == CDT.ucum:
-            parts = str(value).split()
-            self.__value = float(parts[0])
-            self.__units = Units.from_ucum(parts[1])
-        elif value.datatype is None:
-            self.__value = float(value)
-            self.__units = None
+    def __init__(self, value: float, units: Optional[Units]):
+        self.__units = units
+        self.__value = value
+
+    @classmethod
+    def from_literal(cls, literal_value: Literal) -> Self:
+        if literal_value.datatype == CDT.ucum:
+            parts = str(literal_value).split()
+            value = float(parts[0])
+            units = Units.from_ucum(parts[1])
+        elif literal_value.datatype is None:
+            value = float(literal_value)
+            units = None
         else:
-            raise TypeError(f'Literal value has unexpected datatype: {value.datatype}')
+            raise TypeError(f'Literal value has unexpected datatype: {literal_value.datatype}')
+        return cls(value, units)
 
     def __str__(self):
         return f'{self.__value} {self.__units}'
@@ -121,6 +127,10 @@ class Value:
     @property
     def value(self) -> float:
         return self.__value
+
+    def copy(self) -> 'Value':
+    #=========================
+        return Value(self.__value, self.__units)
 
     def set_units(self, units: Units):
     #=================================

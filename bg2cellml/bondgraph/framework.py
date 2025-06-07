@@ -87,7 +87,7 @@ class Variable:
         self.__symbol = symbol
         self.__units = Units.from_ucum(units) if isinstance(units, rdflib.Literal) else units
         if value is not None:
-            self.__value = Value(value)
+            self.__value = Value.from_literal(value)
             if self.__units is None and self.__value.units is not None:
                 self.__units = self.__value.units
         else:
