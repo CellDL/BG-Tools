@@ -18,7 +18,7 @@
 #
 #===============================================================================
 
-from typing import Optional, Self
+from typing import NamedTuple, Optional, Self
 
 #===============================================================================
 
@@ -218,36 +218,52 @@ ELEMENT_PORT_IDS = f"""
 
 #===============================================================================
 
+class PortSymbolVariable(NamedTuple):
+    symbol: str
+    variable: Variable
+
+    def __str__(self):
+        return f'(symbol: {self.symbol}, variable: {self.variable})'
+
+#===============================================================================
+
 class PowerPort:
     def __init__(self, element: 'ElementTemplate', id: Optional[str]=None):
         self.__element = element
-        self.__port_id = id
-        self.__flow = self.__port_variable(element.domain.flow)
-        self.__potential = self.__port_variable(element.domain.potential)
+        self.__suffix = '' if id is None else f'_{id}'
+        self.__flow = self.__symbol_variable(element.domain.flow)
+        self.__potential = self.__symbol_variable(element.domain.potential)
 
     def __str__(self):
-        id = self.__element.uri if self.__port_id is None else f'{self.__element.uri}:{self.__port_id}'
-        return f'{id}, u: {self.__potential}, v: {self.__flow}'
+        return f'{self.__element.uri}{self.__suffix}, potential: {self.__potential}, flow: {self.__flow}'
 
     @property
     def element(self):
         return self.__element
 
     @property
-    def flow(self):
+    def flow(self) -> PortSymbolVariable:
         return self.__flow
 
     @property
-    def port_id(self) -> Optional[str]:
-        return self.__port_id
-
-    @property
-    def potential(self):
+    def potential(self) -> PortSymbolVariable:
         return self.__potential
 
-    def __port_variable(self, domain_variable: Variable) -> Variable:
-        symbol = domain_variable.symbol if self.__port_id is None else f'{domain_variable.symbol}_{self.__port_id}'
-        return Variable(self.__element.uri, symbol, domain_variable.units, None)
+    def copy(self, prefix: Optional[str]=None) -> 'PowerPort':
+    #=========================================================
+        copy = PowerPort(self.__element)
+        copy.__suffix = self.__suffix
+        copy.__flow = PortSymbolVariable(symbol=self.__flow.symbol,
+                                         variable=self.__flow.variable.copy(prefix))
+        copy.__potential = PortSymbolVariable(symbol=self.__potential.symbol,
+                                              variable=self.__potential.variable.copy(prefix))
+        return copy
+
+    def __symbol_variable(self, domain_variable: Variable) -> PortSymbolVariable:
+    #==============================================================================
+        symbol = f'{domain_variable.symbol}{self.__suffix}'
+        return PortSymbolVariable(symbol=symbol,
+                                  variable=Variable(self.__element.uri, symbol, domain_variable.units, None))
 
 #===============================================================================
 #===============================================================================
