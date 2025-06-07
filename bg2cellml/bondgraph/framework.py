@@ -298,7 +298,7 @@ class ElementTemplate(Labelled):
             self.__relation = MathML.from_string(mathml)
         except ValueError as error:
             raise ValueError(f'{self.uri}: {error}')
-        self.__ports: list[PowerPort] = []
+        self.__ports: dict[str, PowerPort] = {}
         self.__variables: dict[str, Variable] = {}
         self.__voi_variable = Variable(self.uri, VOI_SYMBOL, VOI_UCUMUNIT, None)
 
@@ -321,7 +321,7 @@ class ElementTemplate(Labelled):
         return self.__domain
 
     @property
-    def ports(self) -> list[PowerPort]:
+    def ports(self) -> dict[str, PowerPort]:
         return self.__ports
 
     @property
@@ -337,9 +337,9 @@ class ElementTemplate(Labelled):
         port_ids = [str(row[0]) for row in sparql_query(framework.knowledge,
                         ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri))]
         if len(port_ids):
-            self.__ports.extend([PowerPort(self, id) for id in port_ids])
+            self.__ports = {id: PowerPort(self, id) for id in port_ids}
         else:
-            self.__ports.append(PowerPort(self))
+            self.__ports = {'': PowerPort(self)}
 
     def __add_variables(self, framework: '_BondgraphFramework'):
     #===========================================================
@@ -355,7 +355,7 @@ class ElementTemplate(Labelled):
                 symbols.append(symbol)
             elif unique:
                 raise ValueError(f'Duplicate symbol `{symbol}` for {self.uri}')
-        for port in self.__ports:
+        for port in self.__ports.values():
             add_symbol(port.flow.symbol, False)
             add_symbol(port.potential.symbol, False)
         for symbol in self.__variables.keys():
