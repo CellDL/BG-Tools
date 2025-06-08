@@ -1,30 +1,23 @@
-"""
+#===============================================================================
+#
+#  CellDL and bondgraph tools
+#
+#  Copyright (c) 2020 - 2025 David Brooks
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+#===============================================================================
 
-Load BG framework
+__version__ = '0.1.0'
 
-======================
-
-Load BG RDF into its own rdflib graph.
-
-
-Construct networkx graph of PowerBonds:
-    Check graph is connected.
-    Check domain consistency and identify gyrators.
-    Identify nodes as BondElements (BE) or JunctionStructures (JS).
-
-The terminals of a JS network are the BEs it connects to and these
-determine possible potential (u) and flow (v) symbols for JS nodes.
-
-For each JS subgraph/network (reactions will divide JS network):
-    Build flow and potential matrices to determine their equations.
-        This will include transform nodes (Tf and Gy).
-
-
-Each BE gets specific symbols for its parameter, state, and powerport
-variables (and constants, when the same symbol has different values).
-    ==> constants' registry (node, symbol, value)
-
-
-
-"""
-
+#===============================================================================
