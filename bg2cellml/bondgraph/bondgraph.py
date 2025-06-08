@@ -21,8 +21,6 @@
 from pathlib import Path
 from typing import Optional
 
-from pprint import pprint
-
 #===============================================================================
 
 import rdflib
@@ -214,7 +212,7 @@ class BondgraphJunction(Labelled):
         return self.__constitutive_relation         # type: ignore
 
     @property
-    def type(self):
+    def type(self) -> str:
         return self.__type
 
     @property
@@ -346,7 +344,6 @@ class BondgraphModel(Labelled):
                                 for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(self, *row)
                             for row in source.sparql_query(MODEL_BONDS.replace('%MODEL%', uri))]
-
         self.__make_bond_network()
         self.__check_and_assign_domains_to_bond_network()
         self.__assign_junction_domains_and_relations()

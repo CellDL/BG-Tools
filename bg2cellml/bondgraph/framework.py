@@ -120,8 +120,8 @@ class Variable:
         return self.__value
 
     @property
-    def units(self):
-        return self.__units
+    def units(self) -> Units:
+        return self.__units         # type: ignore
 
     def copy(self, suffix: Optional[str]=None) -> 'Variable':
     #========================================================
@@ -358,11 +358,11 @@ class ElementTemplate(Labelled):
                 symbols.append(symbol)
             elif unique:
                 raise ValueError(f'Duplicate symbol `{symbol}` for {self.uri}')
+        for symbol in self.__variables.keys():
+            add_symbol(symbol)
         for port in self.__ports.values():
             add_symbol(port.flow.symbol, False)
             add_symbol(port.potential.symbol, False)
-        for symbol in self.__variables.keys():
-            add_symbol(symbol)
         eqn_symbols = self.__relation.symbols
         if len(symbols) > len(eqn_symbols):
             raise ValueError(f"{self.uri} has variables that are not in it's constitutive relation")
