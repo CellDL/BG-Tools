@@ -41,6 +41,12 @@ from .namespaces import NAMESPACES
 #===============================================================================
 #===============================================================================
 
+def make_element_port_id(element_id: str, port_id: str) -> str:
+#==============================================================
+    return element_id if port_id in [None, ''] else f'{element_id}_{port_id}'
+
+#===============================================================================
+
 ELEMENT_VARIABLES = f"""
     SELECT DISTINCT ?symbol ?value
     WHERE {{
@@ -74,12 +80,11 @@ class BondgraphElement(Labelled):
         self.__constitutive_relation = bond_element.constitutive_relation.copy()
         self.__domain = bond_element.domain
         self.__type = bond_element.uri
-        self.__ports = {
-            (self.uri if port.port_id is None else f'{self.uri}_{port.port_id}'): port
-                for port in bond_element.ports }
         self.__variables = bond_element.variables.copy()
         # Assign variable names, substituting them into the constitutive relation
         self.__assign_variable_names()
+        self.__ports = { make_element_port_id(self.uri, port_id): port.copy(self.uri)
+                            for port_id, port in bond_element.ports.items() }
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', *args):
@@ -191,8 +196,8 @@ class BondgraphBond(Labelled):
                 MODEL_BOND_PORTS.replace('%MODEL%', self.__model.uri)
                                 .replace('%BOND%', self.uri)
                                 .replace('%BOND_RELN%', reln)):
-                return f'{row[0]}_{row[1]}'
-        return port
+                return make_element_port_id(*row)
+        return make_element_port_id(port, '')
 
 #===============================================================================
 #===============================================================================
