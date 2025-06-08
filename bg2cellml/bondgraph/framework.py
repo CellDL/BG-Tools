@@ -140,6 +140,10 @@ class Variable:
                 f'Value for variable {self.__symbol} has incompatible units ({self.__units} != {self.__value.units})') # type: ignore
 
 #===============================================================================
+
+VOI_VARIABLE = Variable('', VOI_SYMBOL, VOI_UCUMUNIT, None)
+
+#===============================================================================
 #===============================================================================
 
 DOMAIN_QUERY = f"""
@@ -304,7 +308,6 @@ class ElementTemplate(Labelled):
             raise ValueError(f'{self.uri}: {error}')
         self.__ports: dict[str, PowerPort] = {}
         self.__variables: dict[str, Variable] = {}
-        self.__voi_variable = Variable(self.uri, VOI_SYMBOL, VOI_UCUMUNIT, None)
 
     @classmethod
     def from_framework(cls, framework: '_BondgraphFramework', uri, label, domain_uri, relation) -> Self:
@@ -331,10 +334,6 @@ class ElementTemplate(Labelled):
     @property
     def variables(self) -> dict[str, Variable]:
         return self.__variables
-
-    @property
-    def voi_variable(self) -> Variable:
-        return self.__voi_variable
 
     def __add_ports(self, framework: '_BondgraphFramework'):
     #=======================================================
@@ -368,7 +367,7 @@ class ElementTemplate(Labelled):
         if len(symbols) > len(eqn_symbols):
             raise ValueError(f"{self.uri} has variables that are not in it's constitutive relation")
         symbols.extend([c.symbol for c in self.__domain.constants])
-        symbols.append(self.__voi_variable.symbol)
+        symbols.append(VOI_VARIABLE.symbol)
         for eqn_symbol in eqn_symbols:
             if eqn_symbol not in symbols:
                 raise ValueError(f'Constitutive relation of {self.uri} has undeclared symbol {eqn_symbol}')
