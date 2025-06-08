@@ -31,6 +31,7 @@ import networkx as nx
 #===============================================================================
 
 from ..rdf import Labelled, NamespaceMap
+from ..mathml import equal, MathML, sum_variables
 from ..units import Value
 
 from .framework import BondgraphFramework as FRAMEWORK, Domain, PowerPort, Variable
@@ -203,9 +204,15 @@ class BondgraphJunction(Labelled):
             self.__port_ids = []
         else:
             self.__port_ids = [f'{self.uri}_{n}' for n in range(self.__junction.fixed_ports)]
+        self.__constitutive_relation = None
         self.__domain = None
         self.__value = value
         self.__variable = None
+
+    @property
+    def constitutive_relation(self) -> MathML:
+    #=========================================
+        return self.__constitutive_relation         # type: ignore
 
     @property
     def type(self):
@@ -230,6 +237,54 @@ class BondgraphJunction(Labelled):
 
     def assign_relation(self, bond_graph: nx.DiGraph):
     #=================================================
+        node_id = self.uri
+        if bond_graph.degree[node_id] > 1:   # type: ignore
+            # we are connected to several nodes
+            if self.__type == ONENODE_JUNCTION:
+                inputs = [self.__potential_symbol(bond_graph.nodes[edge[0]])
+                            for edge in bond_graph.in_edges(node_id)]
+                outputs = [self.__potential_symbol(bond_graph.nodes[edge[1]])
+                            for edge in bond_graph.out_edges(node_id)]
+            elif self.__type == ZERONODE_JUNCTION:
+                inputs = [self.__flow_symbol(bond_graph.nodes[edge[0]])
+                            for edge in bond_graph.in_edges(node_id)]
+                outputs = [self.__flow_symbol(bond_graph.nodes[edge[1]])
+                            for edge in bond_graph.out_edges(node_id)]
+            else:
+                raise ValueError(f'Unexpected bond graph node for {self.uri}: {self.__type}')
+            self.__constitutive_relation = MathML.from_string(f'''<math xmlns="http://www.w3.org/1998/Math/MathML">
+                {equal(sum_variables(inputs), sum_variables(outputs))}
+</math>''')
+
+    def __flow_symbol(self, node_dict: dict) -> str:
+    #===============================================
+        if 'port' in node_dict:                         # A BondElement's port
+            port: PowerPort = node_dict['port']
+            return port.flow.variable.symbol
+        elif 'junction' in node_dict:
+            junction: BondgraphJunction = node_dict['junction']
+            if junction.type == ONENODE_JUNCTION:
+                return junction.variable.symbol         # type: ignore
+            elif junction.type == ZERONODE_JUNCTION:
+                raise ValueError(f'Adjacent Zero Nodes, {self.uri} and {junction.uri}, must be merged')
+            elif junction.type == TRANSFORM_JUNCTION:
+                raise ValueError('Transform Nodes are not yet supported')
+        raise ValueError(f'Unexpected bond graph node connected to {self.uri}: {node_dict}')
+
+    def __potential_symbol(self, node_dict: dict) -> str:
+    #====================================================
+        if 'port' in node_dict:                         # A BondElement's port
+            port: PowerPort = node_dict['port']
+            return port.potential.variable.symbol
+        elif 'junction' in node_dict:
+            junction: BondgraphJunction = node_dict['junction']
+            if junction.type == ZERONODE_JUNCTION:
+                return junction.variable.symbol         # type: ignore
+            elif junction.type == ONENODE_JUNCTION:
+                raise ValueError(f'Adjacent One Nodes, {self.uri} and {junction.uri}, must be merged')
+            elif junction.type == TRANSFORM_JUNCTION:
+                raise ValueError('Transform Nodes are not yet supported')
+        raise ValueError(f'Unexpected bond graph node for {self.uri}: {node_dict}')
 
 #===============================================================================
 #===============================================================================
@@ -336,7 +391,7 @@ class BondgraphModel(Labelled):
             for port_id, port in element.ports.items():
                 self.__graph.add_node(port_id, type=element.type, port=port)
         for junction in self.__junctions:
-            self.__graph.add_node(junction.uri, type=junction.type, node=junction)
+            self.__graph.add_node(junction.uri, type=junction.type, junction=junction)
         for bond in self.__bonds:
             if (source := bond.source_id) not in self.__graph:
                 raise ValueError(f'No element or junction for source {source} of bond {bond.uri}')
