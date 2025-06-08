@@ -116,24 +116,6 @@ class BondgraphElement(Labelled):
     def variables(self) -> dict[str, Variable]:
         return self.__variables
 
-    def assign_domains(self, bond_graph: nx.DiGraph):
-    #================================================
-        seen_nodes = set()
-        undirected_graph = bond_graph.to_undirected(as_view=True)
-
-        def check_node(node, domain):
-            if node not in seen_nodes:
-                seen_nodes.add(node)
-                if 'domain' not in bond_graph.nodes[node]:
-                    bond_graph.nodes[node]['domain'] = domain
-                    for neighbour in undirected_graph.neighbors(node):
-                        check_node(neighbour, domain)
-                elif domain != (node_domain := bond_graph.nodes[node]['domain']):
-                    raise ValueError(f'Node {node} with domain {node_domain} incompatible with {domain}')
-                ##TRANSFORM_JUNCTION_TYPE
-
-        check_node(self.uri, self.domain)
-
     def __assign_variable_names(self):
     #=================================
         def substitute(symbol: str, prefix: str):
@@ -218,7 +200,11 @@ class BondgraphJunction(Labelled):
         self.__junction = FRAMEWORK.junction(type)
         if self.__junction is None:
             raise ValueError(f'Unknown BondElement {type} for node {uri}')
-        self.__port_ids: dict[str, str] = {}
+        if (self.__type in [ONENODE_JUNCTION, ZERONODE_JUNCTION]
+         or self.__junction.fixed_ports is None):
+            self.__port_ids = []
+        else:
+            self.__port_ids = [f'{self.uri}_{n}' for n in range(self.__junction.fixed_ports)]
         self.__domain = None
         self.__value = value
         self.__variable = None
@@ -231,46 +217,21 @@ class BondgraphJunction(Labelled):
     def variable(self):
         return self.__variable
 
-    def assign_ports_and_domain(self, bond_graph: nx.DiGraph):
-    #=========================================================
+    def assign_domain(self, bond_graph: nx.DiGraph):
+    #===============================================
         node_id = self.uri
         attributes = bond_graph.nodes[node_id]
         self.__domain = attributes['domain']
         if self.__type == ONENODE_JUNCTION:
             self.__variable = Variable(node_id, node_id, self.__domain.flow.units, self.__value)
-        elif self.__type == ONENODE_JUNCTION:
+        elif self.__type == ZERONODE_JUNCTION:
             self.__variable = Variable(node_id, node_id, self.__domain.potential.units, self.__value)
         elif self.__type == TRANSFORM_JUNCTION:
+            raise ValueError(f'Transform Nodes ({self.uri}) are not yet supported')
             ## each port needs a domain, if gyrator different domains...
-            pass
-        if bond_graph.degree[node_id] > 1:   # type: ignore
-            n = 0
-            for edge in bond_graph.in_edges(node_id):
-                port_id = f'{node_id}_{n}'
-                self.__port_ids[port_id] = '+'
-                bond_graph.add_node(port_id, **attributes)
-                bond_graph.add_edge(edge[0], port_id)
-                n += 1
-            for edge in bond_graph.out_edges(node_id):
-                port_id = f'{node_id}_{n}'
-                self.__port_ids[port_id] = '-'
-                bond_graph.add_node(port_id, **attributes)
-                bond_graph.add_edge(port_id, edge[1])
-                n += 1
-            bond_graph.remove_node(node_id)
-        elif len(bond_graph.in_edges(node_id)):
-            self.__port_ids[node_id] = '+'
-        elif len(bond_graph.out_edges(node_id)):
-            self.__port_ids[node_id] = '-'
 
-    def assign_relations(self, bond_graph: nx.DiGraph):
-    #==================================================
-        undirected_graph = bond_graph.to_undirected(as_view=True)
-        for node_id in self.__port_ids.keys():
-            adjacent_node = list(undirected_graph[node_id])[0]
-            adjacent_port = undirected_graph.nodes[adjacent_node]['port']
-
-
+    def assign_relation(self, bond_graph: nx.DiGraph):
+    #=================================================
 
 #===============================================================================
 #===============================================================================
@@ -333,36 +294,41 @@ class BondgraphModel(Labelled):
                                 for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(self, *row)
                             for row in source.sparql_query(MODEL_BONDS.replace('%MODEL%', uri))]
+
         self.__make_bond_network()
-        self.__assign_domains()
-        self.__assign_junction_ports()
-        self.__assign_junction_relations()
-
-
+        self.__check_and_assign_domains_to_bond_network()
+        self.__assign_junction_domains_and_relations()
 
     @property
     def source(self):
         return self.__source
 
     # Assign junction domains from elements and check consistency
-    def __assign_domains(self):
-    #=========================
+    def __check_and_assign_domains_to_bond_network(self):
+    #====================================================
+        seen_nodes = set()
+        undirected_graph = self.__graph.to_undirected(as_view=True)
+
+        def check_node(node, domain):
+            if node not in seen_nodes:
+                seen_nodes.add(node)
+                if 'domain' not in self.__graph.nodes[node]:
+                    self.__graph.nodes[node]['domain'] = domain
+                    for neighbour in undirected_graph.neighbors(node):
+                        check_node(neighbour, domain)
+                elif domain != (node_domain := self.__graph.nodes[node]['domain']):
+                    raise ValueError(f'Node {node} with domain {node_domain} incompatible with {domain}')
+
         for element in self.__elements:
-            element.assign_domains(self.__graph)
+            for port_id in element.ports.keys():
+                check_node(port_id, element.domain)
 
-    # Add individual ports to junction nodes (only for 0 and 1 nodes)
-    def __assign_junction_ports(self):
-    #=================================
+    def __assign_junction_domains_and_relations(self):
+    #=================================================
         for junction in self.__junctions:
-            junction.assign_ports_and_domain(self.__graph)
-        for node, degree in self.__graph.degree:
-            if degree != 1:
-                raise ValueError(f'{self.uri} is not properly connected (node {node})')
-
-    def __assign_junction_relations(self):
-    #=====================================
+            junction.assign_domain(self.__graph)
         for junction in self.__junctions:
-            junction.assign_relations(self.__graph)
+            junction.assign_relation(self.__graph)
 
     # Construct network graph of PowerBonds
     def __make_bond_network(self):
