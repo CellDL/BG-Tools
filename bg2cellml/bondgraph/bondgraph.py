@@ -206,7 +206,7 @@ class BondgraphJunction(Labelled):
         self.__constitutive_relation = None
         self.__domain = None
         self.__value = value
-        self.__variable = None
+        self.__variables: list[Variable] = []
 
     @property
     def constitutive_relation(self) -> MathML:
@@ -218,8 +218,8 @@ class BondgraphJunction(Labelled):
         return self.__type
 
     @property
-    def variable(self):
-        return self.__variable
+    def variables(self) -> list[Variable]:
+        return self.__variables
 
     def assign_domain(self, bond_graph: nx.DiGraph):
     #===============================================
@@ -227,9 +227,9 @@ class BondgraphJunction(Labelled):
         attributes = bond_graph.nodes[node_id]
         self.__domain = attributes['domain']
         if self.__type == ONENODE_JUNCTION:
-            self.__variable = Variable(node_id, node_id, self.__domain.flow.units, self.__value)
+            self.__variables = [Variable(node_id, node_id, self.__domain.flow.units, self.__value)]
         elif self.__type == ZERONODE_JUNCTION:
-            self.__variable = Variable(node_id, node_id, self.__domain.potential.units, self.__value)
+            self.__variables = [Variable(node_id, node_id, self.__domain.potential.units, self.__value)]
         elif self.__type == TRANSFORM_JUNCTION:
             raise ValueError(f'Transform Nodes ({self.uri}) are not yet supported')
             ## each port needs a domain, if gyrator different domains...
@@ -263,7 +263,7 @@ class BondgraphJunction(Labelled):
         elif 'junction' in node_dict:
             junction: BondgraphJunction = node_dict['junction']
             if junction.type == ONENODE_JUNCTION:
-                return junction.variable.symbol         # type: ignore
+                return junction.variables[0].symbol     # type: ignore
             elif junction.type == ZERONODE_JUNCTION:
                 raise ValueError(f'Adjacent Zero Nodes, {self.uri} and {junction.uri}, must be merged')
             elif junction.type == TRANSFORM_JUNCTION:
@@ -278,7 +278,7 @@ class BondgraphJunction(Labelled):
         elif 'junction' in node_dict:
             junction: BondgraphJunction = node_dict['junction']
             if junction.type == ZERONODE_JUNCTION:
-                return junction.variable.symbol         # type: ignore
+                return junction.variables[0].symbol     # type: ignore
             elif junction.type == ONENODE_JUNCTION:
                 raise ValueError(f'Adjacent One Nodes, {self.uri} and {junction.uri}, must be merged')
             elif junction.type == TRANSFORM_JUNCTION:
