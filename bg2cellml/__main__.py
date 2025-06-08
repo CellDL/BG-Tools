@@ -19,12 +19,20 @@
 #===============================================================================
 
 from bg2cellml.bondgraph import BondgraphModelSource
+from bg2cellml.cellml import CellMLModel
+
+#===============================================================================
+
+def bg2cellml(bondgraph_rdf_source: str):
+    for model in BondgraphModelSource(bondgraph_rdf_source).models:
+        cellml = CellMLModel(model).to_xml()
+        print(cellml)
 
 #===============================================================================
 
 def main():
-    ex_1 = BondgraphModelSource('../examples/example_RCR.ttl')
-    #ex_2 = BondgraphModelSource('../examples/example_B1.ttl')
+    bg2cellml('../examples/example_RCR.ttl')
+    #bg2cellml('../examples/example_B1.ttl')
 
 #===============================================================================
 

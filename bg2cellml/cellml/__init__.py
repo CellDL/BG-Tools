@@ -18,22 +18,20 @@
 #
 #===============================================================================
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 #===============================================================================
 
 import lxml.etree as etree
-import sympy
-from sympy.printing.mathml import MathMLContentPrinter
 
 #===============================================================================
 
-from ..definitions import BONDGRAPH_EQUATIONS
+from ..bondgraph import BondgraphElement, BondgraphJunction, BondgraphModel
+from ..bondgraph import VOI_VARIABLE
+from ..bondgraph.framework import clean_name, Variable
+from ..mathml import MathML
 from ..rdf import XMLNamespace
 from ..units import Units
-
-if TYPE_CHECKING:
-    from ..bondgraph import BondgraphModel, BondgraphNode
 
 #===============================================================================
 
@@ -61,88 +59,70 @@ CELLML_UNITS = [
 #===============================================================================
 
 class CellMLVariable:
-    def __init__(self, name: str, units: Units):
-        self.__name = name
-        self.__units = units.name
-        self.__initial_value = None
-
-    def set_initial_value(self, value: float):
-    #=========================================
-        self.__initial_value = value
+    def __init__(self, variable: Variable):
+        self.__symbol = variable.symbol
+        self.__units = variable.units.name
+        if variable.value is not None:
+            self.__initial_value = variable.value.value
+        else:
+            self.__initial_value = None
 
     def get_element(self) -> etree.Element:
     #======================================
-        element = cellml_element('variable', name=self.__name, units=self.__units)
+        element = cellml_element('variable', name=self.__symbol, units=self.__units)
         if self.__initial_value is not None:
             element.attrib['initial_value'] = f'{self.__initial_value}'
         return element
 
     @property
-    def name(self):
-    #==============
-        return self.__name
+    def symbol(self):
+    #================
+        return self.__symbol
 
 #===============================================================================
 
 class CellMLModel:
-    def __init__(self, name: str, time_var:str='t', time_units: Units=Units('s')):
-        self.__name = name
-        self.__time_var = time_var
-        self.__time_units = time_units
-        self.__have_time_var: bool = False
-        self.__cellml = cellml_element('model', name=name.replace(' ', '_').replace('-', '_'), nsmap={None: str(CELLML_NS)})
+    def __init__(self, model: 'BondgraphModel'):
+        self.__name = clean_name(model.uri)
+        self.__cellml = cellml_element('model', name=self.__name, nsmap={None: str(CELLML_NS)})
         self.__main = cellml_subelement(self.__cellml, 'component', name='main')
-        self.__known_units: list[str] = []
+        self.__known_units: set[str] = set()
+        self.__known_symbols: set[str] = set()
+        self.__add_variable(VOI_VARIABLE)       # only if VOI in some element's CR??
+        for element in model.elements:
+            self.__add_element(element)
+        # Add comment  -- variables for junctions...
+        for junction in model.junctions:
+            self.__add_junction_variables(junction)
+        # Add comment  -- CRs for junction.uri...
+        for junction in model.junctions:
+            self.__add_constitutive_relation(junction.constitutive_relation)
 
     @property
     def name(self):
     #==============
         return self.__name
 
-    def __add_equations(self, node: 'BondgraphNode'):
-    #================================================
-        equations = BONDGRAPH_EQUATIONS.get(node.type, [])
-        if len(equations):
-            for equation in equations:
-                if 'TIME' in equation:
-                    self.__add_time_var()
-                    TIME = sympy.Symbol(self.__time_var)
-                    break
-            local_names = locals()
-            n = 0
-            node_delta = []
-            for name in node.delta.split():
-                if name not in ['+', '-']:
-                    local_names[f'N_{n}'] = sympy.Symbol(name)
-                    node_delta.append(f'N_{n}')
-                    n += 1
-                else:
-                    node_delta.append(name)
-            node_delta = ' '.join(node_delta)
-            for quantity, name, value in node.quantity_values:
-                local_names[quantity.variable] = sympy.Symbol(name)
-            NODE = sympy.Symbol(node.name)
-            mathml_printer = MathMLContentPrinter({'disable_split_super_sub': True})
-            mathml = ['<math xmlns="http://www.w3.org/1998/Math/MathML">']
-            mathml.extend([mathml_printer.doprint(eval(equation.format(NODE_DELTA=node_delta)))
-                                                        for equation in equations])
-            mathml.append('</math>')
-            self.__main.append(etree.fromstring(''.join(mathml)))
+    def __add_element(self, element: BondgraphElement):
+    #==================================================
+        for constant in element.domain.constants:
+            self.__add_variable(constant)
+        for variable in element.variables.values():
+            self.__add_variable(variable)
+        for port in element.ports.values():
+            self.__add_variable(port.flow.variable)
+            self.__add_variable(port.potential.variable)
+        self.__add_constitutive_relation(element.constitutive_relation)
 
-    def add_node(self, node: 'BondgraphNode'):
-    #=========================================
-        self.__add_variable(node.name, node.units, node.value)
-        for quantity, name, value in node.quantity_values:
-            self.__add_variable(name, quantity.units, value)
-        # Assign equation variables now that quantities have names
-        self.__add_equations(node)
+    def __add_junction_variables(self, junction: BondgraphJunction):
+    #===============================================================
+        for variable in junction.variables:
+            self.__add_variable(variable)
 
-    def __add_time_var(self):
-    #========================
-        if not self.__have_time_var:
-            self.__add_units(self.__time_units)
-            self.__add_variable(self.__time_var, self.__time_units)
-            self.__have_time_var = True
+    def __add_constitutive_relation(self, constitutive_relation: Optional[MathML]):
+    #==============================================================================
+        if constitutive_relation is not None:
+            self.__main.append(constitutive_relation.mathml)
 
     def __add_units(self, units: Units):
     #===================================
@@ -151,17 +131,17 @@ class CellMLModel:
             units_element = etree.fromstring(''.join(elements))
             self.__main.addprevious(units_element)
 
-    def __add_variable(self, name: str, units: Units, init: Optional[float]=None):
-    #=============================================================================
-        self.__add_units(units)
-        variable = CellMLVariable(name, units)
-        if init is not None:
-            variable.set_initial_value(init)
-        self.__main.append(variable.get_element())
+    def __add_variable(self, variable: Variable):
+    #============================================
+        if variable.symbol not in self.__known_symbols:
+            self.__add_units(variable.units)
+            cellml_variable = CellMLVariable(variable)
+            self.__main.append(cellml_variable.get_element())
+            self.__known_symbols.add(variable.symbol)
 
     def __elements_from_units(self, units: Units) -> list[str]:
     #==========================================================
-        if str(units) in self.__known_units or str(units) in CELLML_UNITS:
+        if units.name in self.__known_units or units.name in CELLML_UNITS:
             return []
         elements = []
         elements.append(f'<units xmlns="{CELLML_NS}" name="{units.name}">')
@@ -173,23 +153,14 @@ class CellMLModel:
             if item[1] == 0: elements.append(f'<unit units="{name}"/>')
             else: elements.append(f'<unit units="{name}" exponent="{item[1]}"/>')
         elements.append('</units>')
-        self.__known_units.append(str(units))
+        self.__known_units.add(units.name)
         return elements
 
     def to_xml(self) -> bytes:
     #=========================
         cellml_tree = etree.ElementTree(self.__cellml)
         return etree.tostring(cellml_tree,
-            encoding='utf-8', inclusive_ns_prefixes=['cellml'],
-            pretty_print=True, xml_declaration=True)
-
-#===============================================================================
-
-def generate_cellml(bondgraph: 'BondgraphModel') -> bytes:
-#=========================================================
-    cellml = CellMLModel(bondgraph.name)
-    for node in bondgraph.nodes:
-        cellml.add_node(node)
-    return cellml.to_xml()
+            encoding='unicode', inclusive_ns_prefixes=['cellml'],
+            pretty_print=True)
 
 #===============================================================================

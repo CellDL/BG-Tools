@@ -346,6 +346,14 @@ class BondgraphModel(Labelled):
         self.__assign_junction_domains_and_relations()
 
     @property
+    def elements(self):
+        return self.__elements
+
+    @property
+    def junctions(self):
+        return self.__junctions
+
+    @property
     def source(self):
         return self.__source
 
@@ -403,6 +411,10 @@ class BondgraphModelSource:
         self.__rdf = rdflib.Graph()
         self.__rdf.parse(bondgraph_path, format='turtle')
         self.__models = [BondgraphModel(self, *row) for row in self.sparql_query(BONDGRAPH_MODELS)]
+
+    @property
+    def models(self):
+        return self.__models
 
     def sparql_query(self, query: str) -> list[list]:
     #================================================
