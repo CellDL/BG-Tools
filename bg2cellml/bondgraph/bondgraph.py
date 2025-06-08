@@ -93,7 +93,7 @@ class BondgraphElement(Labelled):
         for row in model.source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)):
             if row[0] not in self.__variables:
                 raise ValueError(f'Element {self.uri} has unknown symbol {row[0]} for {self.__template.uri}')   # type: ignore
-            self.__variables[row[0]].set_value(Value(row[1]))
+            self.__variables[row[0]].set_value(Value.from_literal(row[1]))
         return self
 
     @property
