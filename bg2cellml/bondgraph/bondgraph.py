@@ -49,7 +49,7 @@ def make_element_port_id(element_id: str, port_id: str) -> str:
 ELEMENT_VARIABLES = f"""
     SELECT DISTINCT ?symbol ?value
     WHERE {{
-        %ELEMENT_URI% bgf:hasVariable [
+        %ELEMENT_URI% bgf:variableValue [
             bgf:hasSymbol ?symbol ;
             bgf:hasValue ?value
         ] .
