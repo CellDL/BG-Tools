@@ -101,10 +101,6 @@ class BondgraphElement(Labelled):
         return self.__domain
 
     @property
-    def num_ports(self):
-        return len(self.__ports)
-
-    @property
     def ports(self) -> dict[str, PowerPort]:
         return self.__ports
 
@@ -222,15 +218,10 @@ class BondgraphJunction(Labelled):
         self.__junction = FRAMEWORK.junction(type)
         if self.__junction is None:
             raise ValueError(f'Unknown BondElement {type} for node {uri}')
-        self.__num_ports = self.__junction.num_ports
         self.__port_ids: dict[str, str] = {}
         self.__domain = None
         self.__value = value
         self.__variable = None
-
-    @property
-    def num_ports(self):
-        return self.__num_ports
 
     @property
     def type(self):
