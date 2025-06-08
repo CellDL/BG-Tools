@@ -70,7 +70,8 @@ class Units:
     #====================================
         name = (name.replace(' * ', '_')
                     .replace(' / ', '_per_')
-                    .replace(' ** 2', '_squared'))
+                    .replace(' ** 2', '_squared')
+                    .replace('1_per_', 'per_'))
         for fullname, replacement in SUBSTITUTIONS.items():
             name = name.replace(fullname, replacement)
         return name
