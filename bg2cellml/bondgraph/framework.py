@@ -67,6 +67,10 @@ def optional_integer(value: Optional[rdflib.Literal], default: Optional[int]=Non
         return int(value)
     return default
 
+def clean_name(curie: str) -> str:
+#=================================
+    return curie.strip(':').replace(':', '_').replace('-', '_')
+
 #===============================================================================
 #===============================================================================
 
@@ -84,7 +88,7 @@ ELEMENT_VARIABLES = f"""
 class Variable:
     def __init__(self, element_uri: str, symbol: str, units: Optional[rdflib.Literal|Units], value: Optional[rdflib.Literal]):
         self.__element_uri = element_uri
-        self.__symbol = symbol.strip(':').replace(':', '_')
+        self.__symbol = clean_name(symbol)
         self.__units = Units.from_ucum(units) if isinstance(units, rdflib.Literal) else units
         if value is not None:
             self.__value = Value.from_literal(value)
@@ -119,9 +123,9 @@ class Variable:
     def units(self):
         return self.__units
 
-    def copy(self, prefix: Optional[str]=None) -> 'Variable':
+    def copy(self, suffix: Optional[str]=None) -> 'Variable':
     #========================================================
-        symbol = self.__symbol if prefix is None else f'{prefix}_{self.__symbol}'
+        symbol = self.__symbol if suffix is None else f'{self.__symbol}_{clean_name(suffix)}'
         copy = Variable(self.__element_uri, symbol, self.__units, None)
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy
@@ -249,14 +253,14 @@ class PowerPort:
     def potential(self) -> PortSymbolVariable:
         return self.__potential
 
-    def copy(self, prefix: Optional[str]=None) -> 'PowerPort':
+    def copy(self, suffix: Optional[str]=None) -> 'PowerPort':
     #=========================================================
         copy = PowerPort(self.__element)
         copy.__suffix = self.__suffix
         copy.__flow = PortSymbolVariable(symbol=self.__flow.symbol,
-                                         variable=self.__flow.variable.copy(prefix))
+                                         variable=self.__flow.variable.copy(suffix))
         copy.__potential = PortSymbolVariable(symbol=self.__potential.symbol,
-                                              variable=self.__potential.variable.copy(prefix))
+                                              variable=self.__potential.variable.copy(suffix))
         return copy
 
     def __symbol_variable(self, domain_variable: Variable) -> PortSymbolVariable:
