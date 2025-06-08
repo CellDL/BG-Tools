@@ -80,11 +80,12 @@ class BondgraphElement(Labelled):
         self.__constitutive_relation = bond_element.constitutive_relation.copy()
         self.__domain = bond_element.domain
         self.__type = bond_element.uri
-        self.__variables = bond_element.variables.copy()
         # Assign variable names, substituting them into the constitutive relation
         self.__assign_variable_names()
         self.__ports = { make_element_port_id(self.uri, port_id): port.copy(self.uri)
                             for port_id, port in bond_element.ports.items() }
+        self.__variables = {symbol: variable.copy(self.uri)
+                                for symbol, variable in bond_element.variables.items()}
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', *args):
