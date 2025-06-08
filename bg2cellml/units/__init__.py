@@ -52,13 +52,14 @@ SUBSTITUTIONS = {
 class Units:
     def __init__(self, units: str|pint.Unit):
         if isinstance(units, str):
-            units = ucum_registry[units]
-        self.__units = units
+            single_unit = ucum_registry[units]
+            units = single_unit.u               # type: ignore
+        self.__units: pint.Unit = units         # type: ignore
         self.__name = Units.normalise_name(str(self.__units))
 
     @classmethod
     def from_ucum(cls, ucum_units: Literal|str) -> Self:
-        if (not isinstance(ucum_units, str)
+        if (isinstance(ucum_units, Literal)
          and ucum_units.datatype != CDT.ucumunit
          and ucum_units.datatype is not None):
             raise TypeError(f'Units value has unexpected datatype: {ucum_units.datatype}')
