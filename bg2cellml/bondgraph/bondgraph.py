@@ -33,7 +33,7 @@ import networkx as nx
 from ..rdf import Labelled, NamespaceMap
 from ..units import Value
 
-from .framework import BondgraphFramework as FRAMEWORK, Domain, Variable
+from .framework import BondgraphFramework as FRAMEWORK, Domain, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
 
 from .namespaces import NAMESPACES
@@ -97,7 +97,7 @@ class BondgraphElement(Labelled):
         return self
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         return self.__domain
 
     @property
@@ -105,7 +105,7 @@ class BondgraphElement(Labelled):
         return len(self.__ports)
 
     @property
-    def ports(self):
+    def ports(self) -> dict[str, PowerPort]:
         return self.__ports
 
     @property
@@ -179,16 +179,16 @@ class BondgraphBond(Labelled):
                         source: str|rdflib.BNode, target: str|rdflib.BNode, label: Optional[str]=None):
         super().__init__(uri, label)
         self.__model = model
-        self.__source = self.__get_port(source, 'bgf:hasSource')
-        self.__target = self.__get_port(target, 'bgf:hasTarget')
+        self.__source_id = self.__get_port(source, 'bgf:hasSource')
+        self.__target_id = self.__get_port(target, 'bgf:hasTarget')
 
     @property
-    def source(self):
-        return self.__source
+    def source_id(self) -> str:
+        return self.__source_id
 
     @property
-    def target(self):
-        return self.__target
+    def target_id(self) -> str:
+        return self.__target_id
 
     def __get_port(self, port: str|rdflib.BNode, reln: str) -> str:
     #==============================================================
@@ -383,11 +383,11 @@ class BondgraphModel(Labelled):
         for junction in self.__junctions:
             self.__graph.add_node(junction.uri, type=junction.type, node=junction)
         for bond in self.__bonds:
-            if (bond_source := bond.source) not in self.__graph:
-                raise ValueError(f'No element or junction for source {bond_source} of bond {bond.uri}')
-            if (bond_target := bond.target) not in self.__graph:
-                raise ValueError(f'No element or junction for target {bond_target} of bond {bond.uri}')
-            self.__graph.add_edge(bond_source, bond_target)
+            if (source := bond.source_id) not in self.__graph:
+                raise ValueError(f'No element or junction for source {source} of bond {bond.uri}')
+            if (target := bond.target_id) not in self.__graph:
+                raise ValueError(f'No element or junction for target {target} of bond {bond.uri}')
+            self.__graph.add_edge(source, target)
 
 #===============================================================================
 #===============================================================================
