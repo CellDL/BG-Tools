@@ -80,12 +80,11 @@ class BondgraphElement(Labelled):
         self.__constitutive_relation = bond_element.constitutive_relation.copy()
         self.__domain = bond_element.domain
         self.__type = bond_element.uri
-        # Assign variable names, substituting them into the constitutive relation
-        self.__assign_variable_names()
         self.__ports = { make_element_port_id(self.uri, port_id): port.copy(self.uri)
                             for port_id, port in bond_element.ports.items() }
         self.__variables = {symbol: variable.copy(self.uri)
                                 for symbol, variable in bond_element.variables.items()}
+        self.__substitute_variable_names()
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', *args):
@@ -116,15 +115,14 @@ class BondgraphElement(Labelled):
     def variables(self) -> dict[str, Variable]:
         return self.__variables
 
-    def __assign_variable_names(self):
-    #=================================
-        def substitute(symbol: str, prefix: str):
-            self.__constitutive_relation.substitute(symbol, f'{prefix}_{symbol}')
-        for port_name, port in self.__ports.items():
-            substitute(port.flow.symbol, port_name)
-            substitute(port.potential.symbol, port_name)
-        for symbol in self.__variables.keys():
-            substitute(symbol, self.uri)
+    # Substitute variable names into the constitutive relation
+    def __substitute_variable_names(self):
+    #=====================================
+        for port in self.__ports.values():
+            self.__constitutive_relation.substitute(port.flow.symbol, port.flow.variable.symbol)
+            self.__constitutive_relation.substitute(port.potential.symbol, port.potential.variable.symbol)
+        for symbol, variable in self.__variables.items():
+            self.__constitutive_relation.substitute(symbol, variable.symbol)
 
 #===============================================================================
 #===============================================================================
