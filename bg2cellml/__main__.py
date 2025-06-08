@@ -31,8 +31,8 @@ def bg2cellml(bondgraph_rdf_source: str):
 #===============================================================================
 
 def main():
-    bg2cellml('../examples/example_RCR.ttl')
-    #bg2cellml('../examples/example_B1.ttl')
+    #bg2cellml('../examples/example_RCR.ttl')
+    bg2cellml('../examples/example_B1.ttl')
 
 #===============================================================================
 
