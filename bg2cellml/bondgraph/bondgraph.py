@@ -304,11 +304,6 @@ class BondgraphJunction(Labelled):
 #===============================================================================
 
 """
-:u_0
-    a bgf:ZeroNode ;    ## 0-nodes can have a potential value; 1-nodes can have a flow value
-    bgf:hasVariable [  ## has to be compatible with assigned domain....
-        bgf:hasValue "11 J/coulomb"^^cdt:ucum
-    ] .
 
 The terminals of a JS network are the BEs it connects to and these
 determine possible potential (u) and flow (v) symbols for JS nodes.
@@ -322,21 +317,6 @@ Each BE gets specific symbols for its parameter, state, and powerport
 variables (and constants, when the same symbol has different values).
     ==> constants' registry (node, symbol, value)
 
-
-:R_C_R_circuit
-[[':C_1', 'bgf:ElectricalCapacitor'],
- [':R_0', 'bgf:ElectricalResistor'],
- [':R_1', 'bgf:ElectricalResistor']]
-[[':u_0', 'bgf:ZeroNode', 'bgf:Electrical'],
- [':u_1', 'bgf:ZeroNode', 'bgf:Electrical'],
- [':v_0', 'bgf:OneNode', 'bgf:Electrical']]
-
-
-[[':u_0.v_0', ':u_0', ':v_0'],
- [':u_1.C_1', ':u_1', ':C_1'],
- [':u_1.R_1', ':u_1', ':R_1'],
- [':v_0.R_0', ':v_0', ':R_0'],
- [':v_0.u_1', ':v_0', ':u_1']]
 """
 
 #===============================================================================
