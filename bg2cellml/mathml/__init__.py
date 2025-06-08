@@ -31,13 +31,6 @@ def equal(term_0: str, term_1: str) -> str:
 #==========================================
     if term_0 == term_1:
         return ''
-    elif term_0 == '<cn>0.0</cn>':
-        return f'''<apply>
-    <eq/>
-    {term_1}
-    {term_0}
-</apply>
-'''
     else:
         return f'''<apply>
     <eq/>
@@ -49,6 +42,14 @@ def equal(term_0: str, term_1: str) -> str:
 def var_symbol(symbol: str) -> str:
 #==================================
     return f'<ci>{symbol}</ci>'
+
+def negative(term: str) -> str:
+#==============================
+    return f'''<apply>
+    <minus/>
+    {term}
+</apply>
+'''
 
 def sum_variables(symbols: list[str]) -> str:
 #============================================
@@ -62,6 +63,19 @@ def sum_variables(symbols: list[str]) -> str:
     {'\n    '.join([var_symbol(symbol) for symbol in symbols])}
 </apply>
 '''
+
+def equal_variables(inputs: list[str], outputs: list[str]) -> str:
+#=================================================================
+    if len(inputs) and len(outputs):
+        return equal(sum_variables(inputs), sum_variables(outputs))
+    elif len(inputs) == 0 and len(outputs) == 0:
+        return ''
+    elif len(inputs) == 0 and len(outputs) > 1:
+        return equal(sum_variables(outputs[0:1]), negative(sum_variables(outputs[1:])))
+    elif len(inputs) > 1 and len(outputs) == 0:
+        return equal(sum_variables(inputs[0:1]), negative(sum_variables(inputs[1:])))
+    else:
+        raise ValueError(f'Attempting to set variable symbols to nothing: {inputs} = {outputs}')
 
 #===============================================================================
 

@@ -29,7 +29,7 @@ import networkx as nx
 #===============================================================================
 
 from ..rdf import Labelled, NamespaceMap
-from ..mathml import equal, MathML, sum_variables, var_symbol
+from ..mathml import equal, MathML, equal_variables, var_symbol
 from ..units import Value
 
 from .framework import BondgraphFramework as FRAMEWORK, Domain, PowerPort, Variable
@@ -266,7 +266,7 @@ class BondgraphJunction(Labelled):
             equal_value = '\n'.join([equal(var_symbol(self.__variables[0].symbol), var_symbol(symbol))
                                                                                     for symbol in equal_value])
             self.__constitutive_relation = MathML.from_string(f'''<math xmlns="http://www.w3.org/1998/Math/MathML">
-                {equal(sum_variables(inputs), sum_variables(outputs))}
+                {equal_variables(inputs, outputs)}
                 {equal_value}
 </math>''')
 
