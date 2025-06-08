@@ -29,20 +29,37 @@ import lxml.etree as etree
 
 def equal(term_0: str, term_1: str) -> str:
 #==========================================
-    return f'''<apply>
+    if term_0 == term_1:
+        return ''
+    elif term_0 == '<cn>0.0</cn>':
+        return f'''<apply>
+    <eq/>
+    {term_1}
+    {term_0}
+</apply>
+'''
+    else:
+        return f'''<apply>
     <eq/>
     {term_0}
     {term_1}
 </apply>
 '''
 
+def var_symbol(symbol: str) -> str:
+#==================================
+    return f'<ci>{symbol}</ci>'
+
 def sum_variables(symbols: list[str]) -> str:
 #============================================
     if len(symbols) == 0:
         return '<cn>0.0</cn>'
-    return f'''<apply>
+    elif len(symbols) == 1:
+        return var_symbol(symbols[0])
+    else:
+        return f'''<apply>
     <plus/>
-    {'\n    '.join([f'<ci>{symbol}</ci>' for symbol in symbols])}
+    {'\n    '.join([var_symbol(symbol) for symbol in symbols])}
 </apply>
 '''
 

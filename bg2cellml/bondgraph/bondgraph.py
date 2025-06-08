@@ -29,7 +29,7 @@ import networkx as nx
 #===============================================================================
 
 from ..rdf import Labelled, NamespaceMap
-from ..mathml import equal, MathML, sum_variables
+from ..mathml import equal, MathML, sum_variables, var_symbol
 from ..units import Value
 
 from .framework import BondgraphFramework as FRAMEWORK, Domain, PowerPort, Variable
@@ -238,19 +238,36 @@ class BondgraphJunction(Labelled):
         if bond_graph.degree[node_id] > 1:   # type: ignore
             # we are connected to several nodes
             if self.__type == ONENODE_JUNCTION:
+                # Sum of potentials connected to junction is 0
                 inputs = [self.__potential_symbol(bond_graph.nodes[edge[0]])
                             for edge in bond_graph.in_edges(node_id)]
                 outputs = [self.__potential_symbol(bond_graph.nodes[edge[1]])
                             for edge in bond_graph.out_edges(node_id)]
+                equal_value = [node_dict['port'].flow.variable.symbol
+                                for edge in bond_graph.in_edges(node_id)
+                                    if 'port' in (node_dict := bond_graph.nodes[edge[0]])]
+                equal_value.extend([node_dict['port'].flow.variable.symbol
+                                for edge in bond_graph.out_edges(node_id)
+                                    if 'port' in (node_dict := bond_graph.nodes[edge[1]])])
             elif self.__type == ZERONODE_JUNCTION:
+                # Sum of flows connected to junction is 0
                 inputs = [self.__flow_symbol(bond_graph.nodes[edge[0]])
                             for edge in bond_graph.in_edges(node_id)]
                 outputs = [self.__flow_symbol(bond_graph.nodes[edge[1]])
                             for edge in bond_graph.out_edges(node_id)]
+                equal_value = [node_dict['port'].potential.variable.symbol
+                                for edge in bond_graph.in_edges(node_id)
+                                    if 'port' in (node_dict := bond_graph.nodes[edge[0]])]
+                equal_value.extend([node_dict['port'].potential.variable.symbol
+                                for edge in bond_graph.out_edges(node_id)
+                                    if 'port' in (node_dict := bond_graph.nodes[edge[1]])])
             else:
                 raise ValueError(f'Unexpected bond graph node for {self.uri}: {self.__type}')
+            equal_value = '\n'.join([equal(var_symbol(self.__variables[0].symbol), var_symbol(symbol))
+                                                                                    for symbol in equal_value])
             self.__constitutive_relation = MathML.from_string(f'''<math xmlns="http://www.w3.org/1998/Math/MathML">
                 {equal(sum_variables(inputs), sum_variables(outputs))}
+                {equal_value}
 </math>''')
 
     def __flow_symbol(self, node_dict: dict) -> str:
