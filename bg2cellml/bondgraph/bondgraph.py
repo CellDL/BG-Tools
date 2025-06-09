@@ -47,12 +47,13 @@ def make_element_port_id(element_id: str, port_id: str) -> str:
 #===============================================================================
 
 ELEMENT_VARIABLES = f"""
-    SELECT DISTINCT ?name ?value
+    SELECT DISTINCT ?name ?value ?symbol
     WHERE {{
-        %ELEMENT_URI% bgf:variableValue [
+        %ELEMENT_URI% bgf:variableValue ?variable .
+        ?variable
             bgf:varName ?name ;
-            bgf:hasValue ?value
-        ] .
+            bgf:hasValue ?value .
+        OPTIONAL {{ ?variable bgf:hasSymbol ?symbol }}
     }}"""
 
 #===============================================================================
@@ -82,7 +83,6 @@ class BondgraphElement(Labelled):
                             for port_id, port in bond_element.ports.items() }
         self.__variables = {name: variable.copy(self.uri)
                                 for name, variable in bond_element.variables.items()}
-        self.__substitute_variable_names()
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', *args):
@@ -91,6 +91,8 @@ class BondgraphElement(Labelled):
             if row[0] not in self.__variables:
                 raise ValueError(f'Element {self.uri} has unknown name {row[0]} for {self.__template.uri}')   # type: ignore
             self.__variables[row[0]].set_value(Value.from_literal(row[1]))
+            if row[2] is not None:
+                self.__variables[row[0]].set_symbol(row[2])
         return self
 
     @property
@@ -113,14 +115,14 @@ class BondgraphElement(Labelled):
     def variables(self) -> dict[str, Variable]:
         return self.__variables
 
-    # Substitute variable names into the constitutive relation
-    def __substitute_variable_names(self):
+    # Substitute variable symbols into the constitutive relation
+    def substitute_variable_names(self):
     #=====================================
         for port in self.__ports.values():
-            self.__constitutive_relation.substitute(port.flow.name, port.flow.variable.name)
-            self.__constitutive_relation.substitute(port.potential.name, port.potential.variable.name)
+            self.__constitutive_relation.substitute(port.flow.name, port.flow.variable.symbol)
+            self.__constitutive_relation.substitute(port.potential.name, port.potential.variable.symbol)
         for name, variable in self.__variables.items():
-            self.__constitutive_relation.substitute(name, variable.name)
+            self.__constitutive_relation.substitute(name, variable.symbol)
 
 #===============================================================================
 #===============================================================================
@@ -243,10 +245,10 @@ class BondgraphJunction(Labelled):
                             for edge in bond_graph.in_edges(node_id)]
                 outputs = [self.__potential_symbol(bond_graph.nodes[edge[1]])
                             for edge in bond_graph.out_edges(node_id)]
-                equal_value = [node_dict['port'].flow.variable.name
+                equal_value = [node_dict['port'].flow.variable.symbol
                                 for edge in bond_graph.in_edges(node_id)
                                     if 'port' in (node_dict := bond_graph.nodes[edge[0]])]
-                equal_value.extend([node_dict['port'].flow.variable.name
+                equal_value.extend([node_dict['port'].flow.variable.symbol
                                 for edge in bond_graph.out_edges(node_id)
                                     if 'port' in (node_dict := bond_graph.nodes[edge[1]])])
             elif self.__type == ZERONODE_JUNCTION:
@@ -255,15 +257,15 @@ class BondgraphJunction(Labelled):
                             for edge in bond_graph.in_edges(node_id)]
                 outputs = [self.__flow_symbol(bond_graph.nodes[edge[1]])
                             for edge in bond_graph.out_edges(node_id)]
-                equal_value = [node_dict['port'].potential.variable.name
+                equal_value = [node_dict['port'].potential.variable.symbol
                                 for edge in bond_graph.in_edges(node_id)
                                     if 'port' in (node_dict := bond_graph.nodes[edge[0]])]
-                equal_value.extend([node_dict['port'].potential.variable.name
+                equal_value.extend([node_dict['port'].potential.variable.symbol
                                 for edge in bond_graph.out_edges(node_id)
                                     if 'port' in (node_dict := bond_graph.nodes[edge[1]])])
             else:
                 raise ValueError(f'Unexpected bond graph node for {self.uri}: {self.__type}')
-            equal_value = '\n'.join([equal(var_symbol(self.__variables[0].name), var_symbol(symbol))
+            equal_value = '\n'.join([equal(var_symbol(self.__variables[0].symbol), var_symbol(symbol))
                                                                                     for symbol in equal_value])
             self.__constitutive_relation = MathML.from_string(f'''<math xmlns="http://www.w3.org/1998/Math/MathML">
                 {equal_variables(inputs, outputs)}
@@ -274,11 +276,11 @@ class BondgraphJunction(Labelled):
     #===============================================
         if 'port' in node_dict:                         # A BondElement's port
             port: PowerPort = node_dict['port']
-            return port.flow.variable.name
+            return port.flow.variable.symbol
         elif 'junction' in node_dict:
             junction: BondgraphJunction = node_dict['junction']
             if junction.type == ONENODE_JUNCTION:
-                return junction.variables[0].name       # type: ignore
+                return junction.variables[0].symbol     # type: ignore
             elif junction.type == ZERONODE_JUNCTION:
                 raise ValueError(f'Adjacent Zero Nodes, {self.uri} and {junction.uri}, must be merged')
             elif junction.type == TRANSFORM_JUNCTION:
@@ -289,11 +291,11 @@ class BondgraphJunction(Labelled):
     #====================================================
         if 'port' in node_dict:                         # A BondElement's port
             port: PowerPort = node_dict['port']
-            return port.potential.variable.name
+            return port.potential.variable.symbol
         elif 'junction' in node_dict:
             junction: BondgraphJunction = node_dict['junction']
             if junction.type == ZERONODE_JUNCTION:
-                return junction.variables[0].name       # type: ignore
+                return junction.variables[0].symbol     # type: ignore
             elif junction.type == ONENODE_JUNCTION:
                 raise ValueError(f'Adjacent One Nodes, {self.uri} and {junction.uri}, must be merged')
             elif junction.type == TRANSFORM_JUNCTION:
@@ -337,6 +339,8 @@ class BondgraphModel(Labelled):
         self.__source = source
         self.__elements = [BondgraphElement.for_model(self, *row)
                                 for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
+        for element in self.__elements:
+            element.substitute_variable_names()
         self.__junctions = [BondgraphJunction(*row)
                                 for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(self, *row)

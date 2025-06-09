@@ -89,6 +89,7 @@ class Variable:
     def __init__(self, element_uri: str, name: str, units: Optional[rdflib.Literal|Units], value: Optional[rdflib.Literal]):
         self.__element_uri = element_uri
         self.__name = clean_name(name)
+        self.__symbol = None
         self.__units = Units.from_ucum(units) if isinstance(units, rdflib.Literal) else units
         if value is not None:
             self.__value = Value.from_literal(value)
@@ -105,7 +106,7 @@ class Variable:
                 raise ValueError(f'Value for variable {name} has incompatible units ({self.__value.units} != {self.__units})')
 
     def __str__(self):
-        return f'{self.__name} ({self.__value if self.__value is not None else ''}  {self.__units})'
+        return f'{self.symbol} ({self.__value if self.__value is not None else ''}  {self.__units})'
 
     @property
     def element_uri(self):
@@ -114,6 +115,10 @@ class Variable:
     @property
     def name(self):
         return self.__name
+
+    @property
+    def symbol(self):
+        return self.__symbol if self.__symbol is not None else self.__name
 
     @property
     def value(self):
@@ -129,6 +134,10 @@ class Variable:
         copy = Variable(self.__element_uri, name, self.__units, None)
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy
+
+    def set_symbol(self, symbol: str):
+    #=================================
+        self.__symbol = symbol
 
     def set_value(self, value: Value):
     #=================================
