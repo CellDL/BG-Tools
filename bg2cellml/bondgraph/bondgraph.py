@@ -197,11 +197,6 @@ class BondgraphJunction(Labelled):
         self.__junction = FRAMEWORK.junction(type)
         if self.__junction is None:
             raise ValueError(f'Unknown BondElement {type} for node {uri}')
-        if (self.__type in [ONENODE_JUNCTION, ZERONODE_JUNCTION]
-         or self.__junction.fixed_ports is None):
-            self.__port_ids = []
-        else:
-            self.__port_ids = [f'{self.uri}_{n}' for n in range(self.__junction.fixed_ports)]
         self.__constitutive_relation = None
         self.__domain = None
         self.__value = value
