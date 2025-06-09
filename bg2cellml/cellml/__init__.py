@@ -156,8 +156,8 @@ class CellMLModel:
         self.__known_units.add(units.name)
         return elements
 
-    def to_xml(self) -> bytes:
-    #=========================
+    def to_xml(self) -> str:
+    #=======================
         cellml_tree = etree.ElementTree(self.__cellml)
         return etree.tostring(cellml_tree,
             encoding='unicode', inclusive_ns_prefixes=['cellml'],
