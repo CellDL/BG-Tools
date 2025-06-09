@@ -82,9 +82,9 @@ def equal_variables(inputs: list[str], outputs: list[str]) -> str:
 class MathML:
     def __init__(self, mathml: etree.Element):
         self.__mathml = mathml
-        self.__symbols = defaultdict(list)
+        self.__variables = defaultdict(list)
         for element in self.__mathml.findall('.//{http://www.w3.org/1998/Math/MathML}ci'):
-            self.__symbols[element.text].append(element)
+            self.__variables[element.text].append(element)
 
     @classmethod
     def from_string(cls, formulae: str) -> 'MathML':
@@ -102,22 +102,22 @@ class MathML:
         return self.__mathml
 
     @property
-    def symbols(self) -> list[str]:
-        return list(self.__symbols.keys())
+    def variables(self) -> list[str]:
+        return list(self.__variables.keys())
 
     def copy(self) -> 'MathML':
     #==========================
         return MathML(deepcopy(self.__mathml))
 
-    def substitute(self, symbol: str, replacement: str):
-    #===================================================
-        if symbol not in self.__symbols:
-            raise ValueError(f'Symbol {symbol} not in formulae, cannot substitute it')
-        elif replacement in self.__symbols:
-            raise ValueError(f'Symbol {replacement} is already in formulae, cannot substitute to it')
-        for element in self.__symbols[symbol]:
-            element.text = replacement
-        self.__symbols[replacement] = self.__symbols[symbol]
-        del self.__symbols[symbol]
+    def substitute(self, name: str, symbol: str):
+    #============================================
+        if name not in self.__variables:
+            raise ValueError(f'Variable {name} not in formulae, cannot substitute it')
+        elif symbol in self.__variables:
+            raise ValueError(f'Symbol {symbol} is already in formulae, cannot substitute to it')
+        for element in self.__variables[name]:
+            element.text = symbol
+        self.__variables[symbol] = self.__variables[name]
+        del self.__variables[name]
 
 #===============================================================================

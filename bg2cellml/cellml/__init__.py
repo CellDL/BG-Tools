@@ -60,7 +60,7 @@ CELLML_UNITS = [
 
 class CellMLVariable:
     def __init__(self, variable: Variable):
-        self.__symbol = variable.symbol
+        self.__symbol = variable.name
         self.__units = variable.units.name
         if variable.value is not None:
             self.__initial_value = variable.value.value
@@ -133,11 +133,11 @@ class CellMLModel:
 
     def __add_variable(self, variable: Variable):
     #============================================
-        if variable.symbol not in self.__known_symbols:
+        if variable.name not in self.__known_symbols:
             self.__add_units(variable.units)
             cellml_variable = CellMLVariable(variable)
             self.__main.append(cellml_variable.get_element())
-            self.__known_symbols.add(variable.symbol)
+            self.__known_symbols.add(variable.name)
 
     def __elements_from_units(self, units: Units) -> list[str]:
     #==========================================================

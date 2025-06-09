@@ -75,10 +75,10 @@ def clean_name(curie: str) -> str:
 #===============================================================================
 
 ELEMENT_VARIABLES = f"""
-    SELECT DISTINCT ?symbol ?units ?value
+    SELECT DISTINCT ?name ?units ?value
     WHERE {{
         %ELEMENT_URI% bgf:hasVariable ?variable .
-        ?variable bgf:hasSymbol ?symbol .
+        ?variable bgf:varName ?name .
         OPTIONAL {{ ?variable bgf:hasUnits ?units }}
         OPTIONAL {{ ?variable bgf:hasValue ?value }}
     }}"""
@@ -86,9 +86,9 @@ ELEMENT_VARIABLES = f"""
 #===============================================================================
 
 class Variable:
-    def __init__(self, element_uri: str, symbol: str, units: Optional[rdflib.Literal|Units], value: Optional[rdflib.Literal]):
+    def __init__(self, element_uri: str, name: str, units: Optional[rdflib.Literal|Units], value: Optional[rdflib.Literal]):
         self.__element_uri = element_uri
-        self.__symbol = clean_name(symbol)
+        self.__name = clean_name(name)
         self.__units = Units.from_ucum(units) if isinstance(units, rdflib.Literal) else units
         if value is not None:
             self.__value = Value.from_literal(value)
@@ -97,23 +97,23 @@ class Variable:
         else:
             self.__value = None
         if self.__units is None:
-            raise ValueError(f'Variable {symbol} for {element_uri} has no Units specified')
+            raise ValueError(f'Variable {name} for {element_uri} has no Units specified')
         if self.__value is not None:
             if self.__value.units is None:
                 self.__value.set_units(self.__units)
             elif not self.__units.is_compatible_with(self.__value.units):
-                raise ValueError(f'Value for variable {symbol} has incompatible units ({self.__value.units} != {self.__units})')
+                raise ValueError(f'Value for variable {name} has incompatible units ({self.__value.units} != {self.__units})')
 
     def __str__(self):
-        return f'{self.__symbol} ({self.__value if self.__value is not None else ''}  {self.__units})'
+        return f'{self.__name} ({self.__value if self.__value is not None else ''}  {self.__units})'
 
     @property
     def element_uri(self):
         return self.__element_uri
 
     @property
-    def symbol(self):
-        return self.__symbol
+    def name(self):
+        return self.__name
 
     @property
     def value(self):
@@ -125,8 +125,8 @@ class Variable:
 
     def copy(self, suffix: Optional[str]=None) -> 'Variable':
     #========================================================
-        symbol = self.__symbol if suffix is None else f'{self.__symbol}_{clean_name(suffix)}'
-        copy = Variable(self.__element_uri, symbol, self.__units, None)
+        name = self.__name if suffix is None else f'{self.__name}_{clean_name(suffix)}'
+        copy = Variable(self.__element_uri, name, self.__units, None)
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy
 
@@ -137,7 +137,7 @@ class Variable:
             self.__value.set_units(self.__units)                        # type: ignore
         elif not self.__units.is_compatible_with(self.__value.units):   # type: ignore
             raise ValueError(
-                f'Value for variable {self.__symbol} has incompatible units ({self.__units} != {self.__value.units})') # type: ignore
+                f'Value for variable {self.__name} has incompatible units ({self.__units} != {self.__value.units})') # type: ignore
 
 #===============================================================================
 
@@ -147,28 +147,28 @@ VOI_VARIABLE = Variable('', VOI_SYMBOL, VOI_UCUMUNIT, None)
 #===============================================================================
 
 DOMAIN_QUERY = f"""
-    SELECT DISTINCT ?domain ?label ?flowSymbol ?flowUnits ?potentialSymbol ?potentialUnits
+    SELECT DISTINCT ?domain ?label ?flowName ?flowUnits ?potentialName ?potentialUnits
     WHERE {{
         ?domain
             a bgf:Domain ;
             bgf:hasFlow [
-                bgf:hasSymbol ?flowSymbol ;
+                bgf:varName ?flowName ;
                 bgf:hasUnits ?flowUnits
             ] ;
             bgf:hasPotential [
-                bgf:hasSymbol ?potentialSymbol ;
+                bgf:varName ?potentialName ;
                 bgf:hasUnits ?potentialUnits
             ] .
         OPTIONAL {{ ?domain rdfs:label ?label }}
     }} ORDER BY ?domain"""
 
 DOMAIN_CONSTANTS = f"""
-    SELECT DISTINCT ?symbol ?value
+    SELECT DISTINCT ?name ?value
     WHERE {{
         %DOMAIN_URI%
             a bgf:Domain ;
             bgf:hasConstant [
-                bgf:hasSymbol ?symbol ;
+                bgf:varName ?name ;
                 bgf:hasValue ?value
             ] .
     }}"""
@@ -177,11 +177,11 @@ DOMAIN_CONSTANTS = f"""
 
 class Domain(Labelled):
     def __init__(self, uri: str, label: Optional[str],
-                    flow_symbol: str, flow_units: rdflib.Literal,
-                    potential_symbol: str, potential_units: rdflib.Literal):
+                    flow_name: str, flow_units: rdflib.Literal,
+                    potential_name: str, potential_units: rdflib.Literal):
         super().__init__(uri, label)
-        self.__flow = Variable(self.uri, flow_symbol, flow_units, None)
-        self.__potential = Variable(self.uri, potential_symbol, potential_units, None)
+        self.__flow = Variable(self.uri, flow_name, flow_units, None)
+        self.__potential = Variable(self.uri, potential_name, potential_units, None)
         self.__constants: list[Variable] = []
 
     @classmethod
@@ -226,12 +226,12 @@ ELEMENT_PORT_IDS = f"""
 
 #===============================================================================
 
-class PortSymbolVariable(NamedTuple):
-    symbol: str
+class PortNameVariable(NamedTuple):
+    name: str
     variable: Variable
 
     def __str__(self):
-        return f'(symbol: {self.symbol}, variable: {self.variable})'
+        return f'(name: {self.name}, variable: {self.variable})'
 
 #===============================================================================
 
@@ -239,8 +239,8 @@ class PowerPort:
     def __init__(self, element: 'ElementTemplate', id: Optional[str]=None):
         self.__element = element
         self.__suffix = '' if id is None else f'_{id}'
-        self.__flow = self.__symbol_variable(element.domain.flow)
-        self.__potential = self.__symbol_variable(element.domain.potential)
+        self.__flow = self.__name_variable(element.domain.flow)
+        self.__potential = self.__name_variable(element.domain.potential)
 
     def __str__(self):
         return f'{self.__element.uri}{self.__suffix}, potential: {self.__potential}, flow: {self.__flow}'
@@ -250,28 +250,28 @@ class PowerPort:
         return self.__element
 
     @property
-    def flow(self) -> PortSymbolVariable:
+    def flow(self) -> PortNameVariable:
         return self.__flow
 
     @property
-    def potential(self) -> PortSymbolVariable:
+    def potential(self) -> PortNameVariable:
         return self.__potential
 
     def copy(self, suffix: Optional[str]=None) -> 'PowerPort':
     #=========================================================
         copy = PowerPort(self.__element)
         copy.__suffix = self.__suffix
-        copy.__flow = PortSymbolVariable(symbol=self.__flow.symbol,
+        copy.__flow = PortNameVariable(name=self.__flow.name,
                                          variable=self.__flow.variable.copy(suffix))
-        copy.__potential = PortSymbolVariable(symbol=self.__potential.symbol,
+        copy.__potential = PortNameVariable(name=self.__potential.name,
                                               variable=self.__potential.variable.copy(suffix))
         return copy
 
-    def __symbol_variable(self, domain_variable: Variable) -> PortSymbolVariable:
-    #==============================================================================
-        symbol = f'{domain_variable.symbol}{self.__suffix}'
-        return PortSymbolVariable(symbol=symbol,
-                                  variable=Variable(self.__element.uri, symbol, domain_variable.units, None))
+    def __name_variable(self, domain_variable: Variable) -> PortNameVariable:
+    #========================================================================
+        name = f'{domain_variable.name}{self.__suffix}'
+        return PortNameVariable(name=name,
+                                  variable=Variable(self.__element.uri, name, domain_variable.units, None))
 
 #===============================================================================
 #===============================================================================
@@ -316,7 +316,7 @@ class ElementTemplate(Labelled):
         self = cls(uri, label, domain, relation)
         self.__add_ports(framework)
         self.__add_variables(framework)
-        self.__check_symbols()
+        self.__check_names()
         return self
 
     @property
@@ -350,27 +350,27 @@ class ElementTemplate(Labelled):
                                 for row in sparql_query(framework.knowledge,
                                                         ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)) }
 
-    def __check_symbols(self):
-    #=========================
-        symbols = []
-        def add_symbol(symbol: str, unique=True):
-            if symbol not in symbols:
-                symbols.append(symbol)
+    def __check_names(self):
+    #=======================
+        names = []
+        def add_name(name: str, unique=True):
+            if name not in names:
+                names.append(name)
             elif unique:
-                raise ValueError(f'Duplicate symbol `{symbol}` for {self.uri}')
-        for symbol in self.__variables.keys():
-            add_symbol(symbol)
+                raise ValueError(f'Duplicate name `{name}` for {self.uri}')
+        for name in self.__variables.keys():
+            add_name(name)
         for port in self.__ports.values():
-            add_symbol(port.flow.symbol, False)
-            add_symbol(port.potential.symbol, False)
-        eqn_symbols = self.__relation.symbols
-        if len(symbols) > len(eqn_symbols):
+            add_name(port.flow.name, False)
+            add_name(port.potential.name, False)
+        eqn_names = self.__relation.variables
+        if len(names) > len(eqn_names):
             raise ValueError(f"{self.uri} has variables that are not in it's constitutive relation")
-        symbols.extend([c.symbol for c in self.__domain.constants])
-        symbols.append(VOI_VARIABLE.symbol)
-        for eqn_symbol in eqn_symbols:
-            if eqn_symbol not in symbols:
-                raise ValueError(f'Constitutive relation of {self.uri} has undeclared symbol {eqn_symbol}')
+        names.extend([c.name for c in self.__domain.constants])
+        names.append(VOI_VARIABLE.name)
+        for name in eqn_names:
+            if name not in names:
+                raise ValueError(f'Constitutive relation of {self.uri} has undeclared name {name}')
 
 #===============================================================================
 #===============================================================================
