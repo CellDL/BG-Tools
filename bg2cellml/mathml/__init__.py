@@ -113,6 +113,8 @@ class MathML:
     #============================================
         if name not in self.__variables:
             raise ValueError(f'Variable {name} not in formulae, cannot substitute it')
+        elif name == symbol:
+            return
         elif symbol in self.__variables:
             raise ValueError(f'Symbol {symbol} is already in formulae, cannot substitute to it')
         for element in self.__variables[name]:
