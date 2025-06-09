@@ -52,7 +52,7 @@ SUBSTITUTIONS = {
 class Units:
     def __init__(self, units: str|pint.Unit):
         if isinstance(units, str):
-            single_unit = ucum_registry[units]
+            single_unit = ucum_registry(units)
             units = single_unit.u               # type: ignore
         self.__units: pint.Unit = units         # type: ignore
         self.__name = Units.normalise_name(str(self.__units))
