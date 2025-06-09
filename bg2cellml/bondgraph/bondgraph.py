@@ -72,7 +72,6 @@ MODEL_ELEMENTS = f"""
 class BondgraphElement(Labelled):
     def __init__(self, uri: str, template: str, label: Optional[str]):
         super().__init__(uri, label)
-        # print(uri, [str(v) for v in params.values()], [str(v) for v in states.values()])
         bond_element = FRAMEWORK.element(template)
         if bond_element is None:
             raise ValueError(f'Unknown BondElement {template} for node {uri}')
@@ -301,25 +300,6 @@ class BondgraphJunction(Labelled):
             elif junction.type == TRANSFORM_JUNCTION:
                 raise ValueError('Transform Nodes are not yet supported')
         raise ValueError(f'Unexpected bond graph node for {self.uri}: {node_dict}')
-
-#===============================================================================
-#===============================================================================
-
-"""
-
-The terminals of a JS network are the BEs it connects to and these
-determine possible potential (u) and flow (v) symbols for JS nodes.
-
-For each JS subgraph/network (reactions will divide JS network):
-    Build flow and potential matrices to determine their equations.
-        This will include transform nodes (Tf and Gy).
-
-
-Each BE gets specific symbols for its parameter, state, and powerport
-variables (and constants, when the same symbol has different values).
-    ==> constants' registry (node, symbol, value)
-
-"""
 
 #===============================================================================
 #===============================================================================
