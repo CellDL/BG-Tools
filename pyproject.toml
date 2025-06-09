@@ -13,3 +13,13 @@ dependencies = [
     "rdflib>=7.1.4",
     "ucumvert>=0.2.2",
 ]
+
+[dependency-groups]
+dev = [
+    "libopencor",
+    "pytest>=8.4.0",
+    "sedml>=0.1.0",
+]
+
+[tool.uv.sources]
+libopencor = { git = "https://github.com/opencor/libopencor.git" }
