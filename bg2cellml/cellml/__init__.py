@@ -109,9 +109,6 @@ class CellMLModel:
             self.__add_variable(constant)
         for variable in element.variables.values():
             self.__add_variable(variable)
-        for port in element.ports.values():
-            self.__add_variable(port.flow.variable)
-            self.__add_variable(port.potential.variable)
         self.__add_constitutive_relation(element.constitutive_relation)
 
     def __add_junction_variables(self, junction: BondgraphJunction):

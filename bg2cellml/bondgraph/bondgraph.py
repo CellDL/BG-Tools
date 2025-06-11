@@ -89,6 +89,9 @@ class BondgraphElement(Labelled):
                             for port_id, port in element_template.ports.items() }
         self.__variables = {name: variable.copy(self.uri)
                                 for name, variable in element_template.variables.items()}
+        for port in self.__ports.values():
+            self.__variables[port.flow.name] = port.flow.variable
+            self.__variables[port.potential.name] = port.potential.variable
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', *args):
@@ -124,9 +127,6 @@ class BondgraphElement(Labelled):
     # Substitute variable symbols into the constitutive relation
     def substitute_variable_names(self):
     #=====================================
-        for port in self.__ports.values():
-            self.__constitutive_relation.substitute(port.flow.name, port.flow.variable.symbol)
-            self.__constitutive_relation.substitute(port.potential.name, port.potential.variable.symbol)
         for name, variable in self.__variables.items():
             self.__constitutive_relation.substitute(name, variable.symbol)
 
