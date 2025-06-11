@@ -65,7 +65,6 @@ MODEL_ELEMENTS = f"""
         ?uri a ?element_type .
         OPTIONAL {{ ?uri rdfs:label ?label }}
         OPTIONAL {{ ?uri bgf:hasDomain ?domain }}
-        FILTER (?element_type IN ({', '.join(FRAMEWORK.element_classes())}))
     }} ORDER BY ?uri"""
 
 #===============================================================================
@@ -75,7 +74,7 @@ class BondgraphElement(Labelled):
         super().__init__(uri, label)
         element_template = FRAMEWORK.element_template(element_type, domain_uri)
         if element_template is None:
-            raise ValueError(f'Unknown BondElement {element_type} for node {uri}')
+            raise ValueError(f'Cannot find BondElement with type/domain of `{element_type}/{domain_uri}` for node {uri}')
         elif element_template.domain is None:
             raise ValueError(f'No modelling domain for node {uri} with template {element_type}/{domain_uri}')
         elif domain_uri is not None and element_template.domain.uri != domain_uri:
@@ -137,8 +136,8 @@ MODEL_BONDS = f"""
     SELECT DISTINCT ?uri ?source ?target ?label
     WHERE {{
         %MODEL% bg:hasPowerBond ?uri .
-        ?uri bgf:hasSource ?source .
-        ?uri bgf:hasTarget ?target .
+        OPTIONAL {{ ?uri bgf:hasSource ?source }}
+        OPTIONAL {{ ?uri bgf:hasTarget ?target }}
         OPTIONAL {{ ?uri rdfs:label ?label }}
     }}"""
 
@@ -190,7 +189,6 @@ MODEL_JUNCTIONS = f"""
         ?uri a ?type .
         OPTIONAL {{ ?uri rdfs:label ?label }}
         OPTIONAL {{ ?uri bgf:hasValue ?value }}
-        FILTER (?type IN ({', '.join(FRAMEWORK.junction_classes())}))
     }} ORDER BY ?uri"""
 
 #===============================================================================
@@ -201,7 +199,7 @@ class BondgraphJunction(Labelled):
         self.__type = type
         self.__junction = FRAMEWORK.junction(type)
         if self.__junction is None:
-            raise ValueError(f'Unknown BondElement {type} for node {uri}')
+            raise ValueError(f'Unknown Junction {type} for node {uri}')
         self.__constitutive_relation = None
         self.__domain = None
         self.__value = value
