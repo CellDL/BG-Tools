@@ -59,29 +59,36 @@ ELEMENT_VARIABLES = f"""
 #===============================================================================
 
 MODEL_ELEMENTS = f"""
-    SELECT DISTINCT ?uri ?type ?label
+    SELECT DISTINCT ?uri ?element_type ?label ?domain
     WHERE {{
         %MODEL% bg:hasBondElement ?uri .
-        ?uri a ?type .
+        ?uri a ?element_type .
         OPTIONAL {{ ?uri rdfs:label ?label }}
-        FILTER (?type IN ({', '.join(FRAMEWORK.element_classes())}))
+        OPTIONAL {{ ?uri bgf:hasDomain ?domain }}
+        FILTER (?element_type IN ({', '.join(FRAMEWORK.element_classes())}))
     }} ORDER BY ?uri"""
 
 #===============================================================================
 
 class BondgraphElement(Labelled):
-    def __init__(self, uri: str, template: str, label: Optional[str]):
+    def __init__(self, uri: str, element_type: str, label: Optional[str], domain_uri: Optional[str]):
         super().__init__(uri, label)
-        bond_element = FRAMEWORK.element(template)
-        if bond_element is None:
-            raise ValueError(f'Unknown BondElement {template} for node {uri}')
-        self.__constitutive_relation = bond_element.constitutive_relation.copy()
-        self.__domain = bond_element.domain
-        self.__type = bond_element.uri
+        element_template = FRAMEWORK.element_template(element_type, domain_uri)
+        if element_template is None:
+            raise ValueError(f'Unknown BondElement {element_type} for node {uri}')
+        elif element_template.domain is None:
+            raise ValueError(f'No modelling domain for node {uri} with template {element_type}/{domain_uri}')
+        elif domain_uri is not None and element_template.domain.uri != domain_uri:
+            raise ValueError(f'Domain mismatch for node {uri} with template {element_type}/{domain_uri}')
+        elif element_template.constitutive_relation is None:
+            raise ValueError(f'Template {element_template.uri} for node {uri} has no constitutive relation')
+        self.__constitutive_relation = element_template.constitutive_relation.copy()
+        self.__domain = element_template.domain
+        self.__type = element_template.uri
         self.__ports = { make_element_port_id(self.uri, port_id): port.copy(self.uri)
-                            for port_id, port in bond_element.ports.items() }
+                            for port_id, port in element_template.ports.items() }
         self.__variables = {name: variable.copy(self.uri)
-                                for name, variable in bond_element.variables.items()}
+                                for name, variable in element_template.variables.items()}
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', *args):

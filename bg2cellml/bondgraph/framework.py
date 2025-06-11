@@ -285,12 +285,13 @@ class PowerPort:
 #===============================================================================
 #===============================================================================
 
-ELEMENT_DEFINITIONS = f"""
-    SELECT DISTINCT ?uri ?label ?domain ?relation
+ELEMENT_TEMPLATE_DEFINITIONS = f"""
+    SELECT DISTINCT ?uri ?element_type ?label ?domain ?relation
     WHERE {{
         ?uri
             a bgf:ElementTemplate ;
-            rdfs:subClassOf bg:BondElement ;
+            rdfs:subClassOf ?element_type ;
+            rdfs:subClassOf* bg:BondElement ;
             bgf:hasDomain ?domain ;
             bgf:constitutiveRelation ?relation .
         OPTIONAL {{ ?uri rdfs:label ?label }}
@@ -299,8 +300,10 @@ ELEMENT_DEFINITIONS = f"""
 #===============================================================================
 
 class ElementTemplate(Labelled):
-    def __init__(self, uri: str, label: Optional[str], domain: Domain, relation: str|rdflib.Literal):
+    def __init__(self, uri: str, element_type: str,
+                    label: Optional[str], domain: Domain, relation: str|rdflib.Literal):
         super().__init__(uri, label)
+        self.__element_type = element_type
         self.__domain = domain
         mathml = None
         if isinstance(relation, rdflib.Literal):
@@ -319,10 +322,11 @@ class ElementTemplate(Labelled):
         self.__variables: dict[str, Variable] = {}
 
     @classmethod
-    def from_framework(cls, framework: '_BondgraphFramework', uri, label, domain_uri, relation) -> Self:
+    def from_framework(cls, framework: '_BondgraphFramework', uri: str, element_type: str,
+                        label: Optional[str], domain_uri: str, relation: str|rdflib.Literal) -> Self:
         if (domain := framework.domain(domain_uri)) is None:
             raise ValueError(f'Unknown domain {domain_uri} for {uri} element')
-        self = cls(uri, label, domain, relation)
+        self = cls(uri, element_type, label, domain, relation)
         self.__add_ports(framework)
         self.__add_variables(framework)
         self.__check_names()
@@ -339,6 +343,10 @@ class ElementTemplate(Labelled):
     @property
     def ports(self) -> dict[str, PowerPort]:
         return self.__ports
+
+    @property
+    def element_type(self) -> str:
+        return self.__element_type
 
     @property
     def variables(self) -> dict[str, Variable]:
@@ -423,8 +431,14 @@ class _BondgraphFramework:
             self.__knowledge.parse(knowledge, format='turtle')
         self.__domains = {row[0]: Domain.from_framework(self, *row)
                                 for row in sparql_query(self.__knowledge, DOMAIN_QUERY)}
-        self.__elements = {row[0]: ElementTemplate.from_framework(self, *row)
-                                for row in sparql_query(self.__knowledge, ELEMENT_DEFINITIONS)}
+        self.__element_templates = {row[0]: ElementTemplate.from_framework(self, *row)
+                                for row in sparql_query(self.__knowledge, ELEMENT_TEMPLATE_DEFINITIONS)}
+        self.__element_domains: dict[tuple[str, str], ElementTemplate] = {
+            (element.element_type, element.domain.uri): element for element in self.__element_templates.values()
+                if element.domain is not None
+        }
+        self.__element_classes = set(self.__element_templates.keys())
+        self.__element_classes |= set(key[0] for key in self.__element_domains.keys())
         self.__junctions = {row[0]: JunctionStructure(*row)
                                 for row in sparql_query(self.__knowledge, JUNCTION_STRUCTURES)}
 
@@ -437,13 +451,16 @@ class _BondgraphFramework:
     #==============================================
         return self.__domains.get(uri)
 
-    def element(self, uri: str) -> Optional[ElementTemplate]:
-    #========================================================
-        return self.__elements.get(uri)
+    def element_template(self, element_type: str, domain_uri: Optional[str]) -> Optional[ElementTemplate]:
+    #=====================================================================================================
+        if domain_uri is None:
+            return self.__element_templates.get(element_type)
+        else:
+            return self.__element_domains.get((element_type, domain_uri))
 
     def element_classes(self) -> list[str]:
     #======================================
-        return list(self.__elements.keys())
+        return list(self.__element_classes)
 
     def junction(self, uri: str) -> Optional[JunctionStructure]:
     #===========================================================
