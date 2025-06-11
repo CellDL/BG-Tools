@@ -40,6 +40,8 @@ def cellml_virtual_file(cellml: str) -> loc.File:
 
 def run_simulation(simulation):
 #==============================
+    if simulation.has_issues:
+        raise ValueError(f'Simulation has issues: {simulation.issues[0].description}')
     instance = simulation.instantiate(True)
     instance.run()
     return instance.tasks[0]
