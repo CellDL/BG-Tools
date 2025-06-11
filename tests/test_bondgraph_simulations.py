@@ -72,6 +72,11 @@ def compare_simulation(bondgraph_source: str, sedml_source: str):
 
 #===============================================================================
 
+def test_simple_electrical_circuit():
+#====================================
+    compare_simulation('../examples/example_A1.ttl',
+                       '../pmr/Simple_electrical_circuit/FAIRDO BG example 3.1.sedml')
+
 def test_simple_reaction():
 #==========================
     compare_simulation('../examples/example_B1.ttl',
