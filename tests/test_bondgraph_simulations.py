@@ -59,7 +59,8 @@ def assert_equal_states_and_rates(instance_task, reference_task):
 
 def compare_simulation(bondgraph_source: str, sedml_source: str):
 #===============================================================
-    reference = loc.SedDocument(loc.File(sedml_source))
+    ref_cellml = loc.SedDocument(loc.File(f'{sedml_source}.cellml'))
+    reference = loc.SedDocument(loc.File(f'{sedml_source}.sedml'))
 
     model = BondgraphModelSource(bondgraph_source).models[0]
     cellml = CellMLModel(model).to_xml()
@@ -77,11 +78,11 @@ def compare_simulation(bondgraph_source: str, sedml_source: str):
 def test_simple_electrical_circuit():
 #====================================
     compare_simulation('../examples/example_A1.ttl',
-                       '../pmr/Simple_electrical_circuit/FAIRDO BG example 3.1.sedml')
+                       '../pmr/Simple_electrical_circuit/FAIRDO BG example 3.1')
 
 def test_simple_reaction():
 #==========================
     compare_simulation('../examples/example_B1.ttl',
-                       '../pmr/Simple_biochemical_reaction/FAIRDO BG example 3.4.sedml')
+                       '../pmr/Simple_biochemical_reaction/FAIRDO BG example 3.4')
 
 #===============================================================================
