@@ -442,7 +442,6 @@ class _BondgraphFramework:
         self.__junctions = {row[0]: JunctionStructure(*row)
                                 for row in sparql_query(self.__knowledge, JUNCTION_STRUCTURES)}
 
-
     @property
     def knowledge(self):
         return self.__knowledge
