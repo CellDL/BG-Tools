@@ -44,6 +44,8 @@ def run_simulation(simulation):
         raise ValueError(f'Simulation has issues: {simulation.issues[0].description}')
     instance = simulation.instantiate(True)
     instance.run()
+    if instance.has_issues:
+        raise ValueError(f'Simulation has issues: {instance.issues[0].description}')
     return instance.tasks[0]
 
 def assert_equal_states_and_rates(instance_task, reference_task):
