@@ -43,7 +43,7 @@ VOI_UCUMUNIT = rdflib.Literal('s', datatype=CDT.ucumunit)
 #===============================================================================
 
 ONENODE_JUNCTION   = 'bgf:OneNode'
-TRANSFORM_JUNCTION = 'bgf:TransformNode'    # Can act as a transformer of gyrator
+TRANSFORM_JUNCTION = 'bgf:Transformation'    # Can act as a transformer of gyrator
 ZERONODE_JUNCTION  = 'bgf:ZeroNode'
 
 #===============================================================================
