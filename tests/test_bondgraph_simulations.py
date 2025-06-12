@@ -59,14 +59,19 @@ def assert_equal_states_and_rates(instance_task, reference_task):
 
 def compare_simulation(bondgraph_source: str, sedml_source: str):
 #===============================================================
-    ref_cellml = loc.SedDocument(loc.File(f'{sedml_source}.cellml'))
-    reference = loc.SedDocument(loc.File(f'{sedml_source}.sedml'))
+    sedml = loc.SedDocument(loc.File(f'{sedml_source}.sedml'))
+    output_end_time = sedml.simulations[0].output_end_time
+    number_of_steps = sedml.simulations[0].number_of_steps
+
+    reference = loc.SedDocument(loc.File(f'{sedml_source}.cellml'))
+    reference.simulations[0].output_end_time = output_end_time
+    reference.simulations[0].number_of_steps = number_of_steps
 
     model = BondgraphModelSource(bondgraph_source).models[0]
     cellml = CellMLModel(model).to_xml()
     simulation = loc.SedDocument(cellml_virtual_file(cellml))
-    simulation.simulations[0].output_end_time = reference.simulations[0].output_end_time
-    simulation.simulations[0].number_of_steps = reference.simulations[0].number_of_steps
+    simulation.simulations[0].output_end_time = output_end_time
+    simulation.simulations[0].number_of_steps = number_of_steps
 
     ref_task = run_simulation(reference)
     sim_task = run_simulation(simulation)
