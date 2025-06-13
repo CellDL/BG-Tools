@@ -475,7 +475,8 @@ class _BondgraphFramework:
 BondgraphFramework = _BondgraphFramework([
     '../schema/ontology.ttl',
     '../schema/elements/chemical.ttl',
-    '../schema/elements/electrical.ttl'
+    '../schema/elements/electrical.ttl',
+    '../schema/elements/mechanical.ttl',
 ])
 
 #===============================================================================

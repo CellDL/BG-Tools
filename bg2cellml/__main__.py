@@ -32,7 +32,7 @@ def bg2cellml(bondgraph_rdf_source: str):
 
 def main():
     #bg2cellml('../examples/example_RCR.ttl')
-    bg2cellml('../examples/example_A1.ttl')
+    bg2cellml('../examples/example_A2.ttl')
 
 #===============================================================================
 
