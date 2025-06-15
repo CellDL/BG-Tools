@@ -305,7 +305,7 @@ class BondgraphJunction(Labelled):
 BONDGRAPH_MODELS = f"""
     SELECT DISTINCT ?uri ?label
     WHERE {{
-        ?uri a bg:BondGraph .
+        ?uri a bgf:BondgraphModel .
         OPTIONAL {{ ?uri rdfs:label ?label }}
     }} ORDER BY ?uri"""
 
