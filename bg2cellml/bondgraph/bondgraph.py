@@ -40,6 +40,18 @@ from .namespaces import NAMESPACES
 #===============================================================================
 #===============================================================================
 
+class ModelElement(Labelled):
+    def __init__(self,  model: 'BondgraphModel', uri: str, label: Optional[str]):
+        super().__init__(uri, label)
+        self.__model = model
+
+    @property
+    def model(self):
+        return self.__model
+
+#===============================================================================
+#===============================================================================
+
 def make_element_port_id(element_id: str, port_id: str) -> str:
 #==============================================================
     return element_id if port_id in [None, ''] else f'{element_id}_{port_id}'
@@ -69,9 +81,9 @@ MODEL_ELEMENTS = f"""
 
 #===============================================================================
 
-class BondgraphElement(Labelled):
-    def __init__(self, uri: str, element_type: str, label: Optional[str], domain_uri: Optional[str]):
-        super().__init__(uri, label)
+class BondgraphElement(ModelElement):
+    def __init__(self,  model: 'BondgraphModel', uri: str, element_type: str, label: Optional[str], domain_uri: Optional[str]):
+        super().__init__(model, uri, label)
         element_template = FRAMEWORK.element_template(element_type, domain_uri)
         if element_template is None:
             raise ValueError(f'Cannot find BondElement with type/domain of `{element_type}/{domain_uri}` for node {uri}')
@@ -94,7 +106,7 @@ class BondgraphElement(Labelled):
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', *args):
-        self = cls(*args)
+        self = cls(model, *args)
         for row in model.source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)):
             if row[0] not in self.__variables:
                 raise ValueError(f'Element {self.uri} has unknown name {row[0]} for {self.__type}')     # type: ignore
@@ -153,11 +165,10 @@ MODEL_BOND_PORTS = f"""
 
 #===============================================================================
 
-class BondgraphBond(Labelled):
+class BondgraphBond(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: str,
                         source: str|rdflib.BNode, target: str|rdflib.BNode, label: Optional[str]=None):
-        super().__init__(uri, label)
-        self.__model = model
+        super().__init__(model, uri, label)
         self.__source_id = self.__get_port(source, 'bgf:hasSource')
         self.__target_id = self.__get_port(target, 'bgf:hasTarget')
 
@@ -172,8 +183,8 @@ class BondgraphBond(Labelled):
     def __get_port(self, port: str|rdflib.BNode, reln: str) -> str:
     #==============================================================
         if isinstance(port, rdflib.BNode):
-            for row in self.__model.source.sparql_query(
-                MODEL_BOND_PORTS.replace('%MODEL%', self.__model.uri)
+            for row in self.model.source.sparql_query(
+                MODEL_BOND_PORTS.replace('%MODEL%', self.model.uri)
                                 .replace('%BOND%', self.uri)
                                 .replace('%BOND_RELN%', reln)):
                 return make_element_port_id(*row)
@@ -193,9 +204,9 @@ MODEL_JUNCTIONS = f"""
 
 #===============================================================================
 
-class BondgraphJunction(Labelled):
-    def __init__(self, uri, type: str, label: Optional[str], value: Optional[rdflib.Literal]):
-        super().__init__(uri, label)
+class BondgraphJunction(ModelElement):
+    def __init__(self, model: 'BondgraphModel', uri, type: str, label: Optional[str], value: Optional[rdflib.Literal]):
+        super().__init__(model, uri, label)
         self.__type = type
         self.__junction = FRAMEWORK.junction(type)
         if self.__junction is None:
@@ -319,7 +330,7 @@ class BondgraphModel(Labelled):
                                 for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
         for element in self.__elements:
             element.substitute_variable_names()
-        self.__junctions = [BondgraphJunction(*row)
+        self.__junctions = [BondgraphJunction(self, *row)
                                 for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(self, *row)
                             for row in source.sparql_query(MODEL_BONDS.replace('%MODEL%', uri))]
