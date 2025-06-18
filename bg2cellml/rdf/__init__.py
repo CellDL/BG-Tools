@@ -26,18 +26,6 @@ from rdflib import BNode, Literal, URIRef
 
 #===============================================================================
 
-class Labelled:
-    def __init__(self, uri: str, label: Optional[str]=None):
-        self.__uri = uri
-        self.__label = label
-
-    @property
-    def uri(self):
-        return self.__uri
-
-    @property
-    def label(self):
-        return self.__label
 
 #===============================================================================
 

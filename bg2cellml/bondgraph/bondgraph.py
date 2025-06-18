@@ -28,7 +28,7 @@ import networkx as nx
 
 #===============================================================================
 
-from ..rdf import Labelled, NamespaceMap
+from ..rdf import NamespaceMap
 from ..mathml import equal, MathML, equal_variables, var_symbol
 from ..units import Value
 
@@ -36,6 +36,7 @@ from .framework import BondgraphFramework as FRAMEWORK, Domain, PowerPort, Varia
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
 
 from .namespaces import NAMESPACES
+from .utils import Labelled
 
 #===============================================================================
 #===============================================================================

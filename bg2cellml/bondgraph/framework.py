@@ -27,11 +27,12 @@ from rdflib.namespace import XSD
 
 #===============================================================================
 
-from ..rdf import Labelled, NamespaceMap
+from ..rdf import NamespaceMap
 from ..units import Units, Value
 
 from ..mathml import MathML
 from .namespaces import BGF, CDT, NAMESPACES
+from .utils import Labelled
 
 #===============================================================================
 
