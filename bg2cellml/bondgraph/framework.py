@@ -190,9 +190,9 @@ class Domain(Labelled):
 #===============================================================================
 
 ELEMENT_PORT_IDS = f"""
-    SELECT DISTINCT ?portId
+    SELECT DISTINCT ?suffix
     WHERE {{
-        <%ELEMENT_URI%> bgf:hasPortId ?suffix .
+        <%ELEMENT_URI%> bgf:hasPortSuffix ?suffix .
     }}
     ORDER BY ?port"""
 
@@ -208,9 +208,9 @@ class PortNameVariable(NamedTuple):
 #===============================================================================
 
 class PowerPort:
-    def __init__(self, element: 'ElementTemplate', id: Optional[str]=None):
+    def __init__(self, element: 'ElementTemplate', suffix: Optional[str]=None):
         self.__element = element
-        self.__suffix = '' if id is None else f'_{id}'
+        self.__suffix = '' if suffix is None else f'_{suffix}'
         self.__flow = self.__name_variable(element.domain.flow)
         self.__potential = self.__name_variable(element.domain.potential)
 
