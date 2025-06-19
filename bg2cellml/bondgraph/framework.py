@@ -43,7 +43,7 @@ VOI_UCUMUNIT = Literal('s', datatype=CDT.ucumunit)
 #===============================================================================
 
 ONENODE_JUNCTION   = BGF.OneNode
-TRANSFORM_JUNCTION = BGF.Transformation      # Can act as a transformer of gyrator
+TRANSFORM_JUNCTION = BGF.TransformNode  # Can act as a transformer of gyrator
 ZERONODE_JUNCTION  = BGF.ZeroNode
 
 #===============================================================================
@@ -399,7 +399,7 @@ ELEMENT_TEMPLATE_DEFINITIONS = f"""
 JUNCTION_STRUCTURES = f"""
     SELECT DISTINCT ?junction ?label ?numPorts
     WHERE {{
-        ?junction rdfs:subClassOf bg:JunctionStructure .
+        ?junction rdfs:subClassOf* bgf:JunctionStructure .
         OPTIONAL {{ ?junction rdfs:label ?label }}
         OPTIONAL {{ ?junction bgf:numPorts ?numPorts }}
     }} ORDER BY ?junction"""
