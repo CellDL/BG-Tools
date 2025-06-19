@@ -22,12 +22,11 @@ from typing import NamedTuple, Optional, Self
 
 #===============================================================================
 
-import rdflib
 from rdflib.namespace import XSD
 
 #===============================================================================
 
-from ..rdf import NamespaceMap
+from ..rdf import Literal, RDFGraph, URIRef
 from ..units import Units, Value
 
 from ..mathml import MathML
@@ -39,38 +38,25 @@ from .utils import Labelled
 # Variable of integration
 
 VOI_SYMBOL = 't'
-VOI_UCUMUNIT = rdflib.Literal('s', datatype=CDT.ucumunit)
+VOI_UCUMUNIT = Literal('s', datatype=CDT.ucumunit)
 
 #===============================================================================
 
-ONENODE_JUNCTION   = 'bgf:OneNode'
-TRANSFORM_JUNCTION = 'bgf:Transformation'    # Can act as a transformer of gyrator
-ZERONODE_JUNCTION  = 'bgf:ZeroNode'
+ONENODE_JUNCTION   = BGF.OneNode
+TRANSFORM_JUNCTION = BGF.Transformation      # Can act as a transformer of gyrator
+ZERONODE_JUNCTION  = BGF.ZeroNode
 
 #===============================================================================
 
-NAMESPACE_MAP = NamespaceMap(NAMESPACES)
-SPARQL_PREFIXES = NAMESPACE_MAP.sparql_prefixes()
-
-#===============================================================================
-
-def sparql_query(rdf_graph: rdflib.Graph, query: str) -> list[list]:
-#===================================================================
-    query_result = rdf_graph.query(f'{SPARQL_PREFIXES}\n{query}')
-    if query_result is not None:
-        return [[NAMESPACE_MAP.simplify(term) for term in row]   # type: ignore
-                                                    for row in query_result]
-    return []
-
-def optional_integer(value: Optional[rdflib.Literal], default: Optional[int]=None) -> Optional[int]:
-#===================================================================================================
+def optional_integer(value: Optional[Literal], default: Optional[int]=None) -> Optional[int]:
+#============================================================================================
     if value is not None and value.datatype == XSD.integer:
         return int(value)
     return default
 
-def clean_name(curie: str) -> str:
+def clean_name(name: str) -> str:
 #=================================
-    return curie.strip(':').replace(':', '_').replace('-', '_')
+    return name.replace(':', '_').replace('-', '_')
 
 #===============================================================================
 #===============================================================================
@@ -78,7 +64,7 @@ def clean_name(curie: str) -> str:
 ELEMENT_VARIABLES = f"""
     SELECT DISTINCT ?name ?units ?value
     WHERE {{
-        %ELEMENT_URI% bgf:hasVariable ?variable .
+        <%ELEMENT_URI%> bgf:hasVariable ?variable .
         ?variable bgf:varName ?name .
         OPTIONAL {{ ?variable bgf:hasUnits ?units }}
         OPTIONAL {{ ?variable bgf:hasValue ?value }}
@@ -87,11 +73,11 @@ ELEMENT_VARIABLES = f"""
 #===============================================================================
 
 class Variable:
-    def __init__(self, element_uri: str, name: str, units: Optional[rdflib.Literal|Units], value: Optional[rdflib.Literal]):
+    def __init__(self, element_uri: URIRef, name: str, units: Optional[Literal|Units], value: Optional[Literal]):
         self.__element_uri = element_uri
         self.__name = clean_name(name)
         self.__symbol = None
-        self.__units = Units.from_ucum(units) if isinstance(units, rdflib.Literal) else units
+        self.__units = Units.from_ucum(units) if isinstance(units, Literal) else units
         if value is not None:
             self.__value = Value.from_literal(value)
             if self.__units is None and self.__value.units is not None:
@@ -151,7 +137,7 @@ class Variable:
 
 #===============================================================================
 
-VOI_VARIABLE = Variable('', VOI_SYMBOL, VOI_UCUMUNIT, None)
+VOI_VARIABLE = Variable(URIRef(''), VOI_SYMBOL, VOI_UCUMUNIT, None)
 
 #===============================================================================
 #===============================================================================
@@ -175,7 +161,7 @@ DOMAIN_QUERY = f"""
 DOMAIN_CONSTANTS = f"""
     SELECT DISTINCT ?name ?value
     WHERE {{
-        %DOMAIN_URI%
+        <%DOMAIN_URI%>
             a bgf:ModellingDomain ;
             bgf:hasConstant [
                 bgf:varName ?name ;
@@ -186,9 +172,9 @@ DOMAIN_CONSTANTS = f"""
 #===============================================================================
 
 class Domain(Labelled):
-    def __init__(self, uri: str, label: Optional[str],
-                    flow_name: str, flow_units: rdflib.Literal,
-                    potential_name: str, potential_units: rdflib.Literal):
+    def __init__(self, uri: URIRef, label: Optional[str],
+                    flow_name: str, flow_units: Literal,
+                    potential_name: str, potential_units: Literal):
         super().__init__(uri, label)
         self.__flow = Variable(self.uri, flow_name, flow_units, None)
         self.__potential = Variable(self.uri, potential_name, potential_units, None)
@@ -220,9 +206,9 @@ class Domain(Labelled):
 
     def __add_constants(self, framework: '_BondgraphFramework'):
     #===========================================================
-        self.__constants.extend([Variable(self.uri, row[0], None, row[1])
-                                for row in sparql_query(framework.knowledge,
-                                                        DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri))])
+        self.__constants.extend([Variable(self.uri, str(row[0]), None, row[1])  # type: ignore
+                                for row in framework.knowledge.query(
+                                        DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri))])
 
 #===============================================================================
 #===============================================================================
@@ -230,7 +216,7 @@ class Domain(Labelled):
 ELEMENT_PORT_IDS = f"""
     SELECT DISTINCT ?portId
     WHERE {{
-        %ELEMENT_URI% bgf:hasPortId ?portId .
+        <%ELEMENT_URI%> bgf:hasPortId ?suffix .
     }}
     ORDER BY ?port"""
 
@@ -301,13 +287,13 @@ ELEMENT_TEMPLATE_DEFINITIONS = f"""
 #===============================================================================
 
 class ElementTemplate(Labelled):
-    def __init__(self, uri: str, element_type: str,
-                    label: Optional[str], domain: Domain, relation: str|rdflib.Literal):
+    def __init__(self, uri: URIRef, element_type: URIRef,
+                    label: Optional[str], domain: Domain, relation: str|Literal):
         super().__init__(uri, label)
         self.__element_type = element_type
         self.__domain = domain
         mathml = None
-        if isinstance(relation, rdflib.Literal):
+        if isinstance(relation, Literal):
             if relation.datatype == BGF.mathml:
                 mathml = str(relation)
         else:
@@ -323,8 +309,8 @@ class ElementTemplate(Labelled):
         self.__variables: dict[str, Variable] = {}
 
     @classmethod
-    def from_framework(cls, framework: '_BondgraphFramework', uri: str, element_type: str,
-                        label: Optional[str], domain_uri: str, relation: str|rdflib.Literal) -> Self:
+    def from_framework(cls, framework: '_BondgraphFramework', uri: URIRef, element_type: URIRef,
+                        label: Optional[str], domain_uri: URIRef, relation: str|Literal) -> Self:
         if (domain := framework.domain(domain_uri)) is None:
             raise ValueError(f'Unknown domain {domain_uri} for {uri} element')
         self = cls(uri, element_type, label, domain, relation)
@@ -346,7 +332,7 @@ class ElementTemplate(Labelled):
         return self.__ports
 
     @property
-    def element_type(self) -> str:
+    def element_type(self) -> URIRef:
         return self.__element_type
 
     @property
@@ -355,7 +341,7 @@ class ElementTemplate(Labelled):
 
     def __add_ports(self, framework: '_BondgraphFramework'):
     #=======================================================
-        port_ids = [str(row[0]) for row in sparql_query(framework.knowledge,
+        port_ids = [str(row[0]) for row in framework.knowledge.query(
                         ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri))]
         if len(port_ids):
             self.__ports = {id: PowerPort(self, id) for id in port_ids}
@@ -365,8 +351,8 @@ class ElementTemplate(Labelled):
     def __add_variables(self, framework: '_BondgraphFramework'):
     #===========================================================
         self.__variables = { row[0]: Variable(self.uri, *row)
-                                for row in sparql_query(framework.knowledge,
-                                                        ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)) }
+                                for row in framework.knowledge.query(
+                                        ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)) }
 
     def __check_names(self):
     #=======================
@@ -427,32 +413,32 @@ class _BondgraphFramework:
         return cls._instance
 
     def __init__(self, bg_knowledge: list[str]):
-        self.__knowledge = rdflib.Graph()
+        self.__knowledge = RDFGraph(NAMESPACES)
         for knowledge in bg_knowledge:
-            self.__knowledge.parse(knowledge, format='turtle')
+            self.__knowledge.parse(knowledge)
         self.__domains = {row[0]: Domain.from_framework(self, *row)
-                                for row in sparql_query(self.__knowledge, DOMAIN_QUERY)}
+                                for row in self.__knowledge.query(DOMAIN_QUERY)}
         self.__element_templates = {row[0]: ElementTemplate.from_framework(self, *row)
-                                for row in sparql_query(self.__knowledge, ELEMENT_TEMPLATE_DEFINITIONS)}
-        self.__element_domains: dict[tuple[str, str], ElementTemplate] = {
+                                for row in self.__knowledge.query(ELEMENT_TEMPLATE_DEFINITIONS)}
+        self.__element_domains: dict[tuple[URIRef, URIRef], ElementTemplate] = {
             (element.element_type, element.domain.uri): element for element in self.__element_templates.values()
                 if element.domain is not None
         }
-        self.__element_classes = set(self.__element_templates.keys())
+        self.__element_classes: set[URIRef] = set(self.__element_templates.keys())
         self.__element_classes |= set(key[0] for key in self.__element_domains.keys())
         self.__junctions = {row[0]: JunctionStructure(*row)
-                                for row in sparql_query(self.__knowledge, JUNCTION_STRUCTURES)}
+                                for row in self.__knowledge.query(JUNCTION_STRUCTURES)}
 
     @property
     def knowledge(self):
         return self.__knowledge
 
-    def domain(self, uri: str) -> Optional[Domain]:
-    #==============================================
+    def domain(self, uri: URIRef) -> Optional[Domain]:
+    #=================================================
         return self.__domains.get(uri)
 
-    def element_template(self, element_type: str, domain_uri: Optional[str]) -> Optional[ElementTemplate]:
-    #=====================================================================================================
+    def element_template(self, element_type: URIRef, domain_uri: Optional[URIRef]) -> Optional[ElementTemplate]:
+    #========================================================================================================
         if domain_uri is None:
             return self.__element_templates.get(element_type)
         else:
@@ -462,8 +448,8 @@ class _BondgraphFramework:
     #======================================
         return list(self.__element_classes)
 
-    def junction(self, uri: str) -> Optional[JunctionStructure]:
-    #===========================================================
+    def junction(self, uri: URIRef) -> Optional[JunctionStructure]:
+    #==============================================================
         return self.__junctions.get(uri)
 
     def junction_classes(self) -> list[str]:

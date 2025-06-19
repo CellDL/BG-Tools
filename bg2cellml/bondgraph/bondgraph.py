@@ -23,12 +23,11 @@ from typing import Optional
 
 #===============================================================================
 
-import rdflib
 import networkx as nx
 
 #===============================================================================
 
-from ..rdf import NamespaceMap
+from ..rdf import BNode, Literal, ResultRow, RDFGraph, URIRef
 from ..mathml import equal, MathML, equal_variables, var_symbol
 from ..units import Value
 
@@ -42,7 +41,7 @@ from .utils import Labelled
 #===============================================================================
 
 class ModelElement(Labelled):
-    def __init__(self,  model: 'BondgraphModel', uri: str, label: Optional[str]):
+    def __init__(self,  model: 'BondgraphModel', uri: URIRef, label: Optional[str]):
         super().__init__(uri, label)
         self.__model = model
 
@@ -62,7 +61,7 @@ def make_element_port_id(element_id: str, port_id: str) -> str:
 ELEMENT_VARIABLES = f"""
     SELECT DISTINCT ?name ?value ?symbol
     WHERE {{
-        %ELEMENT_URI% bgf:variableValue ?variable .
+        <%ELEMENT_URI%> bgf:variableValue ?variable .
         ?variable
             bgf:varName ?name ;
             bgf:hasValue ?value .
@@ -74,7 +73,7 @@ ELEMENT_VARIABLES = f"""
 MODEL_ELEMENTS = f"""
     SELECT DISTINCT ?uri ?element_type ?label ?domain
     WHERE {{
-        %MODEL% bg:hasBondElement ?uri .
+        <%MODEL%> bg:hasBondElement ?uri .
         ?uri a ?element_type .
         OPTIONAL {{ ?uri rdfs:label ?label }}
         OPTIONAL {{ ?uri bgf:hasDomain ?domain }}
@@ -83,7 +82,7 @@ MODEL_ELEMENTS = f"""
 #===============================================================================
 
 class BondgraphElement(ModelElement):
-    def __init__(self,  model: 'BondgraphModel', uri: str, element_type: str, label: Optional[str], domain_uri: Optional[str]):
+    def __init__(self,  model: 'BondgraphModel', uri: URIRef, element_type: URIRef, label: Optional[str], domain_uri: Optional[URIRef]):
         super().__init__(model, uri, label)
         element_template = FRAMEWORK.element_template(element_type, domain_uri)
         if element_template is None:
@@ -97,9 +96,9 @@ class BondgraphElement(ModelElement):
         self.__constitutive_relation = element_template.constitutive_relation.copy()
         self.__domain = element_template.domain
         self.__type = element_template.uri
-        self.__ports = { make_element_port_id(self.uri, port_id): port.copy(self.uri)
+        self.__ports = { make_element_port_id(self.uri, port_id): port.copy(self.uri.fragment)
                             for port_id, port in element_template.ports.items() }
-        self.__variables = {name: variable.copy(self.uri)
+        self.__variables = {name: variable.copy(self.uri.fragment)
                                 for name, variable in element_template.variables.items()}
         for port in self.__ports.values():
             self.__variables[port.flow.name] = port.flow.variable
@@ -108,12 +107,13 @@ class BondgraphElement(ModelElement):
     @classmethod
     def for_model(cls, model: 'BondgraphModel', *args):
         self = cls(model, *args)
-        for row in model.source.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)):
-            if row[0] not in self.__variables:
+        for row in model.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)):
+            var_name = str(row[0])
+            if var_name not in self.__variables:
                 raise ValueError(f'Element {self.uri} has unknown name {row[0]} for {self.__type}')     # type: ignore
-            self.__variables[row[0]].set_value(Value.from_literal(row[1]))
+            self.__variables[var_name].set_value(Value.from_literal(row[1]))  # type: ignore
             if row[2] is not None:
-                self.__variables[row[0]].set_symbol(row[2])
+                self.__variables[var_name].set_symbol(row[2])
         return self
 
     @property
@@ -129,7 +129,7 @@ class BondgraphElement(ModelElement):
         return self.__constitutive_relation
 
     @property
-    def type(self):
+    def type(self) -> URIRef:
         return self.__type
 
     @property
@@ -148,7 +148,7 @@ class BondgraphElement(ModelElement):
 MODEL_BONDS = f"""
     SELECT DISTINCT ?uri ?source ?target ?label
     WHERE {{
-        %MODEL% bg:hasPowerBond ?uri .
+        <%MODEL%> bg:hasPowerBond ?uri .
         OPTIONAL {{ ?uri bgf:hasSource ?source }}
         OPTIONAL {{ ?uri bgf:hasTarget ?target }}
         OPTIONAL {{ ?uri rdfs:label ?label }}
@@ -157,7 +157,7 @@ MODEL_BONDS = f"""
 MODEL_BOND_PORTS = f"""
     SELECT DISTINCT ?element ?port
     WHERE {{
-        %MODEL% bg:hasPowerBond %BOND% .
+        <%MODEL%> bg:hasPowerBond %BOND% .
         %BOND% %BOND_RELN% [
             bgf:element ?element ;
             bgf:port ?port
@@ -167,8 +167,8 @@ MODEL_BOND_PORTS = f"""
 #===============================================================================
 
 class BondgraphBond(ModelElement):
-    def __init__(self, model: 'BondgraphModel', uri: str,
-                        source: str|rdflib.BNode, target: str|rdflib.BNode, label: Optional[str]=None):
+    def __init__(self, model: 'BondgraphModel', uri: URIRef,
+                        source: str|BNode, target: str|BNode, label: Optional[str]=None):
         super().__init__(model, uri, label)
         self.__source_id = self.__get_port(source, 'bgf:hasSource')
         self.__target_id = self.__get_port(target, 'bgf:hasTarget')
@@ -181,10 +181,10 @@ class BondgraphBond(ModelElement):
     def target_id(self) -> str:
         return self.__target_id
 
-    def __get_port(self, port: str|rdflib.BNode, reln: str) -> str:
-    #==============================================================
-        if isinstance(port, rdflib.BNode):
-            for row in self.model.source.sparql_query(
+    def __get_port(self, port: str|BNode, reln: str) -> str:
+    #=======================================================
+        if isinstance(port, BNode):
+            for row in self.model.sparql_query(
                 MODEL_BOND_PORTS.replace('%MODEL%', self.model.uri)
                                 .replace('%BOND%', self.uri)
                                 .replace('%BOND_RELN%', reln)):
@@ -197,7 +197,7 @@ class BondgraphBond(ModelElement):
 MODEL_JUNCTIONS = f"""
     SELECT DISTINCT ?uri ?type ?label ?value
     WHERE {{
-        %MODEL% bg:hasJunctionStructure ?uri .
+        <%MODEL%> bg:hasJunctionStructure ?uri .
         ?uri a ?type .
         OPTIONAL {{ ?uri rdfs:label ?label }}
         OPTIONAL {{ ?uri bgf:hasValue ?value }}
@@ -206,7 +206,7 @@ MODEL_JUNCTIONS = f"""
 #===============================================================================
 
 class BondgraphJunction(ModelElement):
-    def __init__(self, model: 'BondgraphModel', uri, type: str, label: Optional[str], value: Optional[rdflib.Literal]):
+    def __init__(self, model: 'BondgraphModel', uri: URIRef, type: URIRef, label: Optional[str], value: Optional[Literal]):
         super().__init__(model, uri, label)
         self.__type = type
         self.__junction = FRAMEWORK.junction(type)
@@ -223,7 +223,7 @@ class BondgraphJunction(ModelElement):
         return self.__constitutive_relation         # type: ignore
 
     @property
-    def type(self) -> str:
+    def type(self) -> URIRef:
         return self.__type
 
     @property
@@ -232,45 +232,45 @@ class BondgraphJunction(ModelElement):
 
     def assign_domain(self, bond_graph: nx.DiGraph):
     #===============================================
-        node_id = self.uri
-        attributes = bond_graph.nodes[node_id]
+        node_uri = self.uri
+        attributes = bond_graph.nodes[node_uri]
         self.__domain = attributes['domain']
         if self.__type == ONENODE_JUNCTION:
-            self.__variables = [Variable(node_id, node_id, self.__domain.flow.units, self.__value)]
+            self.__variables = [Variable(node_uri, node_uri.fragment, self.__domain.flow.units, self.__value)]
         elif self.__type == ZERONODE_JUNCTION:
-            self.__variables = [Variable(node_id, node_id, self.__domain.potential.units, self.__value)]
+            self.__variables = [Variable(node_uri, node_uri.fragment, self.__domain.potential.units, self.__value)]
         elif self.__type == TRANSFORM_JUNCTION:
             raise ValueError(f'Transform Nodes ({self.uri}) are not yet supported')
             ## each port needs a domain, if gyrator different domains...
 
     def assign_relation(self, bond_graph: nx.DiGraph):
     #=================================================
-        node_id = self.uri
-        if bond_graph.degree[node_id] > 1:   # type: ignore
+        node_uri = self.uri
+        if bond_graph.degree[node_uri] > 1:   # type: ignore
             # we are connected to several nodes
             if self.__type == ONENODE_JUNCTION:
                 # Sum of potentials connected to junction is 0
                 inputs = [self.__potential_symbol(bond_graph.nodes[edge[0]])
-                            for edge in bond_graph.in_edges(node_id)]
+                            for edge in bond_graph.in_edges(node_uri)]
                 outputs = [self.__potential_symbol(bond_graph.nodes[edge[1]])
-                            for edge in bond_graph.out_edges(node_id)]
+                            for edge in bond_graph.out_edges(node_uri)]
                 equal_value = [node_dict['port'].flow.variable.symbol
-                                for edge in bond_graph.in_edges(node_id)
+                                for edge in bond_graph.in_edges(node_uri)
                                     if 'port' in (node_dict := bond_graph.nodes[edge[0]])]
                 equal_value.extend([node_dict['port'].flow.variable.symbol
-                                for edge in bond_graph.out_edges(node_id)
+                                for edge in bond_graph.out_edges(node_uri)
                                     if 'port' in (node_dict := bond_graph.nodes[edge[1]])])
             elif self.__type == ZERONODE_JUNCTION:
                 # Sum of flows connected to junction is 0
                 inputs = [self.__flow_symbol(bond_graph.nodes[edge[0]])
-                            for edge in bond_graph.in_edges(node_id)]
+                            for edge in bond_graph.in_edges(node_uri)]
                 outputs = [self.__flow_symbol(bond_graph.nodes[edge[1]])
-                            for edge in bond_graph.out_edges(node_id)]
+                            for edge in bond_graph.out_edges(node_uri)]
                 equal_value = [node_dict['port'].potential.variable.symbol
-                                for edge in bond_graph.in_edges(node_id)
+                                for edge in bond_graph.in_edges(node_uri)
                                     if 'port' in (node_dict := bond_graph.nodes[edge[0]])]
                 equal_value.extend([node_dict['port'].potential.variable.symbol
-                                for edge in bond_graph.out_edges(node_id)
+                                for edge in bond_graph.out_edges(node_uri)
                                     if 'port' in (node_dict := bond_graph.nodes[edge[1]])])
             else:
                 raise ValueError(f'Unexpected bond graph node for {self.uri}: {self.__type}')
@@ -324,17 +324,17 @@ BONDGRAPH_MODELS = f"""
 #===============================================================================
 
 class BondgraphModel(Labelled):
-    def __init__(self, source: 'BondgraphModelSource', uri: str, label: Optional[str]=None):
+    def __init__(self, rdf_graph: RDFGraph, uri: URIRef, label: Optional[str]=None):
         super().__init__(uri, label)
-        self.__source = source
+        self.__rdf_graph = rdf_graph
         self.__elements = [BondgraphElement.for_model(self, *row)
-                                for row in source.sparql_query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
+                                for row in rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
         for element in self.__elements:
             element.substitute_variable_names()
         self.__junctions = [BondgraphJunction(self, *row)
-                                for row in source.sparql_query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
+                                for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(self, *row)
-                            for row in source.sparql_query(MODEL_BONDS.replace('%MODEL%', uri))]
+                            for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', uri))]
         self.__make_bond_network()
         self.__check_and_assign_domains_to_bond_network()
         self.__assign_junction_domains_and_relations()
@@ -346,10 +346,6 @@ class BondgraphModel(Labelled):
     @property
     def junctions(self):
         return self.__junctions
-
-    @property
-    def source(self):
-        return self.__source
 
     # Assign junction domains from elements and check consistency
     def __check_and_assign_domains_to_bond_network(self):
@@ -384,9 +380,9 @@ class BondgraphModel(Labelled):
         self.__graph = nx.DiGraph()
         for element in self.__elements:
             for port_id, port in element.ports.items():
-                self.__graph.add_node(port_id, type=element.type, port=port)
+                self.__graph.add_node(port_id, type=self.__rdf_graph.curie(element.type), port=port)
         for junction in self.__junctions:
-            self.__graph.add_node(junction.uri, type=junction.type, junction=junction)
+            self.__graph.add_node(junction.uri, type=self.__rdf_graph.curie(junction.type), junction=junction)
         for bond in self.__bonds:
             if (source := bond.source_id) not in self.__graph:
                 raise ValueError(f'No element or junction for source {source} of bond {bond.uri}')
@@ -394,29 +390,24 @@ class BondgraphModel(Labelled):
                 raise ValueError(f'No element or junction for target {target} of bond {bond.uri}')
             self.__graph.add_edge(source, target)
 
+    def sparql_query(self, query: str) -> list[ResultRow]:
+    #=====================================================
+        return self.__rdf_graph.query(query)
+
 #===============================================================================
 #===============================================================================
 
 class BondgraphModelSource:
-    def __init__(self, bondgraph_path: str):
-        self.__namespace_map = NamespaceMap(NAMESPACES)
-        self.__namespace_map.add_namespace('', f'{Path(bondgraph_path).resolve().as_uri()}#')
-        self.__sparql_prefixes = self.__namespace_map.sparql_prefixes()
-        self.__rdf = rdflib.Graph()
-        self.__rdf.parse(bondgraph_path, format='turtle')
-        self.__models = [BondgraphModel(self, *row) for row in self.sparql_query(BONDGRAPH_MODELS)]
+    def __init__(self, source: str):
+        self.__rdf_graph = RDFGraph(NAMESPACES)
+        self.__source_path =  Path(source).resolve()
+        self.__rdf_graph.parse(self.__source_path.as_uri())
+        self.__models = [BondgraphModel(self.__rdf_graph, *row)
+                            for row in self.__rdf_graph.query(BONDGRAPH_MODELS)]
 
     @property
     def models(self):
         return self.__models
-
-    def sparql_query(self, query: str) -> list[list]:
-    #================================================
-        query_result = self.__rdf.query(f'{self.__sparql_prefixes}\n{query}')
-        if query_result is not None:
-            return [[self.__namespace_map.simplify(term) for term in row]   # type: ignore
-                                                                for row in query_result]
-        return []
 
 #===============================================================================
 #===============================================================================

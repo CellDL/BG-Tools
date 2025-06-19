@@ -83,7 +83,7 @@ class CellMLVariable:
 
 class CellMLModel:
     def __init__(self, model: 'BondgraphModel'):
-        self.__name = clean_name(model.uri)
+        self.__name = clean_name(model.uri.fragment)
         self.__cellml = cellml_element('model', name=self.__name, nsmap={None: str(CELLML_NS)})
         self.__main = cellml_subelement(self.__cellml, 'component', name='main')
         self.__known_units: set[str] = set()
