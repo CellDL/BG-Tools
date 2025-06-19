@@ -61,17 +61,6 @@ def clean_name(name: str) -> str:
 #===============================================================================
 #===============================================================================
 
-ELEMENT_VARIABLES = f"""
-    SELECT DISTINCT ?name ?units ?value
-    WHERE {{
-        <%ELEMENT_URI%> bgf:hasVariable ?variable .
-        ?variable bgf:varName ?name .
-        OPTIONAL {{ ?variable bgf:hasUnits ?units }}
-        OPTIONAL {{ ?variable bgf:hasValue ?value }}
-    }}"""
-
-#===============================================================================
-
 class Variable:
     def __init__(self, element_uri: URIRef, name: str, units: Optional[Literal|Units], value: Optional[Literal]):
         self.__element_uri = element_uri
@@ -141,22 +130,6 @@ VOI_VARIABLE = Variable(URIRef(''), VOI_SYMBOL, VOI_UCUMUNIT, None)
 
 #===============================================================================
 #===============================================================================
-
-DOMAIN_QUERY = f"""
-    SELECT DISTINCT ?domain ?label ?flowName ?flowUnits ?potentialName ?potentialUnits
-    WHERE {{
-        ?domain
-            a bgf:ModellingDomain ;
-            bgf:hasFlow [
-                bgf:varName ?flowName ;
-                bgf:hasUnits ?flowUnits
-            ] ;
-            bgf:hasPotential [
-                bgf:varName ?potentialName ;
-                bgf:hasUnits ?potentialUnits
-            ] .
-        OPTIONAL {{ ?domain rdfs:label ?label }}
-    }} ORDER BY ?domain"""
 
 DOMAIN_CONSTANTS = f"""
     SELECT DISTINCT ?name ?value
@@ -284,6 +257,15 @@ ELEMENT_TEMPLATE_DEFINITIONS = f"""
         OPTIONAL {{ ?uri rdfs:label ?label }}
     }} ORDER BY ?uri"""
 
+ELEMENT_VARIABLES = f"""
+    SELECT DISTINCT ?name ?units ?value
+    WHERE {{
+        <%ELEMENT_URI%> bgf:hasVariable ?variable .
+        ?variable bgf:varName ?name .
+        OPTIONAL {{ ?variable bgf:hasUnits ?units }}
+        OPTIONAL {{ ?variable bgf:hasValue ?value }}
+    }}"""
+
 #===============================================================================
 
 class ElementTemplate(Labelled):
@@ -379,15 +361,6 @@ class ElementTemplate(Labelled):
 #===============================================================================
 #===============================================================================
 
-JUNCTION_STRUCTURES = f"""
-    SELECT DISTINCT ?junction ?label ?numPorts
-    WHERE {{
-        ?junction rdfs:subClassOf bg:JunctionStructure .
-        OPTIONAL {{ ?junction rdfs:label ?label }}
-        OPTIONAL {{ ?junction bgf:numPorts ?numPorts }}
-    }} ORDER BY ?junction"""
-
-#===============================================================================
 
 class JunctionStructure(Labelled):
     def __init__(self, uri: str, label: Optional[str], num_ports: Optional[rdflib.Literal]):
@@ -403,6 +376,30 @@ class JunctionStructure(Labelled):
 
 #===============================================================================
 #===============================================================================
+
+DOMAIN_QUERY = f"""
+    SELECT DISTINCT ?domain ?label ?flowName ?flowUnits ?potentialName ?potentialUnits
+    WHERE {{
+        ?domain
+            a bgf:ModellingDomain ;
+            bgf:hasFlow [
+                bgf:varName ?flowName ;
+                bgf:hasUnits ?flowUnits
+            ] ;
+            bgf:hasPotential [
+                bgf:varName ?potentialName ;
+                bgf:hasUnits ?potentialUnits
+            ] .
+        OPTIONAL {{ ?domain rdfs:label ?label }}
+    }} ORDER BY ?domain"""
+
+JUNCTION_STRUCTURES = f"""
+    SELECT DISTINCT ?junction ?label ?numPorts
+    WHERE {{
+        ?junction rdfs:subClassOf bg:JunctionStructure .
+        OPTIONAL {{ ?junction rdfs:label ?label }}
+        OPTIONAL {{ ?junction bgf:numPorts ?numPorts }}
+    }} ORDER BY ?junction"""
 
 class _BondgraphFramework:
     _instance = None

@@ -40,6 +40,12 @@ from .utils import Labelled
 #===============================================================================
 #===============================================================================
 
+def make_element_port_id(element_id: str, port_id: str) -> str:
+#==============================================================
+    return element_id if port_id in [None, ''] else f'{element_id}_{port_id}'
+
+#===============================================================================
+
 class ModelElement(Labelled):
     def __init__(self,  model: 'BondgraphModel', uri: URIRef, label: Optional[str]):
         super().__init__(uri, label)
@@ -52,12 +58,6 @@ class ModelElement(Labelled):
 #===============================================================================
 #===============================================================================
 
-def make_element_port_id(element_id: str, port_id: str) -> str:
-#==============================================================
-    return element_id if port_id in [None, ''] else f'{element_id}_{port_id}'
-
-#===============================================================================
-
 ELEMENT_VARIABLES = f"""
     SELECT DISTINCT ?name ?value ?symbol
     WHERE {{
@@ -67,17 +67,6 @@ ELEMENT_VARIABLES = f"""
             bgf:hasValue ?value .
         OPTIONAL {{ ?variable bgf:hasSymbol ?symbol }}
     }}"""
-
-#===============================================================================
-
-MODEL_ELEMENTS = f"""
-    SELECT DISTINCT ?uri ?element_type ?label ?domain
-    WHERE {{
-        <%MODEL%> bg:hasBondElement ?uri .
-        ?uri a ?element_type .
-        OPTIONAL {{ ?uri rdfs:label ?label }}
-        OPTIONAL {{ ?uri bgf:hasDomain ?domain }}
-    }} ORDER BY ?uri"""
 
 #===============================================================================
 
@@ -145,15 +134,6 @@ class BondgraphElement(ModelElement):
 #===============================================================================
 #===============================================================================
 
-MODEL_BONDS = f"""
-    SELECT DISTINCT ?uri ?source ?target ?label
-    WHERE {{
-        <%MODEL%> bg:hasPowerBond ?uri .
-        OPTIONAL {{ ?uri bgf:hasSource ?source }}
-        OPTIONAL {{ ?uri bgf:hasTarget ?target }}
-        OPTIONAL {{ ?uri rdfs:label ?label }}
-    }}"""
-
 MODEL_BOND_PORTS = f"""
     SELECT DISTINCT ?element ?port
     WHERE {{
@@ -192,17 +172,6 @@ class BondgraphBond(ModelElement):
         return make_element_port_id(port, '')
 
 #===============================================================================
-#===============================================================================
-
-MODEL_JUNCTIONS = f"""
-    SELECT DISTINCT ?uri ?type ?label ?value
-    WHERE {{
-        <%MODEL%> bg:hasJunctionStructure ?uri .
-        ?uri a ?type .
-        OPTIONAL {{ ?uri rdfs:label ?label }}
-        OPTIONAL {{ ?uri bgf:hasValue ?value }}
-    }} ORDER BY ?uri"""
-
 #===============================================================================
 
 class BondgraphJunction(ModelElement):
@@ -313,6 +282,33 @@ class BondgraphJunction(ModelElement):
 
 #===============================================================================
 #===============================================================================
+
+MODEL_ELEMENTS = f"""
+    SELECT DISTINCT ?uri ?element_type ?label ?domain
+    WHERE {{
+        <%MODEL%> bg:hasBondElement ?uri .
+        ?uri a ?element_type .
+        OPTIONAL {{ ?uri rdfs:label ?label }}
+        OPTIONAL {{ ?uri bgf:hasDomain ?domain }}
+    }} ORDER BY ?uri"""
+
+MODEL_JUNCTIONS = f"""
+    SELECT DISTINCT ?uri ?type ?label ?value
+    WHERE {{
+        <%MODEL%> bg:hasJunctionStructure ?uri .
+        ?uri a ?type .
+        OPTIONAL {{ ?uri rdfs:label ?label }}
+        OPTIONAL {{ ?uri bgf:hasValue ?value }}
+    }} ORDER BY ?uri"""
+
+MODEL_BONDS = f"""
+    SELECT DISTINCT ?uri ?source ?target ?label
+    WHERE {{
+        <%MODEL%> bg:hasPowerBond ?uri .
+        OPTIONAL {{ ?uri bgf:hasSource ?source }}
+        OPTIONAL {{ ?uri bgf:hasTarget ?target }}
+        OPTIONAL {{ ?uri rdfs:label ?label }}
+    }}"""
 
 BONDGRAPH_MODELS = f"""
     SELECT DISTINCT ?uri ?label
