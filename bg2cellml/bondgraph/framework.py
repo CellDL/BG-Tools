@@ -154,8 +154,11 @@ class Domain(Labelled):
         self.__constants: list[Variable] = []
 
     @classmethod
-    def from_framework(cls, framework: '_BondgraphFramework', *args) -> Self:
-        self = cls(*args)
+    def from_framework(cls, framework: '_BondgraphFramework',
+                    uri: URIRef, label: Optional[str],
+                    flow_name: str, flow_units: Literal,
+                    potential_name: str, potential_units: Literal) -> Self:
+        self = cls(uri, label, flow_name, flow_units, potential_name, potential_units)
         self.__add_constants(framework)
         return self
 
@@ -320,7 +323,7 @@ class ElementTemplate(Labelled):
 
     def __add_variables(self, framework: '_BondgraphFramework'):
     #===========================================================
-        self.__variables = { row[0]: Variable(self.uri, *row)
+        self.__variables = { str(row[0]): Variable(self.uri, str(row[0]), row[1], row[2])   # type: ignore
                                 for row in framework.knowledge.query(
                                         ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)) }
 
@@ -413,18 +416,21 @@ class _BondgraphFramework:
         self.__knowledge = RDFGraph(NAMESPACES)
         for knowledge in bg_knowledge:
             self.__knowledge.parse(knowledge)
-        self.__domains = {row[0]: Domain.from_framework(self, *row)
+        self.__domains = {row[0]: Domain.from_framework(
+                                    self, row[0], row[1], row[2], row[3], row[4], row[5])       # type: ignore
                                 for row in self.__knowledge.query(DOMAIN_QUERY)}
-        self.__element_templates = {row[0]: ElementTemplate.from_framework(self, *row)
-                                for row in self.__knowledge.query(ELEMENT_TEMPLATE_DEFINITIONS)}
+        self.__element_templates: dict[URIRef, ElementTemplate] = {                             # type: ignore
+            row[0]: ElementTemplate.from_framework(self, row[0], row[1], row[2], row[3], row[4])   # type: ignore
+                for row in self.__knowledge.query(ELEMENT_TEMPLATE_DEFINITIONS)}
         self.__element_domains: dict[tuple[URIRef, URIRef], ElementTemplate] = {
             (element.element_type, element.domain.uri): element for element in self.__element_templates.values()
                 if element.domain is not None
         }
         self.__element_classes: set[URIRef] = set(self.__element_templates.keys())
         self.__element_classes |= set(key[0] for key in self.__element_domains.keys())
-        self.__junctions = {row[0]: JunctionStructure(*row)
-                                for row in self.__knowledge.query(JUNCTION_STRUCTURES)}
+        self.__junctions: dict[URIRef, JunctionStructure] = {           # type: ignore
+            row[0]: JunctionStructure(row[0], row[1], row[2])           # type: ignore
+                for row in self.__knowledge.query(JUNCTION_STRUCTURES)}
 
     @property
     def knowledge(self):
