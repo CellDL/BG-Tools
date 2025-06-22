@@ -190,9 +190,9 @@ class Domain(Labelled):
 #===============================================================================
 
 ELEMENT_PORT_IDS = f"""
-    SELECT DISTINCT ?suffix
+    SELECT DISTINCT ?port
     WHERE {{
-        <%ELEMENT_URI%> bgf:hasPortSuffix ?suffix .
+        <%ELEMENT_URI%> bgf:hasPort ?port .
     }}
     ORDER BY ?port"""
 
@@ -208,9 +208,9 @@ class PortNameVariable(NamedTuple):
 #===============================================================================
 
 class PowerPort:
-    def __init__(self, element: 'ElementTemplate', suffix: Optional[str]=None):
+    def __init__(self, element: 'ElementTemplate', port: Optional[str]=None):
         self.__element = element
-        self.__suffix = '' if suffix is None else f'_{suffix}'
+        self.__suffix = '' if port is None else f'_{port}'
         self.__flow = self.__name_variable(element.domain.flow)
         self.__potential = self.__name_variable(element.domain.potential)
 
@@ -354,16 +354,8 @@ class ElementTemplate(Labelled):
 
 
 class JunctionStructure(Labelled):
-    def __init__(self, uri: str, label: Optional[str], num_ports: Optional[rdflib.Literal]):
+    def __init__(self, uri: URIRef, label: Optional[str]):
         super().__init__(uri, label)
-        if uri in [ONENODE_JUNCTION, ZERONODE_JUNCTION]:
-            self.__fixed_ports = None
-        else:
-            self.__fixed_ports = optional_integer(num_ports)
-
-    @property
-    def fixed_ports(self):
-        return self.__fixed_ports
 
 #===============================================================================
 #===============================================================================
@@ -397,11 +389,10 @@ ELEMENT_TEMPLATE_DEFINITIONS = f"""
     }} ORDER BY ?uri"""
 
 JUNCTION_STRUCTURES = f"""
-    SELECT DISTINCT ?junction ?label ?numPorts
+    SELECT DISTINCT ?junction ?label
     WHERE {{
         ?junction rdfs:subClassOf* bgf:JunctionStructure .
         OPTIONAL {{ ?junction rdfs:label ?label }}
-        OPTIONAL {{ ?junction bgf:numPorts ?numPorts }}
     }} ORDER BY ?junction"""
 
 class _BondgraphFramework:
@@ -429,7 +420,7 @@ class _BondgraphFramework:
         self.__element_classes: set[URIRef] = set(self.__element_templates.keys())
         self.__element_classes |= set(key[0] for key in self.__element_domains.keys())
         self.__junctions: dict[URIRef, JunctionStructure] = {           # type: ignore
-            row[0]: JunctionStructure(row[0], row[1], row[2])           # type: ignore
+            row[0]: JunctionStructure(row[0], row[1])                   # type: ignore
                 for row in self.__knowledge.query(JUNCTION_STRUCTURES)}
 
     @property
