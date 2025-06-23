@@ -212,11 +212,12 @@ class PortNameVariable(NamedTuple):
 #===============================================================================
 
 class PowerPort:
-    def __init__(self, element: 'ElementTemplate', port: Optional[str]=None):
+    def __init__(self, element: 'ElementTemplate', port_suffix: Optional[str]=None,
+            flow_suffixed=True, potential_suffixed=True):
         self.__element = element
-        self.__suffix = '' if port is None else f'_{port}'
-        self.__flow = self.__name_variable(element.domain.flow)
-        self.__potential = self.__name_variable(element.domain.potential)
+        self.__suffix = '' if port_suffix is None else f'_{port_suffix}'
+        self.__flow = self.__name_variable(element.domain.flow, flow_suffixed)
+        self.__potential = self.__name_variable(element.domain.potential, potential_suffixed)
 
     def __str__(self):
         return f'{self.__element.uri}{self.__suffix}, potential: {self.__potential}, flow: {self.__flow}'
@@ -243,11 +244,11 @@ class PowerPort:
                                               variable=self.__potential.variable.copy(suffix))
         return copy
 
-    def __name_variable(self, domain_variable: Variable) -> PortNameVariable:
-    #========================================================================
-        name = f'{domain_variable.name}{self.__suffix}'
+    def __name_variable(self, domain_variable: Variable, add_suffix: bool) -> PortNameVariable:
+    #==========================================================================================
+        name = f'{domain_variable.name}{self.__suffix}' if add_suffix else domain_variable.name
         return PortNameVariable(name=name,
-                                  variable=Variable(self.__element.uri, name, domain_variable.units, None))
+                                variable=Variable(self.__element.uri, name, domain_variable.units, None))
 
 #===============================================================================
 #===============================================================================
@@ -321,7 +322,9 @@ class ElementTemplate(Labelled):
         port_ids = [str(row[0]) for row in framework.knowledge.query(
                         ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri))]
         if len(port_ids):
-            self.__ports = {id: PowerPort(self, id) for id in port_ids}
+            same_flow = (len(port_ids) == 2) and (self.__element_type != DISSIPATOR_ELEMENT)
+            self.__ports = {id: PowerPort(self, port_suffix=id, flow_suffixed=same_flow)
+                                for id in port_ids}
         else:
             self.__ports = {'': PowerPort(self)}
 
