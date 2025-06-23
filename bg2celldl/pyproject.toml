@@ -1,0 +1,7 @@
+[project]
+name = "bg2celldl"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+    "celldltools @ file:///Users/dbro078/CellDL/bondgraph-tools/celldltools",
+]

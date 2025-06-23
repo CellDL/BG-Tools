@@ -177,6 +177,10 @@ class Domain(Labelled):
         return self.__flow
 
     @property
+    def name(self) -> str:
+        return self.__uri.fragment
+
+    @property
     def potential(self):
         return self.__potential
 

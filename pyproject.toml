@@ -18,9 +18,16 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "bg2celldl",
     "libopencor",
     "pytest>=8.4.0",
 ]
 
 [tool.uv.sources]
 libopencor = { git = "https://github.com/opencor/libopencor.git" }
+bg2celldl = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "bg2celldl",
+]

@@ -361,6 +361,7 @@ class BondgraphModel(Labelled):
                 raise ValueError(f'Bond {uri} is missing source and/or target node')
             self.__bonds.append(BondgraphBond(self, uri, row[3], row[4], row[2] is not None, row[5]))
 
+        self.__graph = nx.DiGraph()
         self.__make_bond_network()
         self.__check_and_assign_domains_to_bond_network()
         self.__assign_junction_domains_and_relations()
@@ -372,6 +373,10 @@ class BondgraphModel(Labelled):
     @property
     def junctions(self):
         return self.__junctions
+
+    @property
+    def network_graph(self):
+        return self.__graph
 
     # Assign junction domains from elements and check consistency
     def __check_and_assign_domains_to_bond_network(self):
@@ -403,7 +408,6 @@ class BondgraphModel(Labelled):
     # Construct network graph of PowerBonds
     def __make_bond_network(self):
     #=============================
-        self.__graph = nx.DiGraph()
         for element in self.__elements:
             for port_id, port in element.ports.items():
                 self.__graph.add_node(port_id,
