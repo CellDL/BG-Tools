@@ -42,6 +42,8 @@ VOI_UCUMUNIT = Literal('s', datatype=CDT.ucumunit)
 
 #===============================================================================
 
+DISSIPATOR_ELEMENT = BGF.Dissipator
+
 ONENODE_JUNCTION   = BGF.OneNode
 TRANSFORM_JUNCTION = BGF.TransformNode  # Can act as a transformer of gyrator
 ZERONODE_JUNCTION  = BGF.ZeroNode
