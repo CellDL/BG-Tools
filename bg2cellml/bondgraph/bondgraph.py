@@ -338,12 +338,12 @@ class BondgraphModel(Labelled):
     def __init__(self, rdf_graph: RDFGraph, uri: URIRef, label: Optional[str]=None):
         super().__init__(uri, label)
         self.__rdf_graph = rdf_graph
-        self.__elements = [BondgraphElement.for_model(self, row[0], row[1], row[2], row[3]) # type: ignore
-                                for row in rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
+        self.__elements = [BondgraphElement.for_model(self, row[1], row[2], row[3], row[4]) # type: ignore
+                                for row in rdf_graph.query(MODEL_ELEMENTS)]
         for element in self.__elements:
             element.substitute_variable_names()
-        self.__junctions = [BondgraphJunction(self, row[0], row[1], row[2], row[3])         # type: ignore
-                                for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
+        self.__junctions = [BondgraphJunction(self, row[1], row[2], row[3], row[4])         # type: ignore
+                                for row in rdf_graph.query(MODEL_JUNCTIONS)]
         self.__bonds = [BondgraphBond(self, row[0], row[1], row[2], row[3])                 # type: ignore
                             for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', uri))]
         self.__elements = [BondgraphElement.for_model(self, row[1], row[2], row[3], row[4]) # type: ignore
@@ -480,7 +480,7 @@ class BondgraphModelSource:
 
     @property
     def models(self):
-        return self.__models.values()
+        return list(self.__models.values())
 
 #===============================================================================
 #===============================================================================
