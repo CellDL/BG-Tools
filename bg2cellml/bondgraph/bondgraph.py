@@ -33,7 +33,6 @@ from ..units import Value
 
 from .framework import BondgraphFramework as FRAMEWORK, Domain, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
-
 from .namespaces import NAMESPACES
 from .utils import Labelled
 
@@ -129,7 +128,7 @@ class BondgraphElement(ModelElement):
 
     # Substitute variable symbols into the constitutive relation
     def substitute_variable_names(self):
-    #=====================================
+    #===================================
         for name, variable in self.__variables.items():
             self.__constitutive_relation.substitute(name, variable.symbol)
 

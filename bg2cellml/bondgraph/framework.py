@@ -395,6 +395,8 @@ JUNCTION_STRUCTURES = f"""
         OPTIONAL {{ ?junction rdfs:label ?label }}
     }} ORDER BY ?junction"""
 
+#===============================================================================
+
 class _BondgraphFramework:
     _instance = None
 
