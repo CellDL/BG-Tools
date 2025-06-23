@@ -58,7 +58,7 @@ def optional_integer(value: Optional[Literal], default: Optional[int]=None) -> O
 
 def clean_name(name: str) -> str:
 #=================================
-    return name.replace(':', '_').replace('-', '_')
+    return name.replace(':', '_').replace('-', '_').replace('.', '_')
 
 #===============================================================================
 #===============================================================================
