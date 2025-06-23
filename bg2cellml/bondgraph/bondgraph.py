@@ -345,8 +345,6 @@ class BondgraphModel(Labelled):
             element.substitute_variable_names()
         self.__junctions = [BondgraphJunction(self, row[1], row[2], row[3], row[4])         # type: ignore
                                 for row in rdf_graph.query(MODEL_JUNCTIONS)]
-        self.__bonds = [BondgraphBond(self, row[0], row[1], row[2], row[3])                 # type: ignore
-                            for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', uri))]
         self.__elements = [BondgraphElement.for_model(self, row[1], row[2], row[3], row[4]) # type: ignore
                                 for row in rdf_graph.query(MODEL_ELEMENTS)]
         for element in self.__elements:
