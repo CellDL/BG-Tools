@@ -129,7 +129,7 @@ def main():
     #bg2cellml('../examples/example_RCR.ttl')
     #bg2cellml('../examples/example_A1.ttl')
     #bg2cellml('../examples/example_A2.ttl')
-    bg2cellml('../examples/example_A3.ttl')
+    bg2cellml('../BVC-model/bondgraph.ttl')
 
 #===============================================================================
 
