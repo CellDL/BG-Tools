@@ -39,9 +39,9 @@ from .utils import Labelled
 #===============================================================================
 #===============================================================================
 
-def make_element_port_id(element_id: str, port_id: str) -> str:
-#==============================================================
-    return element_id if port_id in [None, ''] else f'{element_id}_{port_id}'
+def make_element_port_id(element_uri: URIRef, port_id: str) -> URIRef:
+#=====================================================================
+    return element_uri if port_id in [None, ''] else element_uri + f'_{port_id}'
 
 #===============================================================================
 
@@ -111,7 +111,7 @@ class BondgraphElement(ModelElement):
         return self.__domain
 
     @property
-    def ports(self) -> dict[str, PowerPort]:
+    def ports(self) -> dict[URIRef, PowerPort]:
         return self.__ports
 
     @property
@@ -150,7 +150,7 @@ MODEL_BOND_PORTS = f"""
 
 class BondgraphBond(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: URIRef,
-                        source: str|BNode, target: str|BNode,
+                        source: URIRef|BNode, target: URIRef|BNode,
                         interface_bond: bool=False, label: Optional[str]=None):
         super().__init__(model, uri, label)
         self.__source_id = self.__get_port(source, 'bgf:hasSource')
@@ -162,22 +162,23 @@ class BondgraphBond(ModelElement):
         return self.__interface_bond
 
     @property
-    def source_id(self) -> str:
+    def source_id(self) -> Optional[URIRef]:
         return self.__source_id
 
     @property
-    def target_id(self) -> str:
+    def target_id(self) -> Optional[URIRef]:
         return self.__target_id
 
-    def __get_port(self, port: str|BNode, reln: str) -> str:
-    #=======================================================
+    def __get_port(self, port: URIRef|BNode, reln: str) -> Optional[URIRef]:
+    #=======================================================================
         if isinstance(port, BNode):
             for row in self.model.sparql_query(
                 MODEL_BOND_PORTS.replace('%MODEL%', self.model.uri)
                                 .replace('%BOND%', self.uri)
                                 .replace('%BOND_RELN%', reln)):
-                return make_element_port_id(str(row[0]), str(row[1]))
-        return make_element_port_id(port, '')
+                return make_element_port_id(row[0], str(row[1]))    # type: ignore
+        else:
+            return make_element_port_id(port, '')
 
 #===============================================================================
 #===============================================================================
@@ -359,8 +360,8 @@ class BondgraphModel(Labelled):
                 raise ValueError(f'Bond {uri} cannot be both a power and an interface bond')
             elif row[3] is None or row[4] is None:
                 raise ValueError(f'Bond {uri} is missing source and/or target node')
-            self.__bonds.append(BondgraphBond(self, uri, row[3], row[4], row[2] is not None, row[5]))
-
+            self.__bonds.append(
+                BondgraphBond(self, uri, row[3], row[4], row[2] is not None, row[5]))       # type: ignore
         self.__graph = nx.DiGraph()
         self.__make_bond_network()
         self.__check_and_assign_domains_to_bond_network()
