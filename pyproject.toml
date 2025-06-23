@@ -11,6 +11,8 @@ dependencies = [
     "networkx>=3.3",
     "pint>=0.24.4",
     "rdflib>=7.1.4",
+    "rich>=14.0.0",
+    "structlog>=25.4.0",
     "ucumvert>=0.2.2",
 ]
 

@@ -18,7 +18,29 @@
 #
 #===============================================================================
 
-from bg2cellml.bondgraph import BondgraphModelSource
+import structlog
+
+#===============================================================================
+
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="ISO"),
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.StackInfoRenderer(),
+        structlog.dev.ConsoleRenderer()
+    ]
+)
+
+logger = structlog.get_logger()
+
+#===============================================================================
+
+try:
+    from bg2cellml.bondgraph import BondgraphModel, BondgraphModelSource
+except Exception as error:
+    logger.exception(error, exc_info=True)
+    exit(1)
+
 from bg2cellml.cellml import CellMLModel
 
 #===============================================================================
@@ -39,6 +61,11 @@ def main():
 #===============================================================================
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as error:
+        logger.exception(error, exc_info=True)
+        exit(1)
 
+#===============================================================================
 #===============================================================================
