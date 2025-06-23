@@ -139,8 +139,9 @@ class BondgraphElement(ModelElement):
 MODEL_BOND_PORTS = f"""
     SELECT DISTINCT ?element ?port
     WHERE {{
-        <%MODEL%> bg:hasPowerBond %BOND% .
-        %BOND% %BOND_RELN% [
+        {{ <%MODEL%> bgf:hasPowerBond <%BOND%> }}
+  UNION {{ <%MODEL%> bgf:hasInterfaceBond <%BOND%> }}
+        <%BOND%> %BOND_RELN% [
             bgf:element ?element ;
             bgf:port ?port
         ]
@@ -150,10 +151,16 @@ MODEL_BOND_PORTS = f"""
 
 class BondgraphBond(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: URIRef,
-                        source: str|BNode, target: str|BNode, label: Optional[str]=None):
+                        source: str|BNode, target: str|BNode,
+                        interface_bond: bool=False, label: Optional[str]=None):
         super().__init__(model, uri, label)
         self.__source_id = self.__get_port(source, 'bgf:hasSource')
         self.__target_id = self.__get_port(target, 'bgf:hasTarget')
+        self.__interface_bond = interface_bond
+
+    @property
+    def interface_bond(self):
+        return self.__interface_bond
 
     @property
     def source_id(self) -> str:
@@ -286,31 +293,38 @@ class BondgraphJunction(ModelElement):
 #===============================================================================
 
 MODEL_ELEMENTS = f"""
-    SELECT DISTINCT ?uri ?element_type ?label ?domain
+    SELECT DISTINCT ?model ?uri ?type ?label ?domain
     WHERE {{
-        <%MODEL%> bg:hasBondElement ?uri .
-        ?uri a ?element_type .
+        ?model bgf:hasBondElement ?uri .
+        ?uri a ?type .
         OPTIONAL {{ ?uri rdfs:label ?label }}
         OPTIONAL {{ ?uri bgf:hasDomain ?domain }}
-    }} ORDER BY ?uri"""
+    }} ORDER BY ?model ?uri"""
 
 MODEL_JUNCTIONS = f"""
-    SELECT DISTINCT ?uri ?type ?label ?value
+    SELECT DISTINCT ?model ?uri ?type ?label ?value
     WHERE {{
-        <%MODEL%> bg:hasJunctionStructure ?uri .
+        ?model bgf:hasJunctionStructure ?uri .
         ?uri a ?type .
         OPTIONAL {{ ?uri rdfs:label ?label }}
         OPTIONAL {{ ?uri bgf:hasValue ?value }}
-    }} ORDER BY ?uri"""
+    }} ORDER BY ?model ?uri"""
 
 MODEL_BONDS = f"""
-    SELECT DISTINCT ?uri ?source ?target ?label
+    SELECT DISTINCT ?model ?powerBond ?interfaceBond ?source ?target ?label
     WHERE {{
-        <%MODEL%> bg:hasPowerBond ?uri .
-        OPTIONAL {{ ?uri bgf:hasSource ?source }}
-        OPTIONAL {{ ?uri bgf:hasTarget ?target }}
-        OPTIONAL {{ ?uri rdfs:label ?label }}
-    }}"""
+        {{
+            ?model bgf:hasPowerBond ?powerBond .
+            OPTIONAL {{ ?powerBond bgf:hasSource ?source }}
+            OPTIONAL {{ ?powerBond bgf:hasTarget ?target }}
+            OPTIONAL {{ ?powerBond rdfs:label ?label }}
+        }} UNION {{
+            ?model bgf:hasInterfaceBond ?interfaceBond .
+            OPTIONAL {{ ?interfaceBond bgf:hasSource ?source }}
+            OPTIONAL {{ ?interfaceBond bgf:hasTarget ?target }}
+            OPTIONAL {{ ?interfaceBond rdfs:label ?label }}
+        }}
+    }} ORDER BY ?model"""
 
 BONDGRAPH_MODELS = f"""
     SELECT DISTINCT ?uri ?label
@@ -333,6 +347,21 @@ class BondgraphModel(Labelled):
                                 for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = [BondgraphBond(self, row[0], row[1], row[2], row[3])                 # type: ignore
                             for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', uri))]
+        self.__elements = [BondgraphElement.for_model(self, row[1], row[2], row[3], row[4]) # type: ignore
+                                for row in rdf_graph.query(MODEL_ELEMENTS)]
+        for element in self.__elements:
+            element.substitute_variable_names()
+        self.__junctions = [BondgraphJunction(self, row[1], row[2], row[3], row[4])         # type: ignore
+                                for row in rdf_graph.query(MODEL_JUNCTIONS)]
+        self.__bonds = []
+        for row in rdf_graph.query(MODEL_BONDS):
+            uri = row[1] if row[1] is not None else row[2]      # type: ignore
+            if row[1] is not None and row[2] is not None:
+                raise ValueError(f'Bond {uri} cannot be both a power and an interface bond')
+            elif row[3] is None or row[4] is None:
+                raise ValueError(f'Bond {uri} is missing source and/or target node')
+            self.__bonds.append(BondgraphBond(self, uri, row[3], row[4], row[2] is not None, row[5]))
+
         self.__make_bond_network()
         self.__check_and_assign_domains_to_bond_network()
         self.__assign_junction_domains_and_relations()
@@ -378,15 +407,22 @@ class BondgraphModel(Labelled):
         self.__graph = nx.DiGraph()
         for element in self.__elements:
             for port_id, port in element.ports.items():
-                self.__graph.add_node(port_id, type=self.__rdf_graph.curie(element.type), port=port)
+                self.__graph.add_node(port_id,
+                    type=self.__rdf_graph.curie(element.type), port=port, label=element.uri.fragment)
         for junction in self.__junctions:
-            self.__graph.add_node(junction.uri, type=self.__rdf_graph.curie(junction.type), junction=junction)
+            self.__graph.add_node(junction.uri,
+                type=self.__rdf_graph.curie(junction.type), junction=junction, label=junction.uri.fragment)
         for bond in self.__bonds:
-            if (source := bond.source_id) not in self.__graph:
-                raise ValueError(f'No element or junction for source {source} of bond {bond.uri}')
-            if (target := bond.target_id) not in self.__graph:
-                raise ValueError(f'No element or junction for target {target} of bond {bond.uri}')
-            self.__graph.add_edge(source, target)
+            source = bond.source_id
+            target = bond.target_id
+            if source not in self.__graph and target not in self.__graph:
+                raise ValueError(f'No element or junction for source and target of bond {bond.uri}')
+            elif not bond.interface_bond:
+                if source not in self.__graph or target not in self.__graph:
+                    raise ValueError(f'No element or junction for source or target of bond {bond.uri}')
+                self.__graph.add_edge(source, target)
+            elif source in self.__graph and target in self.__graph:
+                self.__graph.add_edge(source, target)
 
     def sparql_query(self, query: str) -> list[ResultRow]:
     #=====================================================
@@ -395,17 +431,53 @@ class BondgraphModel(Labelled):
 #===============================================================================
 #===============================================================================
 
+BONDGRAPH_MODELS = """
+    SELECT DISTINCT ?uri ?label
+    WHERE {
+        ?uri a bgf:BondgraphModel .
+        OPTIONAL { ?uri rdfs:label ?label }
+    } ORDER BY ?uri"""
+
+#===============================================================================
+
+BONDGRAPH_MODEL_BLOCKS = """
+    SELECT DISTINCT ?blockSource
+    WHERE {
+        ?uri
+            a bgf:BondgraphModel ;
+            bgf:hasBlock ?blockSource .
+    }"""
+
+#===============================================================================
+
 class BondgraphModelSource:
     def __init__(self, source: str):
         self.__rdf_graph = RDFGraph(NAMESPACES)
         self.__source_path =  Path(source).resolve()
         self.__rdf_graph.parse(self.__source_path.as_uri())
-        self.__models = [BondgraphModel(self.__rdf_graph, *row)
-                            for row in self.__rdf_graph.query(BONDGRAPH_MODELS)]
+        self.__loaded_sources: set[Path] = set([self.__source_path])
+        base_models: list[tuple[URIRef, Optional[Literal]]] = [(row[0], row[1])     # type: ignore
+            for row in self.__rdf_graph.query(BONDGRAPH_MODELS)]
+        self.__load_blocks(self.__source_path)
+        self.__models = { uri: BondgraphModel(self.__rdf_graph, uri, label)
+                                for (uri, label) in base_models }
+
+    def __load_blocks(self, base_path: Path):
+    #========================================
+        for row in self.__rdf_graph.query(BONDGRAPH_MODEL_BLOCKS):
+            path = base_path.parent.joinpath(str(row[0])).resolve()
+            self.__load_source(path)
+
+    def __load_source(self, source_path: Path):
+    #==========================================
+        if source_path not in self.__loaded_sources:
+            self.__rdf_graph.parse(source_path.as_uri())
+            self.__loaded_sources.add(source_path)
+            self.__load_blocks(source_path)
 
     @property
     def models(self):
-        return self.__models
+        return self.__models.values()
 
 #===============================================================================
 #===============================================================================
