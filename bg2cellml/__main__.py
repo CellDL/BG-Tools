@@ -18,7 +18,10 @@
 #
 #===============================================================================
 
+from collections import defaultdict
 from pathlib import Path
+
+#===============================================================================
 
 import structlog
 
@@ -108,6 +111,22 @@ def model2cellml(model: BondgraphModel, cellml_file: str):
 def model2celldl(model: BondgraphModel, celldl_file: str):
 #=========================================================
     G = model.network_graph
+
+    # Merge together multiple nodes for an element
+    element_nodes = defaultdict(list)
+    for node, element in G.nodes(data='element'):
+        if element is not None:
+            element_nodes[element.uri].append(node)     # type: ignore
+    for element, nodes in element_nodes.items():
+        if len(nodes) > 1:
+            base_node = nodes[0]
+            for node in nodes[1:]:
+                for edge_domain in G.in_edges(node, data='domain'):
+                    G.add_edge(edge_domain[0], base_node, domain=edge_domain[2])
+                for edge_domain in G.out_edges(node, data='domain'):
+                    G.add_edge(base_node, edge_domain[1], domain=edge_domain[2])
+                G.remove_node(node)
+
     G.graph['k'] = 0.1                   # Parameter for spring layout
     celldl_graph = Graph2CellDL(G, layout_method='spring',
         stylesheet=BGF_STYLESHEET, node_size=(150, 100), connection_stroke_width=6)

@@ -374,8 +374,8 @@ class BondgraphModel(Labelled):
         return self.__junctions
 
     @property
-    def network_graph(self):
-        return self.__graph
+    def network_graph(self) -> nx.DiGraph:
+        return self.__graph.copy()
 
     # Assign junction domains from elements and check consistency
     def __check_and_assign_domains_to_bond_network(self):
@@ -410,7 +410,7 @@ class BondgraphModel(Labelled):
         for element in self.__elements:
             for port_id, port in element.ports.items():
                 self.__graph.add_node(port_id,
-                    type=self.__rdf_graph.curie(element.type), port=port, label=element.uri.fragment)
+                    type=self.__rdf_graph.curie(element.type), port=port, element=element, label=element.uri.fragment)
         for junction in self.__junctions:
             self.__graph.add_node(junction.uri,
                 type=self.__rdf_graph.curie(junction.type), junction=junction, label=junction.uri.fragment)
