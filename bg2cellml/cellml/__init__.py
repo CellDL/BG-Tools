@@ -125,8 +125,10 @@ class CellMLModel:
     #===================================
         elements = self.__elements_from_units(units)
         if len(elements):
-            units_element = etree.fromstring(''.join(elements))
-            self.__main.addprevious(units_element)
+            for element in elements:
+                if len(element):
+                    units_element = etree.fromstring(''.join(element))
+                    self.__main.addprevious(units_element)
 
     def __add_variable(self, variable: Variable):
     #============================================
@@ -136,22 +138,26 @@ class CellMLModel:
             self.__main.append(cellml_variable.get_element())
             self.__known_symbols.add(variable.symbol)
 
-    def __elements_from_units(self, units: Units) -> list[str]:
-    #==========================================================
-        if units.name in self.__known_units or units.name in CELLML_UNITS:
-            return []
-        elements = []
-        elements.append(f'<units xmlns="{CELLML_NS}" name="{units.name}">')
-        for item in units.base_items():
-            if item[0] not in self.__known_units:
-                item_elements = self.__elements_from_units(Units(item[0]))
-                elements.extend(item_elements)
-            name = Units.normalise_name(item[0])
-            if item[1] == 0: elements.append(f'<unit units="{name}"/>')
-            else: elements.append(f'<unit units="{name}" exponent="{item[1]}"/>')
-        elements.append('</units>')
-        self.__known_units.add(units.name)
-        return elements
+    def __elements_from_units(self, units: Units) -> list[list[str]]:
+    #================================================================
+        result = []
+        def elements_from_units(units: Units) -> list[str]:
+            if units.name in self.__known_units or units.name in CELLML_UNITS:
+                return []
+            elements = []
+            elements.append(f'<units xmlns="{CELLML_NS}" name="{units.name}">')
+            for item in units.base_items():
+                if item[0] not in self.__known_units:
+                    item_elements = elements_from_units(Units(item[0]))
+                    result.append(item_elements)
+                name = Units.normalise_name(item[0])
+                if item[1] == 0: elements.append(f'<unit units="{name}"/>')
+                else: elements.append(f'<unit units="{name}" exponent="{item[1]}"/>')
+            elements.append('</units>')
+            self.__known_units.add(units.name)
+            return elements
+        result.append(elements_from_units(units))
+        return result
 
     def to_xml(self) -> str:
     #=======================
