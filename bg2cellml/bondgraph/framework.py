@@ -43,6 +43,7 @@ VOI_UCUMUNIT = Literal('s', datatype=CDT.ucumunit)
 #===============================================================================
 
 DISSIPATOR_ELEMENT = BGF.Dissipator
+POTENTIAL_STORE    = BGF.PotentialStore
 
 ONENODE_JUNCTION   = BGF.OneNode
 TRANSFORM_JUNCTION = BGF.TransformNode  # Can act as a transformer of gyrator
@@ -149,18 +150,28 @@ DOMAIN_CONSTANTS = f"""
 class Domain(Labelled):
     def __init__(self, uri: URIRef, label: Optional[str],
                     flow_name: str, flow_units: Literal,
-                    potential_name: str, potential_units: Literal):
+                    potential_name: str, potential_units: Literal,
+                    quantity_name: str, quantity_units: Literal):
         super().__init__(uri, label)
         self.__flow = Variable(self.uri, flow_name, flow_units, None)
         self.__potential = Variable(self.uri, potential_name, potential_units, None)
+        self.__quantity = Variable(self.uri, quantity_name, quantity_units, None)
+        self.__intrinsic_symbols = [
+            self.__flow.symbol,
+            self.__potential.symbol,
+            self.__quantity.symbol
+        ]
         self.__constants: list[Variable] = []
 
     @classmethod
     def from_framework(cls, framework: '_BondgraphFramework',
                     uri: URIRef, label: Optional[str],
                     flow_name: str, flow_units: Literal,
-                    potential_name: str, potential_units: Literal) -> Self:
-        self = cls(uri, label, flow_name, flow_units, potential_name, potential_units)
+                    potential_name: str, potential_units: Literal,
+                    quantity_name: str, quantity_units: Literal) -> Self:
+        self = cls(uri, label, flow_name, flow_units,
+                                potential_name, potential_units,
+                                quantity_name, quantity_units)
         self.__add_constants(framework)
         return self
 
@@ -179,12 +190,20 @@ class Domain(Labelled):
         return self.__flow
 
     @property
+    def intrinsic_symbols(self):
+        return self.__intrinsic_symbols
+
+    @property
     def name(self) -> str:
         return self.__uri.fragment
 
     @property
     def potential(self):
         return self.__potential
+
+    @property
+    def quantity(self):
+        return self.__quantity
 
     def __add_constants(self, framework: '_BondgraphFramework'):
     #===========================================================
@@ -267,10 +286,10 @@ ELEMENT_VARIABLES = f"""
 #===============================================================================
 
 class ElementTemplate(Labelled):
-    def __init__(self, uri: URIRef, element_type: URIRef,
+    def __init__(self, uri: URIRef, element_class: URIRef,
                     label: Optional[str], domain: Domain, relation: str|Literal):
         super().__init__(uri, label)
-        self.__element_type = element_type
+        self.__element_class = element_class
         self.__domain = domain
         mathml = None
         if isinstance(relation, Literal):
@@ -287,13 +306,14 @@ class ElementTemplate(Labelled):
             raise ValueError(f'{self.uri}: {error}')
         self.__ports: dict[str, PowerPort] = {}
         self.__variables: dict[str, Variable] = {}
+        self.__intrinsic_variable: Optional[Variable] = None
 
     @classmethod
-    def from_framework(cls, framework: '_BondgraphFramework', uri: URIRef, element_type: URIRef,
+    def from_framework(cls, framework: '_BondgraphFramework', uri: URIRef, element_class: URIRef,
                         label: Optional[str], domain_uri: URIRef, relation: str|Literal) -> Self:
         if (domain := framework.domain(domain_uri)) is None:
             raise ValueError(f'Unknown domain {domain_uri} for {uri} element')
-        self = cls(uri, element_type, label, domain, relation)
+        self = cls(uri, element_class, label, domain, relation)
         self.__add_ports(framework)
         self.__add_variables(framework)
         self.__check_names()
@@ -308,12 +328,16 @@ class ElementTemplate(Labelled):
         return self.__domain
 
     @property
-    def ports(self) -> dict[str, PowerPort]:
-        return self.__ports
+    def element_class(self) -> URIRef:
+        return self.__element_class
 
     @property
-    def element_type(self) -> URIRef:
-        return self.__element_type
+    def intrinsic_variable(self) -> Optional[Variable]:
+        return self.__intrinsic_variable
+
+    @property
+    def ports(self) -> dict[str, PowerPort]:
+        return self.__ports
 
     @property
     def variables(self) -> dict[str, Variable]:
@@ -324,7 +348,7 @@ class ElementTemplate(Labelled):
         port_ids = [str(row[0]) for row in framework.knowledge.query(
                         ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri))]
         if len(port_ids):
-            same_flow = (len(port_ids) == 2) and (self.__element_type != DISSIPATOR_ELEMENT)
+            same_flow = (len(port_ids) == 2) and (self.__element_class != DISSIPATOR_ELEMENT)
             self.__ports = {id: PowerPort(self, port_suffix=id, flow_suffixed=same_flow)
                                 for id in port_ids}
         else:
@@ -332,9 +356,14 @@ class ElementTemplate(Labelled):
 
     def __add_variables(self, framework: '_BondgraphFramework'):
     #===========================================================
-        self.__variables = { str(row[0]): Variable(self.uri, str(row[0]), row[1], row[2])   # type: ignore
-                                for row in framework.knowledge.query(
-                                        ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)) }
+        for row in framework.knowledge.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)):
+            var_name = str(row[0])
+            if var_name in self.__domain.intrinsic_symbols:
+                raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
+            self.__variables[var_name] = Variable(self.uri, str(row[0]), row[1], row[2])   # type: ignore
+        # A variable that is intrinsic to the element's class
+        if self.__element_class == POTENTIAL_STORE:
+            self.__intrinsic_variable = self.__domain.quantity.copy()
 
     def __check_names(self):
     #=======================
@@ -353,6 +382,7 @@ class ElementTemplate(Labelled):
         if len(names) > len(eqn_names):
             raise ValueError(f"{self.uri} has variables that are not in it's constitutive relation")
         names.extend([c.name for c in self.__domain.constants])
+        names.extend(self.__domain.intrinsic_symbols)
         names.append(VOI_VARIABLE.name)
         for name in eqn_names:
             if name not in names:
@@ -370,7 +400,10 @@ class JunctionStructure(Labelled):
 #===============================================================================
 
 DOMAIN_QUERY = f"""
-    SELECT DISTINCT ?domain ?label ?flowName ?flowUnits ?potentialName ?potentialUnits
+    SELECT DISTINCT ?domain ?label
+                    ?flowName ?flowUnits
+                    ?potentialName ?potentialUnits
+                    ?quantityName ?quantityUnits
     WHERE {{
         ?domain
             a bgf:ModellingDomain ;
@@ -381,16 +414,20 @@ DOMAIN_QUERY = f"""
             bgf:hasPotential [
                 bgf:varName ?potentialName ;
                 bgf:hasUnits ?potentialUnits
+            ] ;
+            bgf:hasQuantity [
+                bgf:varName ?quantityName ;
+                bgf:hasUnits ?quantityUnits
             ] .
         OPTIONAL {{ ?domain rdfs:label ?label }}
     }} ORDER BY ?domain"""
 
 ELEMENT_TEMPLATE_DEFINITIONS = f"""
-    SELECT DISTINCT ?uri ?element_type ?label ?domain ?relation
+    SELECT DISTINCT ?uri ?element_class ?label ?domain ?relation
     WHERE {{
         ?uri
             a bgf:ElementTemplate ;
-            rdfs:subClassOf ?element_type ;
+            rdfs:subClassOf ?element_class ;
             rdfs:subClassOf* bgf:BondElement ;
             bgf:hasDomain ?domain ;
             bgf:constitutiveRelation ?relation .
@@ -419,7 +456,8 @@ class _BondgraphFramework:
         for knowledge in bg_knowledge:
             self.__knowledge.parse(knowledge)
         self.__domains = {row[0]: Domain.from_framework(
-                                    self, row[0], row[1], row[2], row[3], row[4], row[5])       # type: ignore
+                                    self, row[0], row[1],                               # type: ignore
+                                    row[2], row[3], row[4], row[5], row[6], row[7])     # type: ignore
                                 for row in self.__knowledge.query(DOMAIN_QUERY)}
         self.__element_templates: dict[URIRef, ElementTemplate] = {                             # type: ignore
             row[0]: ElementTemplate.from_framework(self, row[0], row[1], row[2], row[3], row[4])   # type: ignore

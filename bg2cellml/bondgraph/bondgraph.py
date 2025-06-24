@@ -67,11 +67,23 @@ ELEMENT_VARIABLES = f"""
         OPTIONAL {{ ?variable bgf:hasSymbol ?symbol }}
     }}"""
 
+ELEMENT_STATE_VALUE = f"""
+    SELECT DISTINCT ?quantityValue
+    WHERE {{
+        <%ELEMENT_URI%> bgf:quantityValue ?quantityValue .
+    }}"""
+
+#===============================================================================
+
+type VariableValue = tuple[Literal|URIRef, Optional[str]]
+
 #===============================================================================
 
 class BondgraphElement(ModelElement):
     def __init__(self,  model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
-                        label: Optional[str], domain_uri: Optional[URIRef]):
+                        label: Optional[str], domain_uri: Optional[URIRef],
+                        intrinsic_value: Optional[Value] = None,
+                        variable_values: Optional[dict[str, VariableValue]]=None):
         super().__init__(model, uri, label)
         element_template = FRAMEWORK.element_template(element_type, domain_uri)
         if element_template is None:
@@ -89,6 +101,17 @@ class BondgraphElement(ModelElement):
                             for port_id, port in element_template.ports.items() }
         self.__variables = {name: variable.copy(self.uri.fragment)
                                 for name, variable in element_template.variables.items()}
+        if (intrinsic_var := element_template.intrinsic_variable) is not None:
+            self.__variables[intrinsic_var.name] = intrinsic_var.copy(self.uri.fragment)
+            self.__intrinsic_variable = self.__variables[intrinsic_var.name]
+            if intrinsic_value is not None:
+                self.__intrinsic_variable.set_value(intrinsic_value)
+        else:
+            self.__intrinsic_variable = None
+
+        # Defer assigning until we have the full bondgraph
+        self.__variable_values = variable_values if variable_values is not None else {}
+
         for port in self.__ports.values():
             self.__variables[port.flow.name] = port.flow.variable
             self.__variables[port.potential.name] = port.potential.variable
@@ -96,15 +119,15 @@ class BondgraphElement(ModelElement):
     @classmethod
     def for_model(cls, model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
                        label: Optional[str], domain_uri: Optional[URIRef]):
-        self = cls(model, uri, element_type, label, domain_uri)
-        for row in model.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)):
-            var_name = str(row[0])
-            if var_name not in self.__variables:
-                raise ValueError(f'Element {self.uri} has unknown name {row[0]} for {self.__type}')     # type: ignore
-            self.__variables[var_name].set_value(Value.from_literal(row[1]))  # type: ignore
-            if row[2] is not None:
-                self.__variables[var_name].set_symbol(row[2])
-        return self
+        variable_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # type: ignore
+            for row in model.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', uri))
+        }
+        intrinsic_value: Optional[Value] = None
+        for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT_URI%', uri)):
+            intrinsic_value = Value.from_literal(row[0])                            # type: ignore
+            break
+        return cls(model, uri, element_type, label, domain_uri,
+                    intrinsic_value=intrinsic_value, variable_values=variable_values)
 
     @property
     def domain(self) -> Domain:
@@ -127,8 +150,26 @@ class BondgraphElement(ModelElement):
         return self.__variables
 
     # Substitute variable symbols into the constitutive relation
-    def substitute_variable_names(self):
-    #===================================
+    def assign_variables(self, bond_graph: nx.DiGraph):
+    #==================================================
+        for var_name, value in self.__variable_values.items():
+            if (variable := self.__variables.get(var_name)) is None:
+                raise ValueError(f'Element {self.uri} has unknown name {var_name} for {self.__type}')
+            if value[1] is not None:
+                variable.set_symbol(value[1])
+            if isinstance(value[0], Literal):
+                variable.set_value(Value.from_literal(value[0]))
+            elif isinstance(value[0], URIRef):
+                if value[0] not in bond_graph:
+                    raise ValueError(f'Value for {self.uri} refers to unknown element: {value[0]}')
+                elif (element := bond_graph.nodes[value[0]].get('element')) is None:
+                    raise ValueError(f'Value for {self.uri} is not a bond element: {value[0]}')
+                elif element.__intrinsic_variable is None:
+                    raise ValueError(f'Value for {self.uri} is an element with no intrinsic variable: {value[0]}')
+                elif variable.units != element.__intrinsic_variable.units:
+                    raise ValueError(f'Units incompatible for {self.uri} value: {value[0]}')
+                else:
+                    variable.set_symbol(element.__intrinsic_variable.symbol)
         for name, variable in self.__variables.items():
             self.__constitutive_relation.substitute(name, variable.symbol)
 
@@ -341,8 +382,6 @@ class BondgraphModel(Labelled):
         self.__rdf_graph = rdf_graph
         self.__elements = [BondgraphElement.for_model(self, row[1], row[2], row[3], row[4]) # type: ignore
                                 for row in rdf_graph.query(MODEL_ELEMENTS)]
-        for element in self.__elements:
-            element.substitute_variable_names()
         self.__junctions = [BondgraphJunction(self, row[1], row[2], row[3], row[4])         # type: ignore
                                 for row in rdf_graph.query(MODEL_JUNCTIONS)]
         self.__bonds = []
@@ -356,6 +395,7 @@ class BondgraphModel(Labelled):
                 BondgraphBond(self, uri, row[3], row[4], row[2] is not None, row[5]))       # type: ignore
         self.__graph = nx.DiGraph()
         self.__make_bond_network()
+        self.__assign_element_variables()
         self.__check_and_assign_domains_to_bond_network()
         self.__assign_junction_domains_and_relations()
 
@@ -370,6 +410,11 @@ class BondgraphModel(Labelled):
     @property
     def network_graph(self) -> nx.DiGraph:
         return self.__graph.copy()
+
+    def __assign_element_variables(self):
+    #====================================
+        for element in self.__elements:
+            element.assign_variables(self.__graph)
 
     # Assign junction domains from elements and check consistency
     def __check_and_assign_domains_to_bond_network(self):
