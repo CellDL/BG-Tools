@@ -502,6 +502,7 @@ class BondgraphModelSource:
         if len(base_models) < 1:
             raise ValueError(f'No BondgraphModels in source {source}')
         self.__load_blocks(self.__source_path)
+        FRAMEWORK.resolve_composites(base_models[0][0], self.__rdf_graph)
         FRAMEWORK.generate_bonds(base_models[0][0], self.__rdf_graph)
         self.__models = { uri: BondgraphModel(self.__rdf_graph, uri, label)
                                 for (uri, label) in base_models }

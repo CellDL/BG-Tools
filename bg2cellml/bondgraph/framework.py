@@ -406,6 +406,23 @@ class JunctionStructure(Labelled):
 #===============================================================================
 #===============================================================================
 
+class CompositeElement(Labelled):
+    def __init__(self, uri: URIRef, template: ElementTemplate, junction: JunctionStructure, label: Optional[str]):
+        super().__init__(uri, label)
+        self.__template = template
+        self.__junction = junction
+
+    @property
+    def junction(self):
+        return self.__junction
+
+    @property
+    def template(self):
+        return self.__template
+
+#===============================================================================
+#===============================================================================
+
 DOMAIN_QUERY = """
     SELECT DISTINCT ?domain ?label
                     ?flowName ?flowUnits
@@ -448,12 +465,49 @@ JUNCTION_STRUCTURES = """
         OPTIONAL { ?junction rdfs:label ?label }
     } ORDER BY ?junction"""
 
+COMPOSITE_ELEMENT_DEFINITIONS = """
+    SELECT DISTINCT ?uri ?template ?junction ?label
+    WHERE {
+        ?uri
+            a bgf:CompositeElement ;
+            bgf:elementTemplate ?template ;
+            bgf:junctionStructure ?junction .
+        OPTIONAL { ?uri rdfs:label ?label }
+    } ORDER BY ?uri"""
+
+#===============================================================================
+
+COMPOSITE_ELEMENTS = """
+    SELECT DISTINCT ?model ?elementUri ?elementType
+    WHERE {
+        ?model
+            a bgf:BondgraphModel ;
+            bgf:hasBondElement ?elementUri .
+        ?elementUri a ?elementType .
+    } ORDER BY ?model ?elementUri"""
+
 MODEL_BONDS = """
     SELECT DISTINCT ?bond ?source ?target
     WHERE {
         ?bond
             bgf:hasSource ?source ;
             bgf:hasTarget ?target .
+    } ORDER BY ?bond"""
+
+ELEMENT_IS_SOURCE = """
+    SELECT DISTINCT ?bond
+    WHERE {
+        ?bond
+            bgf:hasSource <%ELEMENT_URI%> ;
+            bgf:hasTarget ?target .
+    } ORDER BY ?bond"""
+
+ELEMENT_IS_TARGET = """
+    SELECT DISTINCT ?bond
+    WHERE {
+        ?bond
+            bgf:hasSource ?source ;
+            bgf:hasTarget <%ELEMENT_URI%> .
     } ORDER BY ?bond"""
 
 #===============================================================================
@@ -488,6 +542,14 @@ class _BondgraphFramework:
             row[0]: JunctionStructure(row[0], row[1])                   # type: ignore
                 for row in self.__knowledge.query(JUNCTION_STRUCTURES)}
 
+        self.__composite_elements: dict[URIRef, CompositeElement] = {}
+        for row in self.__knowledge.query(COMPOSITE_ELEMENT_DEFINITIONS):
+            if (element := self.__element_templates.get(row[1])) is None:   # type: ignore
+                raise ValueError(f'Unknown BondElement {row[1]} for composite {row[0]}')
+            if (junction := self.__junctions.get(row[2])) is None:          # type: ignore
+                raise ValueError(f'Unknown JunctionStructure {row[2]} for composite {row[0]}')
+            self.__composite_elements[row[0]] = CompositeElement(row[0], element, junction, row[3]) # type: ignore
+
     @property
     def knowledge(self):
         return self.__knowledge
@@ -520,6 +582,40 @@ class _BondgraphFramework:
     def junction_classes(self) -> list[str]:
     #=======================================
         return list(self.__junctions.keys())
+
+    def resolve_composites(self, model_uri: URIRef, model_graph: RDFGraph):
+    #==================================================================
+        for row in model_graph.query(COMPOSITE_ELEMENTS):
+            if (composite := self.__composite_elements.get(row[2])) is not None:    # type: ignore
+                element_uri: URIRef = row[1]                                        # type: ignore
+                model_graph.add((element_uri, RDF.type, composite.template.uri))
+                model_graph.remove((element_uri, RDF.type, row[2]))
+                if composite.junction.uri == ONENODE_JUNCTION:
+                    junction_symbol = composite.template.domain.flow.symbol
+                elif composite.junction.uri == ZERONODE_JUNCTION:
+                    junction_symbol = composite.template.domain.potential.symbol
+                else:
+                    junction_symbol = 'unknown'
+                junction_uri = element_uri + f'_{junction_symbol}'
+                for port in composite.template.ports.items():
+                    if port[0] == '':
+                        uri = junction_uri
+                        bond_uri = element_uri + '.bond'
+                    else:
+                        uri = junction_uri + f'_{port[0]}'
+                        bond_uri = element_uri + f'_{port[0]}.bond'
+                    model_graph.add((uri, RDF.type, composite.junction.uri))
+                    model_graph.add((model_uri, BGF.hasJunctionStructure, uri))
+                    for row in model_graph.query(ELEMENT_IS_SOURCE.replace('%ELEMENT_URI%', element_uri)):
+                        bond = row[0]
+                        model_graph.add((bond, BGF.hasSource, uri))
+                        model_graph.remove((bond, BGF.hasSource, element_uri))
+                    for row in model_graph.query(ELEMENT_IS_TARGET.replace('%ELEMENT_URI%', element_uri)):
+                        bond = row[0]
+                        model_graph.add((bond, BGF.hasTarget, uri))
+                        model_graph.remove((bond, BGF.hasTarget, element_uri))
+                    model_graph.add((bond_uri, BGF.hasSource, uri))
+                    model_graph.add((bond_uri, BGF.hasTarget, element_uri))
 
 #===============================================================================
 #===============================================================================
