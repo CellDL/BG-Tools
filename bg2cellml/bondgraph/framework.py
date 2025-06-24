@@ -22,7 +22,7 @@ from typing import NamedTuple, Optional, Self
 
 #===============================================================================
 
-from rdflib.namespace import XSD
+from rdflib.namespace import RDF, XSD
 
 #===============================================================================
 
