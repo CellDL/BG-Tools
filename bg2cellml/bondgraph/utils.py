@@ -31,6 +31,11 @@ class Labelled:
         self.__uri = uri
         self.__label = label
 
+    def __str__(self):
+        if self.__label is not None:
+            f'{str(self.__uri)} ({self.__label})'
+        return str(self.__uri)
+
     @property
     def uri(self):
         return self.__uri
