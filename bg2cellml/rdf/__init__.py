@@ -70,6 +70,15 @@ class RDFGraph:
                 self.__graph.bind(prefix, namespace)
         #self.__namespace_map = NamespaceMap(namespaces)
 
+    def __contains__(self, triple: tuple) -> bool:
+    #=============================================
+        return triple in self.__graph
+
+    def add(self, triple: tuple) -> Self:
+    #====================================
+        self.__graph.add(triple)
+        return self
+
     def curie(self, uri: URIRef) -> str:
     #===================================
         return uri.n3(self.__graph.namespace_manager)
@@ -82,8 +91,17 @@ class RDFGraph:
     #==============================================
         return self.__graph.query(query)    # type: ignore
 
+    def remove(self, triple: tuple) -> Self:
+    #=======================================
+        self.__graph.remove(triple)
+        return self
+
     def serialise(self) -> str:
     #==========================
         return self.__graph.serialize(format='turtle')
+
+    def triples(self, triple: tuple):
+    #================================
+        return self.__graph.triples(triple)
 
 #===============================================================================
