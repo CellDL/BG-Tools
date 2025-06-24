@@ -78,6 +78,32 @@ def compare_simulation(bondgraph_source: str, sedml_source: str):
 
     assert_equal_states_and_rates(ref_task, sim_task)
 
+def compare_bondgraph_models(bondgraph_source_1: str, bondgraph_source_2: str, sedml_source: str):
+#=================================================================================================
+    sedml = loc.SedDocument(loc.File(f'{sedml_source}.sedml'))
+    output_end_time = sedml.simulations[0].output_end_time
+    number_of_steps = sedml.simulations[0].number_of_steps
+
+    reference = loc.SedDocument(loc.File(f'{sedml_source}.cellml'))
+    reference.simulations[0].output_end_time = output_end_time
+    reference.simulations[0].number_of_steps = number_of_steps
+
+    model_1 = BondgraphModelSource(bondgraph_source_1).models[0]
+    cellml_1 = CellMLModel(model_1).to_xml()
+    simulation_1 = loc.SedDocument(cellml_virtual_file(cellml_1))
+    simulation_1.simulations[0].output_end_time = output_end_time
+    simulation_1.simulations[0].number_of_steps = number_of_steps
+    sim_1_task = run_simulation(simulation_1)
+
+    model_2 = BondgraphModelSource(bondgraph_source_2).models[0]
+    cellml_2 = CellMLModel(model_2).to_xml()
+    simulation_2 = loc.SedDocument(cellml_virtual_file(cellml_2))
+    simulation_2.simulations[0].output_end_time = output_end_time
+    simulation_2.simulations[0].number_of_steps = number_of_steps
+    sim_2_task = run_simulation(simulation_2)
+
+    assert_equal_states_and_rates(sim_1_task, sim_2_task)
+
 #===============================================================================
 
 def test_simple_electrical_circuit():
@@ -90,4 +116,16 @@ def test_simple_reaction():
     compare_simulation('../examples/example_B1.ttl',
                        '../pmr/Simple_biochemical_reaction/FAIRDO BG example 3.4')
 
+def test_simplified_reaction():
+#==============================
+    compare_simulation('../examples/example_B1_simplified.ttl',
+                       '../pmr/Simple_biochemical_reaction/FAIRDO BG example 3.4')
+
+def test_bondgraph_simplification():
+#===================================
+    compare_bondgraph_models('../examples/example_B1.ttl',
+                             '../examples/example_B1_simplified.ttl',
+                             '../pmr/Simple_biochemical_reaction/FAIRDO BG example 3.4')
+
+#===============================================================================
 #===============================================================================
