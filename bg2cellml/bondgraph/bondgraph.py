@@ -238,7 +238,6 @@ class BondgraphJunction(ModelElement):
 
     @property
     def constitutive_relation(self) -> MathML:
-    #=========================================
         return self.__constitutive_relation         # type: ignore
 
     @property
