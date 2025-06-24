@@ -141,16 +141,16 @@ VOI_VARIABLE = Variable(URIRef(''), VOI_SYMBOL, VOI_UCUMUNIT, None)
 #===============================================================================
 #===============================================================================
 
-DOMAIN_CONSTANTS = f"""
+DOMAIN_CONSTANTS = """
     SELECT DISTINCT ?name ?value
-    WHERE {{
+    WHERE {
         <%DOMAIN_URI%>
             a bgf:ModellingDomain ;
             bgf:hasConstant [
                 bgf:varName ?name ;
                 bgf:hasValue ?value
             ] .
-    }}"""
+    }"""
 
 #===============================================================================
 
@@ -221,11 +221,11 @@ class Domain(Labelled):
 #===============================================================================
 #===============================================================================
 
-ELEMENT_PORT_IDS = f"""
+ELEMENT_PORT_IDS = """
     SELECT DISTINCT ?port
-    WHERE {{
+    WHERE {
         <%ELEMENT_URI%> bgf:hasPort ?port .
-    }}
+    }
     ORDER BY ?port"""
 
 #===============================================================================
@@ -281,14 +281,14 @@ class PowerPort:
 #===============================================================================
 #===============================================================================
 
-ELEMENT_VARIABLES = f"""
+ELEMENT_VARIABLES = """
     SELECT DISTINCT ?name ?units ?value
-    WHERE {{
+    WHERE {
         <%ELEMENT_URI%> bgf:hasVariable ?variable .
         ?variable bgf:varName ?name .
-        OPTIONAL {{ ?variable bgf:hasUnits ?units }}
-        OPTIONAL {{ ?variable bgf:hasValue ?value }}
-    }}"""
+        OPTIONAL { ?variable bgf:hasUnits ?units }
+        OPTIONAL { ?variable bgf:hasValue ?value }
+    }"""
 
 #===============================================================================
 
@@ -406,12 +406,12 @@ class JunctionStructure(Labelled):
 #===============================================================================
 #===============================================================================
 
-DOMAIN_QUERY = f"""
+DOMAIN_QUERY = """
     SELECT DISTINCT ?domain ?label
                     ?flowName ?flowUnits
                     ?potentialName ?potentialUnits
                     ?quantityName ?quantityUnits
-    WHERE {{
+    WHERE {
         ?domain
             a bgf:ModellingDomain ;
             bgf:hasFlow [
@@ -426,27 +426,27 @@ DOMAIN_QUERY = f"""
                 bgf:varName ?quantityName ;
                 bgf:hasUnits ?quantityUnits
             ] .
-        OPTIONAL {{ ?domain rdfs:label ?label }}
-    }} ORDER BY ?domain"""
+        OPTIONAL { ?domain rdfs:label ?label }
+    } ORDER BY ?domain"""
 
-ELEMENT_TEMPLATE_DEFINITIONS = f"""
+ELEMENT_TEMPLATE_DEFINITIONS = """
     SELECT DISTINCT ?uri ?element_class ?label ?domain ?relation
-    WHERE {{
+    WHERE {
         ?uri
             a bgf:ElementTemplate ;
             rdfs:subClassOf ?element_class ;
             rdfs:subClassOf* bgf:BondElement ;
             bgf:hasDomain ?domain ;
             bgf:constitutiveRelation ?relation .
-        OPTIONAL {{ ?uri rdfs:label ?label }}
-    }} ORDER BY ?uri"""
+        OPTIONAL { ?uri rdfs:label ?label }
+    } ORDER BY ?uri"""
 
-JUNCTION_STRUCTURES = f"""
+JUNCTION_STRUCTURES = """
     SELECT DISTINCT ?junction ?label
-    WHERE {{
+    WHERE {
         ?junction rdfs:subClassOf* bgf:JunctionStructure .
-        OPTIONAL {{ ?junction rdfs:label ?label }}
-    }} ORDER BY ?junction"""
+        OPTIONAL { ?junction rdfs:label ?label }
+    } ORDER BY ?junction"""
 
 MODEL_BONDS = """
     SELECT DISTINCT ?bond ?source ?target

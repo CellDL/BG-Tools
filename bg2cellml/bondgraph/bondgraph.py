@@ -57,21 +57,21 @@ class ModelElement(Labelled):
 #===============================================================================
 #===============================================================================
 
-ELEMENT_VARIABLES = f"""
+ELEMENT_VARIABLES = """
     SELECT DISTINCT ?name ?value ?symbol
-    WHERE {{
+    WHERE {
         <%ELEMENT_URI%> bgf:variableValue ?variable .
         ?variable
             bgf:varName ?name ;
             bgf:hasValue ?value .
-        OPTIONAL {{ ?variable bgf:hasSymbol ?symbol }}
-    }}"""
+        OPTIONAL { ?variable bgf:hasSymbol ?symbol }
+    }"""
 
-ELEMENT_STATE_VALUE = f"""
+ELEMENT_STATE_VALUE = """
     SELECT DISTINCT ?quantityValue
-    WHERE {{
+    WHERE {
         <%ELEMENT_URI%> bgf:quantityValue ?quantityValue .
-    }}"""
+    }"""
 
 #===============================================================================
 
@@ -176,16 +176,16 @@ class BondgraphElement(ModelElement):
 #===============================================================================
 #===============================================================================
 
-MODEL_BOND_PORTS = f"""
+MODEL_BOND_PORTS = """
     SELECT DISTINCT ?element ?port
-    WHERE {{
-        {{ <%MODEL%> bgf:hasPowerBond <%BOND%> }}
-  UNION {{ <%MODEL%> bgf:hasInterfaceBond <%BOND%> }}
+    WHERE {
+        { <%MODEL%> bgf:hasPowerBond <%BOND%> }
+  UNION { <%MODEL%> bgf:hasInterfaceBond <%BOND%> }
         <%BOND%> %BOND_RELN% [
             bgf:element ?element ;
             bgf:port ?port
         ]
-    }}"""
+    }"""
 
 #===============================================================================
 
@@ -333,46 +333,46 @@ class BondgraphJunction(ModelElement):
 #===============================================================================
 #===============================================================================
 
-MODEL_ELEMENTS = f"""
+MODEL_ELEMENTS = """
     SELECT DISTINCT ?model ?uri ?type ?label ?domain
-    WHERE {{
+    WHERE {
         ?model bgf:hasBondElement ?uri .
         ?uri a ?type .
-        OPTIONAL {{ ?uri rdfs:label ?label }}
-        OPTIONAL {{ ?uri bgf:hasDomain ?domain }}
-    }} ORDER BY ?model ?uri"""
+        OPTIONAL { ?uri rdfs:label ?label }
+        OPTIONAL { ?uri bgf:hasDomain ?domain }
+    } ORDER BY ?model ?uri"""
 
-MODEL_JUNCTIONS = f"""
+MODEL_JUNCTIONS = """
     SELECT DISTINCT ?model ?uri ?type ?label ?value
-    WHERE {{
+    WHERE {
         ?model bgf:hasJunctionStructure ?uri .
         ?uri a ?type .
-        OPTIONAL {{ ?uri rdfs:label ?label }}
-        OPTIONAL {{ ?uri bgf:hasValue ?value }}
-    }} ORDER BY ?model ?uri"""
+        OPTIONAL { ?uri rdfs:label ?label }
+        OPTIONAL { ?uri bgf:hasValue ?value }
+    } ORDER BY ?model ?uri"""
 
-MODEL_BONDS = f"""
+MODEL_BONDS = """
     SELECT DISTINCT ?model ?powerBond ?interfaceBond ?source ?target ?label
-    WHERE {{
-        {{
+    WHERE {
+        {
             ?model bgf:hasPowerBond ?powerBond .
-            OPTIONAL {{ ?powerBond bgf:hasSource ?source }}
-            OPTIONAL {{ ?powerBond bgf:hasTarget ?target }}
-            OPTIONAL {{ ?powerBond rdfs:label ?label }}
-        }} UNION {{
+            OPTIONAL { ?powerBond bgf:hasSource ?source }
+            OPTIONAL { ?powerBond bgf:hasTarget ?target }
+            OPTIONAL { ?powerBond rdfs:label ?label }
+        } UNION {
             ?model bgf:hasInterfaceBond ?interfaceBond .
-            OPTIONAL {{ ?interfaceBond bgf:hasSource ?source }}
-            OPTIONAL {{ ?interfaceBond bgf:hasTarget ?target }}
-            OPTIONAL {{ ?interfaceBond rdfs:label ?label }}
-        }}
-    }} ORDER BY ?model"""
+            OPTIONAL { ?interfaceBond bgf:hasSource ?source }
+            OPTIONAL { ?interfaceBond bgf:hasTarget ?target }
+            OPTIONAL { ?interfaceBond rdfs:label ?label }
+        }
+    } ORDER BY ?model"""
 
-BONDGRAPH_MODELS = f"""
+BONDGRAPH_MODELS = """
     SELECT DISTINCT ?uri ?label
-    WHERE {{
+    WHERE {
         ?uri a bgf:BondgraphModel .
-        OPTIONAL {{ ?uri rdfs:label ?label }}
-    }} ORDER BY ?uri"""
+        OPTIONAL { ?uri rdfs:label ?label }
+    } ORDER BY ?uri"""
 
 #===============================================================================
 
