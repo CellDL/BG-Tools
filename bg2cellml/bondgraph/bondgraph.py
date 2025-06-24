@@ -253,7 +253,9 @@ class BondgraphJunction(ModelElement):
     #===============================================
         node_uri = self.uri
         attributes = bond_graph.nodes[node_uri]
-        self.__domain = attributes['domain']
+        if (domain := attributes.get('domain')) is None:
+            raise ValueError(f'Cannot find domain for junction {self.uri}. Are there bonds to it?')
+        self.__domain = domain
         if self.__type == ONENODE_JUNCTION:
             self.__variables = [Variable(node_uri, node_uri.fragment, self.__domain.flow.units, self.__value)]
         elif self.__type == ZERONODE_JUNCTION:
