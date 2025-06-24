@@ -466,12 +466,13 @@ class _BondgraphFramework:
                                     self, row[0], row[1],                               # type: ignore
                                     row[2], row[3], row[4], row[5], row[6], row[7])     # type: ignore
                                 for row in self.__knowledge.query(DOMAIN_QUERY)}
-        self.__element_templates: dict[URIRef, ElementTemplate] = {                             # type: ignore
-            row[0]: ElementTemplate.from_framework(self, row[0], row[1], row[2], row[3], row[4])   # type: ignore
+        self.__element_templates: dict[URIRef, ElementTemplate] = {                     # type: ignore
+            row[0]: ElementTemplate.from_framework(self, row[0], row[1], row[2],        # type: ignore
+                                                   row[3], row[4])                      # type: ignore
                 for row in self.__knowledge.query(ELEMENT_TEMPLATE_DEFINITIONS)}
         self.__element_domains: dict[tuple[URIRef, URIRef], ElementTemplate] = {
-            (element.element_type, element.domain.uri): element for element in self.__element_templates.values()
-                if element.domain is not None
+            (element.element_class, element.domain.uri): element
+                for element in self.__element_templates.values() if element.domain is not None
         }
         self.__element_classes: set[URIRef] = set(self.__element_templates.keys())
         self.__element_classes |= set(key[0] for key in self.__element_domains.keys())
