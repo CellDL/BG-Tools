@@ -448,6 +448,14 @@ JUNCTION_STRUCTURES = f"""
         OPTIONAL {{ ?junction rdfs:label ?label }}
     }} ORDER BY ?junction"""
 
+MODEL_BONDS = """
+    SELECT DISTINCT ?bond ?source ?target
+    WHERE {
+        ?bond
+            bgf:hasSource ?source ;
+            bgf:hasTarget ?target .
+    } ORDER BY ?bond"""
+
 #===============================================================================
 
 class _BondgraphFramework:
@@ -498,6 +506,12 @@ class _BondgraphFramework:
     def element_classes(self) -> list[str]:
     #======================================
         return list(self.__element_classes)
+
+    def generate_bonds(self, model_uri: URIRef, model_graph: RDFGraph):
+    #==================================================================
+        for row in model_graph.query(MODEL_BONDS):
+            if (row[1], None, None) in model_graph and (row[2], None, None) in model_graph:
+                model_graph.add((model_uri, BGF.hasPowerBond, row[0]))
 
     def junction(self, uri: URIRef) -> Optional[JunctionStructure]:
     #==============================================================

@@ -500,6 +500,7 @@ class BondgraphModelSource:
         base_models: list[tuple[URIRef, Optional[Literal]]] = [(row[0], row[1])     # type: ignore
             for row in self.__rdf_graph.query(BONDGRAPH_MODELS)]
         self.__load_blocks(self.__source_path)
+        FRAMEWORK.generate_bonds(base_models[0][0], self.__rdf_graph)
         self.__models = { uri: BondgraphModel(self.__rdf_graph, uri, label)
                                 for (uri, label) in base_models }
 
