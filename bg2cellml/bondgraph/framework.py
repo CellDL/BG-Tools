@@ -536,8 +536,6 @@ class _BondgraphFramework:
             (element.element_class, element.domain.uri): element
                 for element in self.__element_templates.values() if element.domain is not None
         }
-        self.__element_classes: set[URIRef] = set(self.__element_templates.keys())
-        self.__element_classes |= set(key[0] for key in self.__element_domains.keys())
         self.__junctions: dict[URIRef, JunctionStructure] = {           # type: ignore
             row[0]: JunctionStructure(row[0], row[1])                   # type: ignore
                 for row in self.__knowledge.query(JUNCTION_STRUCTURES)}
@@ -564,10 +562,6 @@ class _BondgraphFramework:
             return self.__element_templates.get(element_type)
         else:
             return self.__element_domains.get((element_type, domain_uri))
-
-    def element_classes(self) -> list[str]:
-    #======================================
-        return list(self.__element_classes)
 
     def generate_bonds(self, model_uri: URIRef, model_graph: RDFGraph):
     #==================================================================
