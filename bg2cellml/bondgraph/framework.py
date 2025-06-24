@@ -26,7 +26,7 @@ from rdflib.namespace import RDF, XSD
 
 #===============================================================================
 
-from ..rdf import Literal, RDFGraph, URIRef
+from ..rdf import BNode, Literal, RDFGraph, URIRef
 from ..units import Units, Value
 
 from ..mathml import MathML
@@ -494,13 +494,26 @@ MODEL_BONDS = """
             bgf:hasTarget ?target .
     } ORDER BY ?bond"""
 
+#===============================================================================
+
 ELEMENT_IS_SOURCE = """
     SELECT DISTINCT ?bond
     WHERE {
         ?bond
             bgf:hasSource <%ELEMENT_URI%> ;
+            bgf:hasTarget ?target1 .
+    }"""
+
+ELEMENT_IS_SOURCE_PORT = """
+    SELECT DISTINCT ?bond ?bnode
+    WHERE {
+        ?bond
+            bgf:hasSource ?bnode ;
             bgf:hasTarget ?target .
-    } ORDER BY ?bond"""
+        ?bnode
+            bgf:element <%ELEMENT_URI%> ;
+            bgf:port "%PORT_ID%" .
+    }"""
 
 ELEMENT_IS_TARGET = """
     SELECT DISTINCT ?bond
@@ -508,6 +521,17 @@ ELEMENT_IS_TARGET = """
         ?bond
             bgf:hasSource ?source ;
             bgf:hasTarget <%ELEMENT_URI%> .
+    } ORDER BY ?bond"""
+
+ELEMENT_IS_TARGET_PORT = """
+    SELECT DISTINCT ?bond ?bnode
+    WHERE {
+        ?bond
+            bgf:hasSource ?source ;
+            bgf:hasTarget ?bnode .
+        ?bnode
+            bgf:element <%ELEMENT_URI%> ;
+            bgf:port "%PORT_ID%" .
     } ORDER BY ?bond"""
 
 #===============================================================================
@@ -578,7 +602,7 @@ class _BondgraphFramework:
         return list(self.__junctions.keys())
 
     def resolve_composites(self, model_uri: URIRef, model_graph: RDFGraph):
-    #==================================================================
+    #======================================================================
         for row in model_graph.query(COMPOSITE_ELEMENTS):
             if (composite := self.__composite_elements.get(row[2])) is not None:    # type: ignore
                 element_uri: URIRef = row[1]                                        # type: ignore
@@ -590,26 +614,64 @@ class _BondgraphFramework:
                     junction_symbol = composite.template.domain.potential.symbol
                 else:
                     junction_symbol = 'unknown'
-                junction_uri = element_uri + f'_{junction_symbol}'
-                for port in composite.template.ports.items():
-                    if port[0] == '':
-                        uri = junction_uri
+                junction_prefix = element_uri + f'_{junction_symbol}'
+                if len(composite.template.ports):
+                    if len(composite.template.ports) == 1:
+                        # Add a single junction node for the element
+                        junction_uri = junction_prefix
                         bond_uri = element_uri + '.bond'
+                        model_graph.add((junction_uri, RDF.type, composite.junction.uri))
+                        model_graph.add((model_uri, BGF.hasJunctionStructure, junction_uri))
+                        # All bonds to the element now go to the new junction
+                        for row in model_graph.query(ELEMENT_IS_SOURCE.replace('%ELEMENT_URI%', element_uri)):
+                            model_graph.add((row[0], BGF.hasSource, junction_uri))
+                            model_graph.remove((row[0], BGF.hasSource, element_uri))
+                        for row in model_graph.query(ELEMENT_IS_TARGET.replace('%ELEMENT_URI%', element_uri)):
+                            model_graph.add((row[0], BGF.hasTarget, junction_uri))
+                            model_graph.remove((row[0], BGF.hasTarget, element_uri))
+                        # Add a bond from the new junction to its element
+                        model_graph.add((bond_uri, BGF.hasSource, junction_uri))
+                        model_graph.add((bond_uri, BGF.hasTarget, element_uri))
                     else:
-                        uri = junction_uri + f'_{port[0]}'
-                        bond_uri = element_uri + f'_{port[0]}.bond'
-                    model_graph.add((uri, RDF.type, composite.junction.uri))
-                    model_graph.add((model_uri, BGF.hasJunctionStructure, uri))
-                    for row in model_graph.query(ELEMENT_IS_SOURCE.replace('%ELEMENT_URI%', element_uri)):
-                        bond = row[0]
-                        model_graph.add((bond, BGF.hasSource, uri))
-                        model_graph.remove((bond, BGF.hasSource, element_uri))
-                    for row in model_graph.query(ELEMENT_IS_TARGET.replace('%ELEMENT_URI%', element_uri)):
-                        bond = row[0]
-                        model_graph.add((bond, BGF.hasTarget, uri))
-                        model_graph.remove((bond, BGF.hasTarget, element_uri))
-                    model_graph.add((bond_uri, BGF.hasSource, uri))
-                    model_graph.add((bond_uri, BGF.hasTarget, element_uri))
+                        # The element has multiple ports so do the above for each port
+                        for port in composite.template.ports.items():
+                            port_id = port[0]
+                            junction_uri = junction_prefix + f'_{port_id}'
+                            bond_uri = element_uri + f'_{port_id}.bond'
+                            model_graph.add((junction_uri, RDF.type, composite.junction.uri))
+                            model_graph.add((model_uri, BGF.hasJunctionStructure, junction_uri))
+                            # Bonds to a multi-ported element are to individual ports and keep direction
+                            element_is_source = element_is_target = False
+                            for row in model_graph.query(ELEMENT_IS_SOURCE_PORT.replace('%ELEMENT_URI%', element_uri)
+                                                                               .replace('%PORT_ID%', port_id)):
+                                model_graph.add((row[0], BGF.hasSource, junction_uri))
+                                model_graph.remove((row[0], BGF.hasSource, row[1]))
+                                model_graph.remove((row[1], BGF.element, element_uri))
+                                model_graph.remove((row[1], BGF.port, Literal(port_id)))
+                                element_is_source = True
+                            for row in model_graph.query(ELEMENT_IS_TARGET_PORT.replace('%ELEMENT_URI%', element_uri)
+                                                                               .replace('%PORT_ID%', port_id)):
+                                model_graph.add((row[0], BGF.hasTarget, junction_uri))
+                                model_graph.remove((row[0], BGF.hasTarget, row[1]))
+                                model_graph.remove((row[1], BGF.element, element_uri))
+                                model_graph.remove((row[1], BGF.port, Literal(port_id)))
+                                element_is_target = True
+                            if element_is_source and element_is_target:
+                                raise ValueError(f'Port {port_id} of {element_uri} cannot have both forward and reverse connections')
+                            elif element_is_source:
+                                blank_node = BNode()
+                                model_graph.add((bond_uri, BGF.hasSource, blank_node))
+                                model_graph.add((blank_node, BGF.element, element_uri))
+                                model_graph.add((blank_node, BGF.port, Literal(port_id)))
+                                model_graph.add((bond_uri, BGF.hasTarget, junction_uri))
+                            elif element_is_target:
+                                model_graph.add((bond_uri, BGF.hasSource, junction_uri))
+                                blank_node = BNode()
+                                model_graph.add((bond_uri, BGF.hasTarget, blank_node))
+                                model_graph.add((blank_node, BGF.element, element_uri))
+                                model_graph.add((blank_node, BGF.port, Literal(port_id)))
+                            else:
+                                raise ValueError(f'Port {port_id} of {element_uri} has no connections to it')
 
 #===============================================================================
 #===============================================================================
