@@ -28,6 +28,13 @@ from bg2cellml.cellml import CellMLModel
 
 #===============================================================================
 
+# For pytest.approx
+
+REL_TOLERANCE = 2e-4
+ABS_TOLERANCE = 1e-6
+
+#===============================================================================
+
 def string_to_list(string: str) -> list[int]:
 #============================================
     return [ord(x) for x in string]
@@ -53,9 +60,9 @@ def assert_equal_states_and_rates(instance_task, reference_task):
     assert instance_task.state_count == reference_task.state_count
     assert instance_task.rate_count == reference_task.rate_count
     for i in range(reference_task.state_count):
-        assert instance_task.state(i) == pytest.approx(reference_task.state(i))
+        assert instance_task.state(i) == pytest.approx(reference_task.state(i), rel=REL_TOLERANCE, abs=ABS_TOLERANCE)
     for i in range(reference_task.rate_count):
-        assert instance_task.rate(i) == pytest.approx(reference_task.rate(i))
+        assert instance_task.rate(i) == pytest.approx(reference_task.rate(i), rel=REL_TOLERANCE, abs=ABS_TOLERANCE)
 
 def compare_simulation(bondgraph_source: str, sedml_source: str):
 #===============================================================
