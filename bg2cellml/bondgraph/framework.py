@@ -107,9 +107,16 @@ class Variable:
     def units(self) -> Units:
         return self.__units         # type: ignore
 
-    def copy(self, suffix: Optional[str]=None) -> 'Variable':
-    #========================================================
-        name = self.__name if suffix is None else f'{self.__name}_{clean_name(suffix)}'
+    def copy(self, suffix: Optional[str]=None, strip_name: bool=False) -> 'Variable':
+    #================================================================================
+        if strip_name and suffix is None:
+            raise ValueError(f'Cannot strip name of variable {self.__name} if no suffix provided')
+        elif suffix is None:
+            name = self.__name
+        elif strip_name:
+            name = clean_name(suffix)
+        else:
+            name = f'{self.__name}_{clean_name(suffix)}'
         copy = Variable(self.__element_uri, name, self.__units, None)
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy

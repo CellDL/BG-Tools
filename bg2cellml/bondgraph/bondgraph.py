@@ -102,7 +102,7 @@ class BondgraphElement(ModelElement):
         self.__variables = {name: variable.copy(self.uri.fragment)
                                 for name, variable in element_template.variables.items()}
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
-            self.__variables[intrinsic_var.name] = intrinsic_var.copy(self.uri.fragment)
+            self.__variables[intrinsic_var.name] = intrinsic_var.copy(self.uri.fragment, True)
             self.__intrinsic_variable = self.__variables[intrinsic_var.name]
             if intrinsic_value is not None:
                 self.__intrinsic_variable.set_value(intrinsic_value)
