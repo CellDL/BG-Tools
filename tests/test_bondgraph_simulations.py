@@ -66,14 +66,13 @@ def compare_simulation(bondgraph_source: str, sedml_source: str):
     reference = loc.SedDocument(loc.File(f'{sedml_source}.cellml'))
     reference.simulations[0].output_end_time = output_end_time
     reference.simulations[0].number_of_steps = number_of_steps
+    ref_task = run_simulation(reference)
 
     model = BondgraphModelSource(bondgraph_source).models[0]
     cellml = CellMLModel(model).to_xml()
     simulation = loc.SedDocument(cellml_virtual_file(cellml))
     simulation.simulations[0].output_end_time = output_end_time
     simulation.simulations[0].number_of_steps = number_of_steps
-
-    ref_task = run_simulation(reference)
     sim_task = run_simulation(simulation)
 
     assert_equal_states_and_rates(ref_task, sim_task)
