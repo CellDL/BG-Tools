@@ -494,9 +494,9 @@ BONDGRAPH_MODEL_BLOCKS = """
 class BondgraphModelSource:
     def __init__(self, source: str):
         self.__rdf_graph = RDFGraph(NAMESPACES)
-        self.__source_path =  Path(source).resolve()
-        self.__rdf_graph.parse(self.__source_path.as_uri())
-        self.__loaded_sources: set[Path] = set([self.__source_path])
+        self.__source_path = Path(source).resolve()
+        self.__loaded_sources: set[Path] = set()
+        self.__load_rdf(self.__source_path)
         base_models: list[tuple[URIRef, Optional[Literal]]] = [(row[0], row[1])     # type: ignore
             for row in self.__rdf_graph.query(BONDGRAPH_MODELS)]
         self.__load_blocks(self.__source_path)
@@ -510,11 +510,15 @@ class BondgraphModelSource:
             path = base_path.parent.joinpath(str(row[0])).resolve()
             self.__load_source(path)
 
+    def __load_rdf(self, source_path: Path):
+    #=======================================
+        self.__rdf_graph.parse(source_path.as_uri())
+        self.__loaded_sources.add(source_path)
+
     def __load_source(self, source_path: Path):
     #==========================================
         if source_path not in self.__loaded_sources:
-            self.__rdf_graph.parse(source_path.as_uri())
-            self.__loaded_sources.add(source_path)
+            self.__load_rdf(source_path)
             self.__load_blocks(source_path)
 
     @property
