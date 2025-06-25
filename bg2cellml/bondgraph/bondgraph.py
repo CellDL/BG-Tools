@@ -179,8 +179,7 @@ class BondgraphElement(ModelElement):
 MODEL_BOND_PORTS = """
     SELECT DISTINCT ?element ?port
     WHERE {
-        { <%MODEL%> bgf:hasPowerBond <%BOND%> }
-  UNION { <%MODEL%> bgf:hasInterfaceBond <%BOND%> }
+        <%MODEL%> bgf:hasPowerBond <%BOND%> .
         <%BOND%> %BOND_RELN% [
             bgf:element ?element ;
             bgf:port ?port
@@ -192,15 +191,10 @@ MODEL_BOND_PORTS = """
 class BondgraphBond(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: URIRef,
                         source: URIRef|BNode, target: URIRef|BNode,
-                        interface_bond: bool=False, label: Optional[str]=None):
+                        label: Optional[str]=None):
         super().__init__(model, uri, label)
         self.__source_id = self.__get_port(source, 'bgf:hasSource')
         self.__target_id = self.__get_port(target, 'bgf:hasTarget')
-        self.__interface_bond = interface_bond
-
-    @property
-    def interface_bond(self):
-        return self.__interface_bond
 
     @property
     def source_id(self) -> Optional[URIRef]:
@@ -353,19 +347,12 @@ MODEL_JUNCTIONS = """
     } ORDER BY ?model ?uri"""
 
 MODEL_BONDS = """
-    SELECT DISTINCT ?model ?powerBond ?interfaceBond ?source ?target ?label
+    SELECT DISTINCT ?model ?powerBond ?source ?target ?label
     WHERE {
-        {
-            ?model bgf:hasPowerBond ?powerBond .
-            OPTIONAL { ?powerBond bgf:hasSource ?source }
-            OPTIONAL { ?powerBond bgf:hasTarget ?target }
-            OPTIONAL { ?powerBond rdfs:label ?label }
-        } UNION {
-            ?model bgf:hasInterfaceBond ?interfaceBond .
-            OPTIONAL { ?interfaceBond bgf:hasSource ?source }
-            OPTIONAL { ?interfaceBond bgf:hasTarget ?target }
-            OPTIONAL { ?interfaceBond rdfs:label ?label }
-        }
+        ?model bgf:hasPowerBond ?powerBond .
+        OPTIONAL { ?powerBond bgf:hasSource ?source }
+        OPTIONAL { ?powerBond bgf:hasTarget ?target }
+        OPTIONAL { ?powerBond rdfs:label ?label }
     } ORDER BY ?model"""
 
 BONDGRAPH_MODELS = """
@@ -387,13 +374,11 @@ class BondgraphModel(Labelled):
                                 for row in rdf_graph.query(MODEL_JUNCTIONS)]
         self.__bonds = []
         for row in rdf_graph.query(MODEL_BONDS):
-            uri = row[1] if row[1] is not None else row[2]      # type: ignore
-            if row[1] is not None and row[2] is not None:
-                raise ValueError(f'Bond {uri} cannot be both a power and an interface bond')
-            elif row[3] is None or row[4] is None:
+            uri: URIRef = row[1]                                                            # type: ignore
+            if row[2] is None or row[3] is None:
                 raise ValueError(f'Bond {uri} is missing source and/or target node')
             self.__bonds.append(
-                BondgraphBond(self, uri, row[3], row[4], row[2] is not None, row[5]))       # type: ignore
+                BondgraphBond(self, uri, row[2], row[3], row[4]))                           # type: ignore
         self.__graph = nx.DiGraph()
         self.__make_bond_network()
         self.__assign_element_variables()
@@ -459,12 +444,9 @@ class BondgraphModel(Labelled):
             target = bond.target_id
             if source not in self.__graph and target not in self.__graph:
                 raise ValueError(f'No element or junction for source and target of bond {bond.uri}')
-            elif not bond.interface_bond:
-                if source not in self.__graph or target not in self.__graph:
-                    raise ValueError(f'No element or junction for source or target of bond {bond.uri}')
-                self.__graph.add_edge(source, target)
-            elif source in self.__graph and target in self.__graph:
-                self.__graph.add_edge(source, target)
+            elif source not in self.__graph or target not in self.__graph:
+                raise ValueError(f'No element or junction for source or target of bond {bond.uri}')
+            self.__graph.add_edge(source, target)
 
     def sparql_query(self, query: str) -> list[ResultRow]:
     #=====================================================
