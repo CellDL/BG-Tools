@@ -51,6 +51,19 @@ def negative(term: str) -> str:
 </apply>
 '''
 
+def sum(terms: list[str]) -> str:
+#================================
+    if len(terms) == 0:
+        return ''
+    elif len(terms) == 1:
+        return terms[0]
+    else:
+        return f'''<apply>
+    <plus/>
+    {'\n    '.join(terms)}
+</apply>
+'''
+
 def sum_variables(symbols: list[str]) -> str:
 #============================================
     if len(symbols) == 0:
@@ -66,16 +79,20 @@ def sum_variables(symbols: list[str]) -> str:
 
 def equal_variables(inputs: list[str], outputs: list[str]) -> str:
 #=================================================================
-    if len(inputs) and len(outputs):
-        return equal(sum_variables(inputs), sum_variables(outputs))
-    elif len(inputs) == 0 and len(outputs) == 0:
+    if len(inputs) == 0 and len(outputs) == 0:
         return ''
     elif len(inputs) == 0 and len(outputs) > 1:
-        return equal(sum_variables(outputs[0:1]), negative(sum_variables(outputs[1:])))
+        return equal(var_symbol(outputs[0]), negative(sum_variables(outputs[1:])))
     elif len(inputs) > 1 and len(outputs) == 0:
-        return equal(sum_variables(inputs[0:1]), negative(sum_variables(inputs[1:])))
+        return equal(var_symbol(inputs[0]), negative(sum_variables(inputs[1:])))
+    elif len(inputs) == 1:
+        return equal(var_symbol(inputs[0]), sum_variables(outputs))
+    elif len(outputs) == 1:
+        return equal(var_symbol(outputs[0]), sum_variables(inputs))
     else:
-        raise ValueError(f'Attempting to set variable symbols to nothing: {inputs} = {outputs}')
+        return equal(var_symbol(inputs[0]),
+                     sum([negative(sum_variables(inputs[1:])),
+                          sum_variables(outputs)]))
 
 #===============================================================================
 
