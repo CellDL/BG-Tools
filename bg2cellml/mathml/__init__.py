@@ -126,9 +126,11 @@ class MathML:
     #==========================
         return MathML(deepcopy(self.__mathml))
 
-    def substitute(self, name: str, symbol: str):
-    #============================================
+    def substitute(self, name: str, symbol: str, missing_ok=False):
+    #==============================================================
         if name not in self.__variables:
+            if missing_ok:
+                return
             raise ValueError(f'Variable {name} not in formulae, cannot substitute it')
         elif name == symbol:
             return

@@ -112,9 +112,12 @@ class BondgraphElement(ModelElement):
         # Defer assigning until we have the full bondgraph
         self.__variable_values = variable_values if variable_values is not None else {}
 
+        self.__port_variable_names = []
         for port in self.__ports.values():
             self.__variables[port.flow.name] = port.flow.variable
+            self.__port_variable_names.append(port.flow.name)
             self.__variables[port.potential.name] = port.potential.variable
+            self.__port_variable_names.append(port.potential.name)
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
@@ -171,7 +174,7 @@ class BondgraphElement(ModelElement):
                 else:
                     variable.set_symbol(element.__intrinsic_variable.symbol)
         for name, variable in self.__variables.items():
-            self.__constitutive_relation.substitute(name, variable.symbol)
+            self.__constitutive_relation.substitute(name, variable.symbol, name in self.__port_variable_names)
 
 #===============================================================================
 #===============================================================================
