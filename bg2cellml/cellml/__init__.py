@@ -58,6 +58,17 @@ CELLML_UNITS = [
 
 #===============================================================================
 
+DIMENSIONLESS_UNITS_NAME = 'dim'
+CELLML_UNITS_ATTRIB = CELLML_NS('units')
+
+DIMENSIONLESS_UNIT_DEFINITION = [
+    f'<units name="{DIMENSIONLESS_UNITS_NAME}">',
+    '<unit units="dimensionless"/>',
+    '</units>'
+]
+
+#===============================================================================
+
 class CellMLVariable:
     def __init__(self, variable: Variable):
         self.__symbol = variable.symbol
@@ -88,6 +99,7 @@ class CellMLModel:
         self.__main = cellml_subelement(self.__cellml, 'component', name='main')
         self.__known_units: set[str] = set()
         self.__known_symbols: set[str] = set()
+        self.__add_unit_xml(DIMENSIONLESS_UNIT_DEFINITION)
         self.__add_variable(VOI_VARIABLE)       # only if VOI in some element's CR??
         for element in model.elements:
             self.__add_element(element)
@@ -97,6 +109,7 @@ class CellMLModel:
         # Add comment  -- CRs for junction.uri...
         for junction in model.junctions:
             self.__add_constitutive_relation(junction.constitutive_relation)
+        self.__add_dimensionless_attrib()
 
     @property
     def name(self):
@@ -110,6 +123,11 @@ class CellMLModel:
         for variable in element.variables.values():
             self.__add_variable(variable)
         self.__add_constitutive_relation(element.constitutive_relation)
+
+    def __add_dimensionless_attrib(self):
+    #====================================
+        for element in self.__main.findall('.//{http://www.w3.org/1998/Math/MathML}cn'):
+            element.attrib[CELLML_UNITS_ATTRIB] = DIMENSIONLESS_UNITS_NAME
 
     def __add_junction_variables(self, junction: BondgraphJunction):
     #===============================================================
@@ -126,9 +144,13 @@ class CellMLModel:
         elements = self.__elements_from_units(units)
         if len(elements):
             for element in elements:
-                if len(element):
-                    units_element = etree.fromstring(''.join(element))
-                    self.__main.addprevious(units_element)
+                self.__add_unit_xml(element)
+
+    def __add_unit_xml(self, unit_xml: list[str]):
+    #=============================================
+        if len(unit_xml):
+            units_element = etree.fromstring(''.join(unit_xml))
+            self.__main.addprevious(units_element)
 
     def __add_variable(self, variable: Variable):
     #============================================
