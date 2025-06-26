@@ -66,12 +66,12 @@ BGF_STYLESHEET = """
         font-size: 30px;
     }
 
-    .bgf-HydraulicCapacitor rect.celldl-Component,
+    .bgf-HydraulicStorage rect.celldl-Component,
     .bgf-ElasticVessel rect.celldl-Component {
         fill: #DBEDD0;
         stroke: #FB0006;
     }
-    .bgf-HydraulicCapacitor text,
+    .bgf-HydraulicStorage text,
     .bgf-ElasticVessel text,
     .bgf-OneNode text {
         fill: #15A43F;
