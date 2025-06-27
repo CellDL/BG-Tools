@@ -478,7 +478,7 @@ BONDGRAPH_MODEL_BLOCKS = """
 #===============================================================================
 
 class BondgraphModelSource:
-    def __init__(self, source: str):
+    def __init__(self, source: str, dump_resolved_rdf: bool=False):
         self.__rdf_graph = RDFGraph(NAMESPACES)
         self.__source_path = Path(source).resolve()
         self.__loaded_sources: set[Path] = set()
@@ -490,6 +490,8 @@ class BondgraphModelSource:
         self.__load_blocks(self.__source_path)
         FRAMEWORK.resolve_composites(base_models[0][0], self.__rdf_graph)
         FRAMEWORK.generate_bonds(base_models[0][0], self.__rdf_graph)
+        if dump_resolved_rdf:
+            print(self.__rdf_graph.serialise())
         self.__models = { uri: BondgraphModel(self.__rdf_graph, uri, label)
                                 for (uri, label) in base_models }
 

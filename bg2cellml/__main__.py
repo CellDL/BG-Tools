@@ -147,13 +147,13 @@ def model2celldl(model: BondgraphModel, celldl_file: str):
     celldl_graph.save_diagram(celldl_file)
     print(f'Created {celldl_file}')
 
-def bg2cellml(bondgraph_rdf_source: str):
-#========================================
+def bg2cellml(bondgraph_rdf_source: str, dump_resolved_rdf: bool=False, save_cellml_if_errors: bool=False):
+#=========================================================================================================
     source = Path(bondgraph_rdf_source)
     if not source.exists():
         raise IOError(f'Missing BG-RDF source file: {bondgraph_rdf_source}')
-    for model in BondgraphModelSource(bondgraph_rdf_source).models:
-        model2cellml(model, f'{source.stem}.cellml')
+    for model in BondgraphModelSource(bondgraph_rdf_source, dump_resolved_rdf).models:
+        model2cellml(model, f'{source.stem}.cellml', save_cellml_if_errors)
         model2celldl(model, f'{source.stem}.celldl.svg')
 
 #===============================================================================
@@ -162,7 +162,7 @@ def main():
     #bg2cellml('../examples/example_RCR.ttl')
     #bg2cellml('../examples/example_A1.ttl')
     #bg2cellml('../examples/example_A2.ttl')
-    bg2cellml('../BVC-model/bondgraph.ttl')
+    bg2cellml('../BVC-model/bvc.ttl', save_cellml_if_errors=True)
 
 #===============================================================================
 
