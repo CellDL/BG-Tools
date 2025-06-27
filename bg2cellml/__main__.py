@@ -23,6 +23,7 @@ from pathlib import Path
 
 #===============================================================================
 
+import libopencor as loc
 import structlog
 
 #===============================================================================
@@ -101,12 +102,25 @@ BGF_STYLESHEET = """
 
 #===============================================================================
 
-def model2cellml(model: BondgraphModel, cellml_file: str):
-#=========================================================
+def string_to_list(string: str) -> list[int]:
+#============================================
+    return [ord(x) for x in string]
+
+def model2cellml(model: BondgraphModel, cellml_file: str, save_if_errors: bool=False):
+#=====================================================================================
     cellml = CellMLModel(model).to_xml()
-    with open(cellml_file, 'w') as fp:
-        fp.write(cellml)
-        print(f'Created {cellml_file}')
+    file = loc.File(cellml_file, False)
+    file.contents = string_to_list(cellml)
+    if file.has_issues:
+        for issue in file.issues:
+            print(issue.description)
+        print(f'{file.issue_count} validation issues...')
+        if not save_if_errors:
+            print('No CellML generated')
+    if not file.has_issues or save_if_errors:
+        with open(cellml_file, 'w') as fp:
+            fp.write(cellml)
+            print(f'Generated {cellml_file}')
 
 def model2celldl(model: BondgraphModel, celldl_file: str):
 #=========================================================
