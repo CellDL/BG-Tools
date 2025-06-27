@@ -614,11 +614,11 @@ class _BondgraphFramework:
                     junction_symbol = composite.template.domain.potential.symbol
                 else:
                     junction_symbol = 'unknown'
-                junction_prefix = element_uri + f'_{junction_symbol}'
+                element_namespace = element_uri.defrag() + '#'
                 if len(composite.template.ports):
                     if len(composite.template.ports) == 1:
                         # Add a single junction node for the element
-                        junction_uri = junction_prefix
+                        junction_uri = element_namespace + f'{junction_symbol}_{element_uri.fragment}'
                         bond_uri = element_uri + '.bond'
                         model_graph.add((junction_uri, RDF.type, composite.junction.uri))
                         model_graph.add((model_uri, BGF.hasJunctionStructure, junction_uri))
@@ -636,7 +636,7 @@ class _BondgraphFramework:
                         # The element has multiple ports so do the above for each port
                         for port in composite.template.ports.items():
                             port_id = port[0]
-                            junction_uri = junction_prefix + f'_{port_id}'
+                            junction_uri = element_namespace + f'{junction_symbol}_{port_id}_{element_uri.fragment}'
                             bond_uri = element_uri + f'_{port_id}.bond'
                             model_graph.add((junction_uri, RDF.type, composite.junction.uri))
                             model_graph.add((model_uri, BGF.hasJunctionStructure, junction_uri))
