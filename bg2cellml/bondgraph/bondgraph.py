@@ -101,6 +101,13 @@ class BondgraphElement(ModelElement):
                             for port_id, port in element_template.ports.items() }
         self.__variables = {name: variable.copy(self.uri.fragment)
                                 for name, variable in element_template.variables.items()}
+        if len(self.__variables):
+            if variable_values is None:
+                raise ValueError(f'No values given for element {uri}')
+            else:
+                for name in self.__variables.keys():
+                    if name not in variable_values:
+                        raise ValueError(f'Missing value for variable {name} of element {uri}')
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
             self.__variables[intrinsic_var.name] = intrinsic_var.copy(self.uri.fragment, True)
             self.__intrinsic_variable = self.__variables[intrinsic_var.name]
