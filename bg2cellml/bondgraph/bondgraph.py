@@ -33,7 +33,7 @@ from ..units import Value
 
 from .framework import BondgraphFramework as FRAMEWORK, Domain, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
-from .namespaces import NAMESPACES
+from .namespaces import BGF, NAMESPACES
 from .utils import Labelled
 
 #===============================================================================
@@ -182,7 +182,8 @@ class BondgraphElement(ModelElement):
                 else:
                     variable.set_symbol(element.__intrinsic_variable.symbol)
         for name, variable in self.__variables.items():
-            self.__constitutive_relation.substitute(name, variable.symbol, name in self.__port_variable_names)
+            self.__constitutive_relation.substitute(name, variable.symbol,
+                                                    missing_ok=(name in self.__port_variable_names))
 
 #===============================================================================
 #===============================================================================
@@ -191,7 +192,7 @@ MODEL_BOND_PORTS = """
     SELECT DISTINCT ?element ?port
     WHERE {
         <%MODEL%> bgf:hasPowerBond <%BOND%> .
-        <%BOND%> %BOND_RELN% [
+        <%BOND%> <%BOND_RELN%> [
             bgf:element ?element ;
             bgf:port ?port
         ]
@@ -204,8 +205,8 @@ class BondgraphBond(ModelElement):
                         source: URIRef|BNode, target: URIRef|BNode,
                         label: Optional[str]=None):
         super().__init__(model, uri, label)
-        self.__source_id = self.__get_port(source, 'bgf:hasSource')
-        self.__target_id = self.__get_port(target, 'bgf:hasTarget')
+        self.__source_id = self.__get_port(source, BGF.hasSource)
+        self.__target_id = self.__get_port(target, BGF.hasTarget)
 
     @property
     def source_id(self) -> Optional[URIRef]:
@@ -215,8 +216,8 @@ class BondgraphBond(ModelElement):
     def target_id(self) -> Optional[URIRef]:
         return self.__target_id
 
-    def __get_port(self, port: URIRef|BNode, reln: str) -> Optional[URIRef]:
-    #=======================================================================
+    def __get_port(self, port: URIRef|BNode, reln: URIRef) -> Optional[URIRef]:
+    #==========================================================================
         if isinstance(port, BNode):
             for row in self.model.sparql_query(
                 MODEL_BOND_PORTS.replace('%MODEL%', self.model.uri)
@@ -253,8 +254,8 @@ class BondgraphJunction(ModelElement):
     def variables(self) -> list[Variable]:
         return self.__variables
 
-    def assign_domain(self, bond_graph: nx.DiGraph):
-    #===============================================
+    def assign_domain_and_variables(self, bond_graph: nx.DiGraph):
+    #=============================================================
         node_uri = self.uri
         attributes = bond_graph.nodes[node_uri]
         if (domain := attributes.get('domain')) is None:
@@ -436,7 +437,7 @@ class BondgraphModel(Labelled):
     def __assign_junction_domains_and_relations(self):
     #=================================================
         for junction in self.__junctions:
-            junction.assign_domain(self.__graph)
+            junction.assign_domain_and_variables(self.__graph)
         for junction in self.__junctions:
             junction.assign_relation(self.__graph)
 
