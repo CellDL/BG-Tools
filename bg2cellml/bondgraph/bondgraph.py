@@ -81,19 +81,19 @@ type VariableValue = tuple[Literal|URIRef, Optional[str]]
 
 class BondgraphElement(ModelElement):
     def __init__(self,  model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
-                        label: Optional[str], domain_uri: Optional[URIRef],
-                        intrinsic_value: Optional[Value] = None,
-                        variable_values: Optional[dict[str, VariableValue]]=None):
+                        variable_values: Optional[dict[str, VariableValue]]=None,
+                        domain_uri: Optional[URIRef]=None, intrinsic_value: Optional[Value]=None,
+                        label: Optional[str]=None):
         super().__init__(model, uri, label)
         element_template = FRAMEWORK.element_template(element_type, domain_uri)
         if element_template is None:
-            raise ValueError(f'Cannot find BondElement with type/domain of `{element_type}/{domain_uri}` for node {uri}')
+            raise ValueError(f'Cannot find BondElement with type/domain of `{element_type}/{domain_uri}` for element {uri}')
         elif element_template.domain is None:
-            raise ValueError(f'No modelling domain for node {uri} with template {element_type}/{domain_uri}')
+            raise ValueError(f'No modelling domain for element {uri} with template {element_type}/{domain_uri}')
         elif domain_uri is not None and element_template.domain.uri != domain_uri:
-            raise ValueError(f'Domain mismatch for node {uri} with template {element_type}/{domain_uri}')
+            raise ValueError(f'Domain mismatch for element {uri} with template {element_type}/{domain_uri}')
         elif element_template.constitutive_relation is None:
-            raise ValueError(f'Template {element_template.uri} for node {uri} has no constitutive relation')
+            raise ValueError(f'Template {element_template.uri} for element {uri} has no constitutive relation')
         self.__constitutive_relation = element_template.constitutive_relation.copy()
         self.__domain = element_template.domain
         self.__type = element_template.uri
@@ -128,7 +128,8 @@ class BondgraphElement(ModelElement):
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
-                       label: Optional[str], domain_uri: Optional[URIRef]):
+    #=============================================================================
+                                    domain_uri: Optional[URIRef], label: Optional[str]):
         variable_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # type: ignore
             for row in model.sparql_query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', uri))
         }
@@ -136,8 +137,8 @@ class BondgraphElement(ModelElement):
         for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT_URI%', uri)):
             intrinsic_value = Value.from_literal(row[0])                            # type: ignore
             break
-        return cls(model, uri, element_type, label, domain_uri,
-                    intrinsic_value=intrinsic_value, variable_values=variable_values)
+        return cls(model, uri, element_type, variable_values=variable_values,
+                    domain_uri=domain_uri, intrinsic_value=intrinsic_value, label=label)
 
     @property
     def domain(self) -> Domain:
@@ -339,12 +340,12 @@ class BondgraphJunction(ModelElement):
 #===============================================================================
 
 MODEL_ELEMENTS = """
-    SELECT DISTINCT ?model ?uri ?type ?label ?domain
+    SELECT DISTINCT ?model ?uri ?type ?domain ?label
     WHERE {
         ?model bgf:hasBondElement ?uri .
         ?uri a ?type .
-        OPTIONAL { ?uri rdfs:label ?label }
         OPTIONAL { ?uri bgf:hasDomain ?domain }
+        OPTIONAL { ?uri rdfs:label ?label }
     } ORDER BY ?model ?uri"""
 
 MODEL_JUNCTIONS = """
