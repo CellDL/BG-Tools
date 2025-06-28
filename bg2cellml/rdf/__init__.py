@@ -68,7 +68,6 @@ class RDFGraph:
         if namespaces is not None:
             for prefix, namespace in namespaces.items():
                 self.__graph.bind(prefix, namespace)
-        #self.__namespace_map = NamespaceMap(namespaces)
 
     def __contains__(self, triple: tuple) -> bool:
     #=============================================
