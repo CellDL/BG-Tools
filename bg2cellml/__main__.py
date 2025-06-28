@@ -111,13 +111,34 @@ def model2cellml(model: BondgraphModel, cellml_file: str, save_if_errors: bool=F
     cellml = CellMLModel(model).to_xml()
     file = loc.File(cellml_file, False)
     file.contents = string_to_list(cellml)
+    has_issues = False
     if file.has_issues:
         for issue in file.issues:
             print(issue.description)
-        print(f'{file.issue_count} validation issues...')
-        if not save_if_errors:
-            print('No CellML generated')
-    if not file.has_issues or save_if_errors:
+        print(f'{file.issue_count} CellML validation issues...')
+        has_issues = True
+    else:
+        simulation = loc.SedDocument(file)
+        if simulation.has_issues:
+            for issue in simulation.issues:
+                print(issue.description)
+            print(f'{simulation.issue_count} issues creating simulation from CellML...')
+            has_issues = True
+        else:
+            simulation.simulations[0].output_end_time = 10
+            simulation.simulations[0].number_of_steps = 1000
+
+            instance = simulation.instantiate(True)
+            instance.run()
+            if instance.has_issues:
+                for issue in instance.issues:
+                    print(issue.description)
+                print(f'{instance.issue_count} issues running simulation created from CellML...')
+                has_issues = True
+
+    if has_issues and not save_if_errors:
+        print('No CellML generated')
+    else:
         with open(cellml_file, 'w') as fp:
             fp.write(cellml)
             print(f'Generated {cellml_file}')
