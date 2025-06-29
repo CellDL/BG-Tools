@@ -68,9 +68,9 @@ ELEMENT_VARIABLES = """
     }"""
 
 ELEMENT_STATE_VALUE = """
-    SELECT DISTINCT ?quantityValue
+    SELECT DISTINCT ?value
     WHERE {
-        <%ELEMENT_URI%> bgf:quantityValue ?quantityValue .
+        <%ELEMENT_URI%> bgf:hasValue ?value .
     }"""
 
 #===============================================================================
