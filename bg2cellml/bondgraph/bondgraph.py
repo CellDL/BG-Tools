@@ -486,6 +486,43 @@ BONDGRAPH_MODEL_BLOCKS = """
 
 #===============================================================================
 
+BONDGRAPH_BONDS = """
+    SELECT DISTINCT ?bond ?source ?target ?sourceElement ?targetElement
+    WHERE {
+        {
+            { ?bond
+                bgf:hasSource ?source ;
+                bgf:hasTarget ?target .
+            }
+      UNION { ?bond
+                bgf:hasSource ?source ;
+                bgf:hasTarget ?target .
+                ?target
+                    bgf:element ?targetElement ;
+                    bgf:port ?targetPort .
+            }
+      UNION { ?bond
+                bgf:hasTarget ?target ;
+                bgf:hasSource ?source .
+                ?source
+                    bgf:element ?sourceElement ;
+                    bgf:port ?sourcePort .
+            }
+      UNION { ?bond
+                bgf:hasSource ?source ;
+                bgf:hasTarget ?target .
+                ?source
+                    bgf:element ?sourceElement ;
+                    bgf:port ?sourcePort .
+               ?target
+                    bgf:element ?targetElement ;
+                    bgf:port ?targetPort .
+            }
+       }
+    }"""
+
+#===============================================================================
+
 class BondgraphModelSource:
     def __init__(self, source: str, dump_resolved_rdf: bool=False):
         self.__rdf_graph = RDFGraph(NAMESPACES)
@@ -498,11 +535,32 @@ class BondgraphModelSource:
             raise ValueError(f'No BondgraphModels in source {source}')
         self.__load_blocks(self.__source_path)
         FRAMEWORK.resolve_composites(base_models[0][0], self.__rdf_graph)
-        FRAMEWORK.generate_bonds(base_models[0][0], self.__rdf_graph)
+        self.__generate_bonds(base_models[0][0])
         if dump_resolved_rdf:
             print(self.__rdf_graph.serialise())
         self.__models = { uri: BondgraphModel(self.__rdf_graph, uri, label)
                                 for (uri, label) in base_models }
+
+    def __generate_bonds(self, model_uri: URIRef):
+    #=============================================
+        for row in self.__rdf_graph.query(BONDGRAPH_BONDS):
+            if isinstance(row[1], URIRef):
+                source = row[1]
+            elif isinstance(row[1], BNode) and isinstance(row[3], URIRef):
+                source = row[3]
+            else:
+                source = None
+            if isinstance(row[2], URIRef):
+                target = row[2]
+            elif isinstance(row[2], BNode) and isinstance(row[4], URIRef):
+                target = row[4]
+            else:
+                target = None
+            if (((None, BGF.hasBondElement, source) in self.__rdf_graph
+              or (None, BGF.hasJunctionStructure, source) in self.__rdf_graph)
+            and ((None, BGF.hasBondElement, target) in self.__rdf_graph
+              or (None, BGF.hasJunctionStructure, target) in self.__rdf_graph)):
+                self.__rdf_graph.add((model_uri, BGF.hasPowerBond, row[0]))
 
     def __load_blocks(self, base_path: Path):
     #========================================

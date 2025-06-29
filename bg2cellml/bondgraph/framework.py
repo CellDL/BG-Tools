@@ -486,14 +486,6 @@ COMPOSITE_ELEMENTS = """
         ?elementUri a ?elementType .
     } ORDER BY ?model ?elementUri"""
 
-MODEL_BONDS = """
-    SELECT DISTINCT ?bond ?source ?target
-    WHERE {
-        ?bond
-            bgf:hasSource ?source ;
-            bgf:hasTarget ?target .
-    } ORDER BY ?bond"""
-
 #===============================================================================
 
 ELEMENT_IS_SOURCE = """
@@ -586,12 +578,6 @@ class _BondgraphFramework:
             return self.__element_templates.get(element_type)
         else:
             return self.__element_domains.get((element_type, domain_uri))
-
-    def generate_bonds(self, model_uri: URIRef, model_graph: RDFGraph):
-    #==================================================================
-        for row in model_graph.query(MODEL_BONDS):
-            if (row[1], None, None) in model_graph and (row[2], None, None) in model_graph:
-                model_graph.add((model_uri, BGF.hasPowerBond, row[0]))
 
     def junction(self, uri: URIRef) -> Optional[JunctionStructure]:
     #==============================================================
