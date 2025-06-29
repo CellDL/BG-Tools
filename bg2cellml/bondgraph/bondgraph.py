@@ -33,6 +33,7 @@ from ..units import Value
 
 from .framework import BondgraphFramework as FRAMEWORK, Domain, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
+from .framework import FLOW_SOURCE, POTENTIAL_SOURCE
 from .namespaces import BGF, NAMESPACES
 from .utils import Labelled
 
@@ -92,13 +93,20 @@ class BondgraphElement(ModelElement):
             raise ValueError(f'No modelling domain for element {uri} with template {element_type}/{domain_uri}')
         elif domain_uri is not None and element_template.domain.uri != domain_uri:
             raise ValueError(f'Domain mismatch for element {uri} with template {element_type}/{domain_uri}')
-        elif element_template.constitutive_relation is None:
-            raise ValueError(f'Template {element_template.uri} for element {uri} has no constitutive relation')
-        self.__constitutive_relation = element_template.constitutive_relation.copy()
+        self.__element_class = element_template.element_class
+        if self.__element_class in [FLOW_SOURCE, POTENTIAL_SOURCE]:
+            self.__constitutive_relation = None
+        else:
+            if element_template.constitutive_relation is None:
+                raise ValueError(f'Template {element_template.uri} for element {uri} has no constitutive relation')
+            self.__constitutive_relation = element_template.constitutive_relation.copy()
+
         self.__domain = element_template.domain
         self.__type = element_template.uri
-        self.__ports = { make_element_port_id(self.uri, port_id): port.copy(self.uri.fragment)
-                            for port_id, port in element_template.ports.items() }
+        self.__ports: dict[URIRef, PowerPort] = {}
+        for port_id, port in element_template.ports.items():
+            self.__ports[make_element_port_id(self.uri, port_id)] = port.copy(self.uri.fragment)
+
         self.__variables = {name: variable.copy(self.uri.fragment)
                                 for name, variable in element_template.variables.items()}
         if len(self.__variables):
@@ -108,9 +116,16 @@ class BondgraphElement(ModelElement):
                 for name in self.__variables.keys():
                     if name not in variable_values:
                         raise ValueError(f'Missing value for variable {name} of element {uri}')
+
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
             self.__variables[intrinsic_var.name] = intrinsic_var.copy(self.uri.fragment, True)
             self.__intrinsic_variable = self.__variables[intrinsic_var.name]
+            if (self.__element_class == FLOW_SOURCE
+            and (port_var := self.__ports[self.uri].flow) is not None):
+                port_var.variable = self.__intrinsic_variable
+            elif (self.__element_class == POTENTIAL_SOURCE
+            and (port_var := self.__ports[self.uri].potential) is not None):
+                port_var.variable = self.__intrinsic_variable
             if intrinsic_value is not None:
                 self.__intrinsic_variable.set_value(intrinsic_value)
         else:
@@ -121,10 +136,12 @@ class BondgraphElement(ModelElement):
 
         self.__port_variable_names = []
         for port in self.__ports.values():
-            self.__variables[port.flow.name] = port.flow.variable
-            self.__port_variable_names.append(port.flow.name)
-            self.__variables[port.potential.name] = port.potential.variable
-            self.__port_variable_names.append(port.potential.name)
+            if port.flow is not None:
+                self.__variables[port.flow.name] = port.flow.variable
+                self.__port_variable_names.append(port.flow.name)
+            if port.potential is not None:
+                self.__variables[port.potential.name] = port.potential.variable
+                self.__port_variable_names.append(port.potential.name)
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
@@ -145,11 +162,15 @@ class BondgraphElement(ModelElement):
         return self.__domain
 
     @property
+    def element_class(self) -> URIRef:
+        return self.__element_class
+
+    @property
     def ports(self) -> dict[URIRef, PowerPort]:
         return self.__ports
 
     @property
-    def constitutive_relation(self):
+    def constitutive_relation(self) -> Optional[MathML]:
         return self.__constitutive_relation
 
     @property
@@ -181,9 +202,10 @@ class BondgraphElement(ModelElement):
                     raise ValueError(f'Units incompatible for {self.uri} value: {value[0]}')
                 else:
                     variable.set_symbol(element.__intrinsic_variable.symbol)
-        for name, variable in self.__variables.items():
-            self.__constitutive_relation.substitute(name, variable.symbol,
-                                                    missing_ok=(name in self.__port_variable_names))
+        if self.__constitutive_relation is not None:
+            for name, variable in self.__variables.items():
+                self.__constitutive_relation.substitute(name, variable.symbol,
+                                                        missing_ok=(name in self.__port_variable_names))
 
 #===============================================================================
 #===============================================================================
@@ -243,8 +265,8 @@ class BondgraphJunction(ModelElement):
         self.__variables: list[Variable] = []
 
     @property
-    def constitutive_relation(self) -> MathML:
-        return self.__constitutive_relation         # type: ignore
+    def constitutive_relation(self) -> Optional[MathML]:
+        return self.__constitutive_relation
 
     @property
     def type(self) -> URIRef:
@@ -276,28 +298,33 @@ class BondgraphJunction(ModelElement):
             # we are connected to several nodes
             if self.__type == ONENODE_JUNCTION:
                 # Sum of potentials connected to junction is 0
-                inputs = [self.__potential_symbol(bond_graph.nodes[edge[0]])
-                            for edge in bond_graph.in_edges(node_uri)]
-                outputs = [self.__potential_symbol(bond_graph.nodes[edge[1]])
-                            for edge in bond_graph.out_edges(node_uri)]
+                inputs = [symbol for edge in bond_graph.in_edges(node_uri)
+                            if (symbol := self.__potential_symbol(bond_graph.nodes[edge[0]])) != '']
+                outputs = [symbol for edge in bond_graph.out_edges(node_uri)
+                            if (symbol := self.__potential_symbol(bond_graph.nodes[edge[1]])) != '']
                 equal_value = [node_dict['port'].flow.variable.symbol
                                 for edge in bond_graph.in_edges(node_uri)
-                                    if 'port' in (node_dict := bond_graph.nodes[edge[0]])]
+                                    if 'port' in (node_dict := bond_graph.nodes[edge[0]])
+                                        and node_dict['element'].element_class != POTENTIAL_SOURCE]
                 equal_value.extend([node_dict['port'].flow.variable.symbol
                                 for edge in bond_graph.out_edges(node_uri)
-                                    if 'port' in (node_dict := bond_graph.nodes[edge[1]])])
+                                    if 'port' in (node_dict := bond_graph.nodes[edge[1]])
+                                        and node_dict['element'].element_class != POTENTIAL_SOURCE])
             elif self.__type == ZERONODE_JUNCTION:
                 # Sum of flows connected to junction is 0
-                inputs = [self.__flow_symbol(bond_graph.nodes[edge[0]])
-                            for edge in bond_graph.in_edges(node_uri)]
-                outputs = [self.__flow_symbol(bond_graph.nodes[edge[1]])
-                            for edge in bond_graph.out_edges(node_uri)]
+                inputs = [symbol for edge in bond_graph.in_edges(node_uri)
+                            if (symbol := self.__flow_symbol(bond_graph.nodes[edge[0]])) != '']
+                outputs = [symbol
+                            for edge in bond_graph.out_edges(node_uri)
+                            if (symbol := self.__flow_symbol(bond_graph.nodes[edge[1]])) != '']
                 equal_value = [node_dict['port'].potential.variable.symbol
                                 for edge in bond_graph.in_edges(node_uri)
-                                    if 'port' in (node_dict := bond_graph.nodes[edge[0]])]
+                                    if 'port' in (node_dict := bond_graph.nodes[edge[0]])
+                                        and node_dict['element'].element_class != FLOW_SOURCE]
                 equal_value.extend([node_dict['port'].potential.variable.symbol
                                 for edge in bond_graph.out_edges(node_uri)
-                                    if 'port' in (node_dict := bond_graph.nodes[edge[1]])])
+                                    if 'port' in (node_dict := bond_graph.nodes[edge[1]])
+                                        and node_dict['element'].element_class != FLOW_SOURCE])
             else:
                 raise ValueError(f'Unexpected bond graph node for {self.uri}: {self.__type}')
             equal_value = '\n'.join([equal(var_symbol(self.__variables[0].symbol), var_symbol(symbol))
@@ -311,7 +338,7 @@ class BondgraphJunction(ModelElement):
     #===============================================
         if 'port' in node_dict:                         # A BondElement's port
             port: PowerPort = node_dict['port']
-            return port.flow.variable.symbol
+            return port.flow.variable.symbol if port.flow is not None else ''
         elif 'junction' in node_dict:
             junction: BondgraphJunction = node_dict['junction']
             if junction.type == ONENODE_JUNCTION:
@@ -326,7 +353,7 @@ class BondgraphJunction(ModelElement):
     #====================================================
         if 'port' in node_dict:                         # A BondElement's port
             port: PowerPort = node_dict['port']
-            return port.potential.variable.symbol
+            return port.potential.variable.symbol if port.potential is not None else ''
         elif 'junction' in node_dict:
             junction: BondgraphJunction = node_dict['junction']
             if junction.type == ZERONODE_JUNCTION:

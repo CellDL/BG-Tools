@@ -18,6 +18,7 @@
 #
 #===============================================================================
 
+from dataclasses import dataclass
 from typing import NamedTuple, Optional, Self
 
 #===============================================================================
@@ -43,6 +44,8 @@ VOI_UCUMUNIT = Literal('s', datatype=CDT.ucumunit)
 #===============================================================================
 
 DISSIPATOR_ELEMENT = BGF.Dissipator
+FLOW_SOURCE        = BGF.FlowSource
+POTENTIAL_SOURCE   = BGF.PotentialSource
 POTENTIAL_STORE    = BGF.PotentialStore
 
 ONENODE_JUNCTION   = BGF.OneNode
@@ -230,7 +233,8 @@ ELEMENT_PORT_IDS = """
 
 #===============================================================================
 
-class PortNameVariable(NamedTuple):
+@dataclass
+class NamedPortVariable:
     name: str
     variable: Variable
 
@@ -240,43 +244,30 @@ class PortNameVariable(NamedTuple):
 #===============================================================================
 
 class PowerPort:
-    def __init__(self, element: 'ElementTemplate', port_suffix: Optional[str]=None,
-            flow_suffixed=True, potential_suffixed=True):
-        self.__element = element
-        self.__suffix = '' if port_suffix is None else f'_{port_suffix}'
-        self.__flow = self.__name_variable(element.domain.flow, flow_suffixed)
-        self.__potential = self.__name_variable(element.domain.potential, potential_suffixed)
+    def __init__(self, uri: URIRef, flow: Optional[NamedPortVariable],
+                                    potential: Optional[NamedPortVariable]):
+        self.__uri = uri
+        self.__flow = flow
+        self.__potential = potential
 
     def __str__(self):
-        return f'{self.__element.uri}{self.__suffix}, potential: {self.__potential}, flow: {self.__flow}'
+        return f'{self.__uri.fragment}, potential: {self.__potential}, flow: {self.__flow}'
 
     @property
-    def element(self):
-        return self.__element
-
-    @property
-    def flow(self) -> PortNameVariable:
+    def flow(self) -> Optional[NamedPortVariable]:
         return self.__flow
 
     @property
-    def potential(self) -> PortNameVariable:
+    def potential(self) -> Optional[NamedPortVariable]:
         return self.__potential
 
     def copy(self, suffix: Optional[str]=None) -> 'PowerPort':
     #=========================================================
-        copy = PowerPort(self.__element)
-        copy.__suffix = self.__suffix
-        copy.__flow = PortNameVariable(name=self.__flow.name,
-                                         variable=self.__flow.variable.copy(suffix))
-        copy.__potential = PortNameVariable(name=self.__potential.name,
-                                              variable=self.__potential.variable.copy(suffix))
-        return copy
-
-    def __name_variable(self, domain_variable: Variable, add_suffix: bool) -> PortNameVariable:
-    #==========================================================================================
-        name = f'{domain_variable.name}{self.__suffix}' if add_suffix else domain_variable.name
-        return PortNameVariable(name=name,
-                                variable=Variable(self.__element.uri, name, domain_variable.units, None))
+        return PowerPort(self.__uri,
+            NamedPortVariable(name=self.__flow.name, variable=self.__flow.variable.copy(suffix))
+                if self.__flow is not None else None,
+            NamedPortVariable(name=self.__potential.name, variable=self.__potential.variable.copy(suffix))
+                if self.__potential is not None else None)
 
 #===============================================================================
 #===============================================================================
@@ -298,19 +289,21 @@ class ElementTemplate(Labelled):
         super().__init__(uri, label)
         self.__element_class = element_class
         self.__domain = domain
-        mathml = None
-        if isinstance(relation, Literal):
-            if relation.datatype == BGF.mathml:
-                mathml = str(relation)
+        if element_class in [FLOW_SOURCE, POTENTIAL_SOURCE]:
+            self.__relation = None
         else:
-            # Do we insist on datatyping? Default to MathML ??
-            mathml = relation
-        if mathml is None:
-            raise ValueError(f'BondElement {uri} has no constitutive relation')
-        try:
-            self.__relation = MathML.from_string(mathml)
-        except ValueError as error:
-            raise ValueError(f'{self.uri}: {error}')
+            mathml = None
+            if isinstance(relation, Literal):
+                if relation.datatype == BGF.mathml:
+                    mathml = str(relation)
+                else:
+                    mathml = relation
+            if mathml is None:
+                raise ValueError(f'BondElement {uri} has no constitutive relation')
+            try:
+                self.__relation = MathML.from_string(mathml)
+            except ValueError as error:
+                raise ValueError(f'{self.uri}: {error}')
         self.__ports: dict[str, PowerPort] = {}
         self.__variables: dict[str, Variable] = {}
         self.__intrinsic_variable: Optional[Variable] = None
@@ -327,7 +320,7 @@ class ElementTemplate(Labelled):
         return self
 
     @property
-    def constitutive_relation(self) -> MathML:
+    def constitutive_relation(self) -> Optional[MathML]:
         return self.__relation
 
     @property
@@ -355,11 +348,26 @@ class ElementTemplate(Labelled):
         port_ids = [str(row[0]) for row in framework.knowledge.query(
                         ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri))]
         if len(port_ids):
-            same_flow = (len(port_ids) == 2) and (self.__element_class != DISSIPATOR_ELEMENT)
-            self.__ports = {id: PowerPort(self, port_suffix=id, flow_suffixed=same_flow)
-                                for id in port_ids}
+            flow_suffixed = (len(port_ids) == 2) and (self.__element_class != DISSIPATOR_ELEMENT)
+            self.__ports = {}
+            for id in port_ids:
+                suffix = f'_{id}'
+                flow_var = self.__port_name_variable(self.domain.flow, suffix if flow_suffixed else '')
+                potential_var = self.__port_name_variable(self.domain.potential, suffix)
+                self.__ports[id] = PowerPort(self.uri + suffix, flow_var, potential_var)
         else:
-            self.__ports = {'': PowerPort(self)}
+            self.__ports = {'': PowerPort(self.uri,
+                                    self.__port_name_variable(self.domain.flow)
+                                        if self.__element_class != POTENTIAL_SOURCE else None,
+                                    self.__port_name_variable(self.domain.potential)
+                                        if self.__element_class != FLOW_SOURCE else None)
+                           }
+
+    def __port_name_variable(self, domain_variable: Variable, suffix: str='') -> NamedPortVariable:
+    #==========================================================================================
+        port_var_name = f'{domain_variable.name}{suffix}'
+        return NamedPortVariable(name=port_var_name,
+                                variable=Variable(self.uri, port_var_name, domain_variable.units, None))
 
     def __add_variables(self, framework: '_BondgraphFramework'):
     #===========================================================
@@ -369,8 +377,13 @@ class ElementTemplate(Labelled):
                 raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
             self.__variables[var_name] = Variable(self.uri, str(row[0]), row[1], row[2])   # type: ignore
         # A variable that is intrinsic to the element's class
+        # Values of intrinsic variables are set by bgf:hasValue
         if self.__element_class == POTENTIAL_STORE:
             self.__intrinsic_variable = self.__domain.quantity.copy()
+        elif self.__element_class == POTENTIAL_SOURCE:
+            self.__intrinsic_variable = self.__domain.potential.copy()
+        elif self.__element_class == FLOW_SOURCE:
+            self.__intrinsic_variable = self.__domain.flow.copy()
 
     def __check_names(self):
     #=======================
@@ -382,12 +395,14 @@ class ElementTemplate(Labelled):
                 raise ValueError(f'Duplicate name `{name}` for {self.uri}')
         for name in self.__variables.keys():
             add_name(name)
-        for port in self.__ports.values():
-            add_name(port.flow.name, False)
-            add_name(port.potential.name, False)
-        eqn_names = self.__relation.variables
+        eqn_names = self.__relation.variables if self.__relation is not None else []
         if len(names) > len(eqn_names):
             raise ValueError(f"{self.uri} has variables that are not in it's constitutive relation")
+        for port in self.__ports.values():
+            if port.flow is not None:
+                add_name(port.flow.name, False)
+            if port.potential is not None:
+                add_name(port.potential.name, False)
         names.extend([c.name for c in self.__domain.constants])
         names.extend(self.__domain.intrinsic_symbols)
         names.append(VOI_VARIABLE.name)
@@ -453,8 +468,8 @@ ELEMENT_TEMPLATE_DEFINITIONS = """
             a bgf:ElementTemplate ;
             rdfs:subClassOf ?element_class ;
             rdfs:subClassOf* bgf:BondElement ;
-            bgf:hasDomain ?domain ;
-            bgf:constitutiveRelation ?relation .
+            bgf:hasDomain ?domain .
+        OPTIONAL { ?uri bgf:constitutiveRelation ?relation }
         OPTIONAL { ?uri rdfs:label ?label }
     } ORDER BY ?uri"""
 
