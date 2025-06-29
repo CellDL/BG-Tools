@@ -180,10 +180,11 @@ def bg2cellml(bondgraph_rdf_source: str, dump_resolved_rdf: bool=False, save_cel
 #===============================================================================
 
 def main():
+    bg2cellml('../examples/example_RC.ttl', save_cellml_if_errors=True)
     #bg2cellml('../examples/example_RCR.ttl')
     #bg2cellml('../examples/example_A1.ttl')
     #bg2cellml('../examples/example_A2.ttl')
-    bg2cellml('../BVC-model/bvc.ttl', save_cellml_if_errors=True)
+    #bg2cellml('../BVC-model/bvc.ttl', save_cellml_if_errors=True)
 
 #===============================================================================
 
