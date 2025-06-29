@@ -125,8 +125,8 @@ def model2cellml(model: BondgraphModel, cellml_file: str, save_if_errors: bool=F
             print(f'{simulation.issue_count} issues creating simulation from CellML...')
             has_issues = True
         else:
-            simulation.simulations[0].output_end_time = 10
-            simulation.simulations[0].number_of_steps = 1000
+            simulation.simulations[0].output_end_time = 0.1
+            simulation.simulations[0].number_of_steps = 10
 
             instance = simulation.instantiate(True)
             instance.run()
