@@ -3,9 +3,9 @@
 ## Installation
 
 ```sh
-$ git clone https://github.com/CellDL/BG-RDF.git
-$ cd BG-RDF/tools
-$ uv install
+$ git https://github.com/CellDL/BG-Tools
+$ cd BG-Tools
+$ uv sync
 ```
 
 ## Usage
