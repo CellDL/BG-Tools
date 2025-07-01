@@ -20,6 +20,7 @@
 
 from dataclasses import dataclass
 from typing import NamedTuple, Optional, Self
+from pathlib import Path
 
 #===============================================================================
 
@@ -33,6 +34,10 @@ from ..units import Units, Value
 from ..mathml import MathML
 from .namespaces import BGF, CDT, NAMESPACES
 from .utils import Labelled
+
+#===============================================================================
+
+SCHEMA_BASE = Path('../BG-RDF/schema')
 
 #===============================================================================
 
@@ -678,11 +683,11 @@ class _BondgraphFramework:
 #===============================================================================
 
 BondgraphFramework = _BondgraphFramework([
-    '../schema/ontology.ttl',
-    '../schema/elements/chemical.ttl',
-    '../schema/elements/electrical.ttl',
-    '../schema/elements/hydraulic.ttl',
-    '../schema/elements/mechanical.ttl',
+    SCHEMA_BASE / 'ontology.ttl',
+    SCHEMA_BASE / 'elements/chemical.ttl',
+    SCHEMA_BASE / 'elements/electrical.ttl',
+    SCHEMA_BASE / 'elements/hydraulic.ttl',
+    SCHEMA_BASE / 'elements/mechanical.ttl',
 ])
 
 #===============================================================================
