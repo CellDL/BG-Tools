@@ -30,7 +30,7 @@ from ..bondgraph import BondgraphElement, BondgraphJunction, BondgraphModel
 from ..bondgraph import VOI_VARIABLE
 from ..bondgraph.framework import clean_name, Variable
 from ..mathml import MathML
-from ..rdf import XMLNamespace
+from ..utils import XMLNamespace
 from ..units import Units
 
 #===============================================================================
