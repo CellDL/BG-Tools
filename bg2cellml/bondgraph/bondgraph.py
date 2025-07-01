@@ -201,7 +201,7 @@ class BondgraphElement(ModelElement):
                 elif variable.units != element.__intrinsic_variable.units:
                     raise ValueError(f'Units incompatible for {self.uri} value: {value[0]}')
                 else:
-                    variable.set_symbol(element.__intrinsic_variable.symbol)
+                    self.__variables[var_name] = element.__intrinsic_variable
         if self.__constitutive_relation is not None:
             for name, variable in self.__variables.items():
                 self.__constitutive_relation.substitute(name, variable.symbol,
