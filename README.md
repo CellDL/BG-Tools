@@ -22,5 +22,5 @@ for model in BondgraphModelSource(bondgraph_rdf_source).models:
 
 ## Example models:
 
-* [An RC electrical circuit](/examples/example_RC.ttl) 
-* [A simple biochemical reaction](/examples/example_B1.ttl)
+* [An RC electrical circuit](https://github.com/CellDL/BG-RDF/blob/main/examples/example_RC.ttl) 
+* [A simple biochemical reaction](https://github.com/CellDL/BG-RDF/blob/main/examples/example_B1.ttl)
