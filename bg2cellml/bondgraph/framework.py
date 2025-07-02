@@ -210,7 +210,7 @@ class Domain(Labelled):
 
     @property
     def name(self) -> str:
-        return self.__uri.fragment
+        return self.symbol
 
     @property
     def potential(self):

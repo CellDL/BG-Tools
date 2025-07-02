@@ -105,7 +105,7 @@ class BondgraphElement(ModelElement):
         self.__type = element_template.uri
         self.__ports: dict[URIRef, PowerPort] = {}
         for port_id, port in element_template.ports.items():
-            self.__ports[make_element_port_id(self.uri, port_id)] = port.copy(self.uri.fragment)
+            self.__ports[make_element_port_id(self.uri, port_id)] = port.copy(self.symbol)
 
         self.__variables = {name: variable.copy(self.uri.fragment)
                                 for name, variable in element_template.variables.items()}
@@ -118,7 +118,7 @@ class BondgraphElement(ModelElement):
                         raise ValueError(f'Missing value for variable {name} of element {uri}')
 
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
-            self.__variables[intrinsic_var.name] = intrinsic_var.copy(self.uri.fragment, True)
+            self.__variables[intrinsic_var.name] = intrinsic_var.copy(self.symbol, True)
             self.__intrinsic_variable = self.__variables[intrinsic_var.name]
             if (self.__element_class == FLOW_SOURCE
             and (port_var := self.__ports[self.uri].flow) is not None):
@@ -284,9 +284,9 @@ class BondgraphJunction(ModelElement):
             raise ValueError(f'Cannot find domain for junction {self.uri}. Are there bonds to it?')
         self.__domain = domain
         if self.__type == ONENODE_JUNCTION:
-            self.__variables = [Variable(node_uri, node_uri.fragment, self.__domain.flow.units, self.__value)]
+            self.__variables = [Variable(self.uri, self.symbol, self.__domain.flow.units, self.__value)]
         elif self.__type == ZERONODE_JUNCTION:
-            self.__variables = [Variable(node_uri, node_uri.fragment, self.__domain.potential.units, self.__value)]
+            self.__variables = [Variable(self.uri, self.symbol, self.__domain.potential.units, self.__value)]
         elif self.__type == TRANSFORM_JUNCTION:
             raise ValueError(f'Transform Nodes ({self.uri}) are not yet supported')
             ## each port needs a domain, if gyrator different domains...
@@ -474,10 +474,10 @@ class BondgraphModel(Labelled):
         for element in self.__elements:
             for port_id, port in element.ports.items():
                 self.__graph.add_node(port_id,
-                    type=self.__rdf_graph.curie(element.type), port=port, element=element, label=element.uri.fragment)
+                    type=self.__rdf_graph.curie(element.type), port=port, element=element, label=element.symbol)
         for junction in self.__junctions:
             self.__graph.add_node(junction.uri,
-                type=self.__rdf_graph.curie(junction.type), junction=junction, label=junction.uri.fragment)
+                type=self.__rdf_graph.curie(junction.type), junction=junction, label=junction.symbol)
         for bond in self.__bonds:
             source = bond.source_id
             target = bond.target_id
