@@ -19,8 +19,8 @@
 #===============================================================================
 
 from dataclasses import dataclass
-from typing import NamedTuple, Optional, Self
 from pathlib import Path
+from typing import Optional, Self
 
 #===============================================================================
 
