@@ -301,8 +301,7 @@ class BondgraphJunction(ModelElement):
 
     def assign_domain_and_variables(self, bond_graph: nx.DiGraph):
     #=============================================================
-        node_uri = self.uri
-        attributes = bond_graph.nodes[node_uri]
+        attributes = bond_graph.nodes[self.uri]
         if (domain := attributes.get('domain')) is None:
             raise ValueError(f'Cannot find domain for junction {self.uri}. Are there bonds to it?')
         self.__domain = domain
@@ -316,37 +315,36 @@ class BondgraphJunction(ModelElement):
 
     def assign_relation(self, bond_graph: nx.DiGraph):
     #=================================================
-        node_uri = self.uri
-        if bond_graph.degree[node_uri] > 1:   # type: ignore
+        if bond_graph.degree[self.uri] > 1:   # type: ignore
             # we are connected to several nodes
             if self.__type == ONENODE_JUNCTION:
                 # Sum of potentials connected to junction is 0
-                inputs = [symbol for edge in bond_graph.in_edges(node_uri)
-                            if (symbol := self.__potential_symbol(bond_graph.nodes[edge[0]])) != '']
-                outputs = [symbol for edge in bond_graph.out_edges(node_uri)
-                            if (symbol := self.__potential_symbol(bond_graph.nodes[edge[1]])) != '']
+                inputs = [self.__potential_symbol(bond_graph.nodes[node])
+                            for node in bond_graph.predecessors(self.uri)]
+                outputs = [self.__potential_symbol(bond_graph.nodes[node])
+                            for node in bond_graph.successors(self.uri)]
                 equal_value = [node_dict['port'].flow.variable.symbol
-                                for edge in bond_graph.in_edges(node_uri)
-                                    if 'port' in (node_dict := bond_graph.nodes[edge[0]])
+                                for node in bond_graph.predecessors(self.uri)
+                                    if 'port' in (node_dict := bond_graph.nodes[node])
                                         and node_dict['element'].element_class != POTENTIAL_SOURCE]
+
                 equal_value.extend([node_dict['port'].flow.variable.symbol
-                                for edge in bond_graph.out_edges(node_uri)
-                                    if 'port' in (node_dict := bond_graph.nodes[edge[1]])
+                                for node in bond_graph.successors(self.uri)
+                                    if 'port' in (node_dict := bond_graph.nodes[node])
                                         and node_dict['element'].element_class != POTENTIAL_SOURCE])
             elif self.__type == ZERONODE_JUNCTION:
                 # Sum of flows connected to junction is 0
-                inputs = [symbol for edge in bond_graph.in_edges(node_uri)
-                            if (symbol := self.__flow_symbol(bond_graph.nodes[edge[0]])) != '']
-                outputs = [symbol
-                            for edge in bond_graph.out_edges(node_uri)
-                            if (symbol := self.__flow_symbol(bond_graph.nodes[edge[1]])) != '']
+                inputs = [self.__flow_symbol(bond_graph.nodes[node])
+                            for node in bond_graph.predecessors(self.uri)]
+                outputs = [self.__flow_symbol(bond_graph.nodes[node])
+                            for node in bond_graph.successors(self.uri)]
                 equal_value = [node_dict['port'].potential.variable.symbol
-                                for edge in bond_graph.in_edges(node_uri)
-                                    if 'port' in (node_dict := bond_graph.nodes[edge[0]])
+                                for node in bond_graph.predecessors(self.uri)
+                                    if 'port' in (node_dict := bond_graph.nodes[node])
                                         and node_dict['element'].element_class != FLOW_SOURCE]
                 equal_value.extend([node_dict['port'].potential.variable.symbol
-                                for edge in bond_graph.out_edges(node_uri)
-                                    if 'port' in (node_dict := bond_graph.nodes[edge[1]])
+                                for node in bond_graph.successors(self.uri)
+                                    if 'port' in (node_dict := bond_graph.nodes[node])
                                         and node_dict['element'].element_class != FLOW_SOURCE])
             else:
                 raise ValueError(f'Unexpected bond graph node for {self.uri}: {self.__type}')
