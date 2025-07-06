@@ -58,10 +58,10 @@ class ModelElement(Labelled):
 #===============================================================================
 #===============================================================================
 
-ELEMENT_VARIABLE_VALUES = """
+ELEMENT_PARAMETER_VALUES = """
     SELECT DISTINCT ?name ?value ?symbol
     WHERE {
-        <%ELEMENT_URI%> bgf:variableValue ?variable .
+        <%ELEMENT_URI%> bgf:parameterValue ?variable .
         ?variable
             bgf:varName ?name ;
             bgf:hasValue ?value .
@@ -74,6 +74,16 @@ ELEMENT_STATE_VALUE = """
         <%ELEMENT_URI%> bgf:hasValue ?value .
     }"""
 
+ELEMENT_VARIABLE_VALUES = """
+    SELECT DISTINCT ?name ?value ?symbol
+    WHERE {
+        <%ELEMENT_URI%> bgf:variableValue ?variable .
+        ?variable
+            bgf:varName ?name ;
+            bgf:hasValue ?value .
+        OPTIONAL { ?variable bgf:hasSymbol ?symbol }
+    }"""
+
 #===============================================================================
 
 type VariableValue = tuple[Literal|URIRef, Optional[str]]
@@ -82,6 +92,7 @@ type VariableValue = tuple[Literal|URIRef, Optional[str]]
 
 class BondgraphElement(ModelElement):
     def __init__(self,  model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
+                        parameter_values: Optional[dict[str, VariableValue]]=None,
                         variable_values: Optional[dict[str, VariableValue]]=None,
                         domain_uri: Optional[URIRef]=None, intrinsic_value: Optional[Value]=None,
                         label: Optional[str]=None):
@@ -107,15 +118,35 @@ class BondgraphElement(ModelElement):
         for port_id, port in element_template.ports.items():
             self.__ports[make_element_port_id(self.uri, port_id)] = port.copy(self.symbol)
 
-        self.__variables = {name: variable.copy(self.uri.fragment)
-                                for name, variable in element_template.variables.items()}
-        if len(self.__variables):
-            if variable_values is None:
-                raise ValueError(f'No values given for element {uri}')
-            else:
-                for name in self.__variables.keys():
-                    if name not in variable_values:
-                        raise ValueError(f'Missing value for variable {name} of element {uri}')
+        self.__variables = {}
+        self.__port_variable_names = []
+        for port in self.__ports.values():
+            if port.flow is not None:
+                self.__variables[port.flow.name] = port.flow.variable
+                self.__port_variable_names.append(port.flow.name)
+            if port.potential is not None:
+                self.__variables[port.potential.name] = port.potential.variable
+                self.__port_variable_names.append(port.potential.name)
+        self.__variables.update({name: variable.copy(self.symbol)
+                                for name, variable in element_template.parameters.items()})
+        self.__variables.update({name: variable.copy(self.symbol)
+                                for name, variable in element_template.variables.items()})
+
+        # Defer assignment until we have the full bondgraph
+        self.__variable_values = {}
+        if parameter_values is None:
+            if len(element_template.parameters):
+                raise ValueError(f'No parameters given for element {uri}')
+        else:
+            for name in element_template.parameters.keys():
+                if name not in parameter_values:
+                    raise ValueError(f'Missing value for parameter {name} of element {uri}')
+            self.__variable_values.update(parameter_values)
+        if variable_values is not None:
+            for name in variable_values.keys():
+                if name not in name not in self.__variables:
+                    raise ValueError(f'Unknown variable {name} for element {uri}')
+            self.__variable_values.update(variable_values)
 
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
             self.__variables[intrinsic_var.name] = intrinsic_var.copy(self.symbol, True)
@@ -131,22 +162,13 @@ class BondgraphElement(ModelElement):
         else:
             self.__intrinsic_variable = None
 
-        # Defer assigning until we have the full bondgraph
-        self.__variable_values = variable_values if variable_values is not None else {}
-
-        self.__port_variable_names = []
-        for port in self.__ports.values():
-            if port.flow is not None:
-                self.__variables[port.flow.name] = port.flow.variable
-                self.__port_variable_names.append(port.flow.name)
-            if port.potential is not None:
-                self.__variables[port.potential.name] = port.potential.variable
-                self.__port_variable_names.append(port.potential.name)
-
     @classmethod
     def for_model(cls, model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
     #=============================================================================
                                     domain_uri: Optional[URIRef], label: Optional[str]):
+        parameter_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # type: ignore
+            for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT_URI%', uri))
+        }
         variable_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # type: ignore
             for row in model.sparql_query(ELEMENT_VARIABLE_VALUES.replace('%ELEMENT_URI%', uri))
         }
@@ -154,8 +176,9 @@ class BondgraphElement(ModelElement):
         for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT_URI%', uri)):
             intrinsic_value = Value.from_literal(row[0])                            # type: ignore
             break
-        return cls(model, uri, element_type, variable_values=variable_values,
-                    domain_uri=domain_uri, intrinsic_value=intrinsic_value, label=label)
+        return cls(model, uri, element_type, domain_uri=domain_uri,
+                    parameter_values=parameter_values, variable_values=variable_values,
+                    intrinsic_value=intrinsic_value, label=label)
 
     @property
     def domain(self) -> Domain:

@@ -277,6 +277,15 @@ class PowerPort:
 #===============================================================================
 #===============================================================================
 
+ELEMENT_PARAMETERS = """
+    SELECT DISTINCT ?name ?units ?value
+    WHERE {
+        <%ELEMENT_URI%> bgf:hasParameter ?variable .
+        ?variable bgf:varName ?name .
+        OPTIONAL { ?variable bgf:hasUnits ?units }
+        OPTIONAL { ?variable bgf:hasValue ?value }
+    }"""
+
 ELEMENT_VARIABLES = """
     SELECT DISTINCT ?name ?units ?value
     WHERE {
@@ -310,6 +319,7 @@ class ElementTemplate(Labelled):
             except ValueError as error:
                 raise ValueError(f'{self.uri}: {error}')
         self.__ports: dict[str, PowerPort] = {}
+        self.__parameters: dict[str, Variable] = {}
         self.__variables: dict[str, Variable] = {}
         self.__intrinsic_variable: Optional[Variable] = None
 
@@ -339,6 +349,10 @@ class ElementTemplate(Labelled):
     @property
     def intrinsic_variable(self) -> Optional[Variable]:
         return self.__intrinsic_variable
+
+    @property
+    def parameters(self) -> dict[str, Variable]:
+        return self.__parameters
 
     @property
     def ports(self) -> dict[str, PowerPort]:
@@ -376,7 +390,12 @@ class ElementTemplate(Labelled):
 
     def __add_variables(self, framework: '_BondgraphFramework'):
     #===========================================================
-        for row in framework.knowledge.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri)):
+        for row in framework.knowledge.query(ELEMENT_PARAMETERS.replace('%ELEMENT_URI%', self.uri, True)):
+            var_name = str(row[0])
+            if var_name in self.__domain.intrinsic_symbols:
+                raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
+            self.__parameters[var_name] = Variable(self.uri, str(row[0]), row[1], row[2])   # type: ignore
+        for row in framework.knowledge.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri, True)):
             var_name = str(row[0])
             if var_name in self.__domain.intrinsic_symbols:
                 raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
@@ -398,6 +417,8 @@ class ElementTemplate(Labelled):
                 names.append(name)
             elif unique:
                 raise ValueError(f'Duplicate name `{name}` for {self.uri}')
+        for name in self.__parameters.keys():
+            add_name(name)
         for name in self.__variables.keys():
             add_name(name)
         eqn_names = self.__relation.variables if self.__relation is not None else []
