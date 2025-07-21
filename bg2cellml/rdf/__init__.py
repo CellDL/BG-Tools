@@ -18,6 +18,7 @@
 #
 #===============================================================================
 
+from pathlib import Path
 from typing import Optional, Self
 
 #===============================================================================
@@ -67,13 +68,13 @@ class RDFGraph:
     #===================================
         return uri.n3(self.__graph.namespace_manager)
 
-    def parse(self, source_uri: str):
-    #================================
-        self.__graph.parse(location=source_uri, format='turtle')
 
     def query(self, query: str) -> list[ResultRow]:
     #==============================================
         return self.__graph.query(query)    # type: ignore
+    def parse(self, source_uri: str|Path):
+    #=====================================
+        self.__graph.parse(location=str(source_uri), format='turtle')
 
     def remove(self, triple: tuple) -> Self:
     #=======================================

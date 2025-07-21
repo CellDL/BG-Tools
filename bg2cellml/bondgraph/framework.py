@@ -577,7 +577,7 @@ class _BondgraphFramework:
             cls._instance = super(_BondgraphFramework, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, bg_knowledge: list[str]):
+    def __init__(self, bg_knowledge: list[str|Path]):
         self.__knowledge = RDFGraph(NAMESPACES)
         for knowledge in bg_knowledge:
             self.__knowledge.parse(knowledge)
