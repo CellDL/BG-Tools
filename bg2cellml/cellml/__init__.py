@@ -18,20 +18,17 @@
 #
 #===============================================================================
 
-from typing import Optional
-
-#===============================================================================
-
 import lxml.etree as etree
+import sympy
 
 #===============================================================================
 
 from ..bondgraph import BondgraphElement, BondgraphJunction, BondgraphModel
 from ..bondgraph import VOI_VARIABLE
 from ..bondgraph.framework import clean_name, Variable
-from ..mathml import MathML
-from ..utils import XMLNamespace
+from ..mathml import Equation, MATHML_NS, ODEResolver
 from ..units import Units
+from ..utils import XMLNamespace
 
 #===============================================================================
 
@@ -98,18 +95,21 @@ class CellMLModel:
         self.__cellml = cellml_element('model', name=self.__name,
                                         nsmap={None: str(CELLML_NS), 'cellml': str(CELLML_NS)})
         self.__main = cellml_subelement(self.__cellml, 'component', name='main')
+        self.__model = model
         self.__known_units: set[str] = set()
         self.__known_symbols: set[str] = set()
-        self.__add_unit_xml(DIMENSIONLESS_UNIT_DEFINITION)
+
+        self.__add_unit_xml(DIMENSIONLESS_UNIT_DEFINITION)  ## Only if <cn> in MathML??
         self.__add_variable(VOI_VARIABLE)       # only if VOI in some element's CR??
+
+        self.__element_equations: list[Equation] = []
         for element in model.elements:
             self.__add_element(element)
-        # Add comment  -- variables for junctions...
+
         for junction in model.junctions:
             self.__add_junction_variables(junction)
-        # Add comment  -- CRs for junction.uri...
-        for junction in model.junctions:
-            self.__add_constitutive_relation(junction.constitutive_relation)
+
+        self.__simplify_equations_to_mathml()
         self.__add_dimensionless_attrib()
 
     @property
@@ -123,22 +123,18 @@ class CellMLModel:
             self.__add_variable(constant)
         for variable in element.variables.values():
             self.__add_variable(variable)
-        self.__add_constitutive_relation(element.constitutive_relation)
+        if (relation := element.constitutive_relation) is not None:
+            self.__element_equations.extend(relation.equations())
 
     def __add_dimensionless_attrib(self):
     #====================================
-        for element in self.__main.findall('.//{http://www.w3.org/1998/Math/MathML}cn'):
+        for element in self.__main.findall(f'.//{MATHML_NS.cn}'):
             element.attrib[CELLML_UNITS_ATTRIB] = DIMENSIONLESS_UNITS_NAME
 
     def __add_junction_variables(self, junction: BondgraphJunction):
     #===============================================================
         for variable in junction.variables:
             self.__add_variable(variable)
-
-    def __add_constitutive_relation(self, constitutive_relation: Optional[MathML]):
-    #==============================================================================
-        if constitutive_relation is not None:
-            self.__main.append(constitutive_relation.mathml)
 
     def __add_units(self, units: Units):
     #===================================
@@ -182,6 +178,31 @@ class CellMLModel:
         result.append(elements_from_units(units))
         return result
 
+    def __simplify_equations_to_mathml(self):
+    #========================================
+        element_odes = []
+        element_algebraics: list[Equation] = []
+        for equation in self.__element_equations:
+            if isinstance(equation.lhs, sympy.Symbol):
+                element_algebraics.append(equation)
+            elif isinstance(equation.lhs, sympy.Derivative):
+                element_odes.append(equation)
+        junction_equations = self.__model.junction_equations.equations
+
+        self.__main.append(etree.Comment(' Bond ODEs'))
+        ode_resolver = ODEResolver(element_algebraics, junction_equations)
+        for equation in element_odes:
+            ode = ode_resolver.resolve(equation)
+            self.__main.append(ode.mathml_equation())
+
+        self.__main.append(etree.Comment(' Bond algebraics'))
+        for equation in element_algebraics:
+            self.__main.append(equation.mathml_equation())
+
+        self.__main.append(etree.Comment(' Junction structures'))
+        for equation in junction_equations:
+            self.__main.append(equation.mathml_equation())
+
     def to_xml(self) -> str:
     #=======================
         cellml_tree = etree.ElementTree(self.__cellml)
@@ -189,4 +210,5 @@ class CellMLModel:
             encoding='unicode', inclusive_ns_prefixes=['cellml'],
             pretty_print=True)
 
+#===============================================================================
 #===============================================================================
