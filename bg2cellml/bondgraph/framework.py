@@ -153,7 +153,7 @@ DOMAIN_CONSTANTS = """
     SELECT DISTINCT ?name ?value
     WHERE {
         <%DOMAIN_URI%>
-            a bgf:ModellingDomain ;
+            a bgf:PhysicalDomain ;
             bgf:hasConstant [
                 bgf:varName ?name ;
                 bgf:hasValue ?value
@@ -471,7 +471,7 @@ DOMAIN_QUERY = """
                     ?quantityName ?quantityUnits
     WHERE {
         ?domain
-            a bgf:ModellingDomain ;
+            a bgf:PhysicalDomain ;
             bgf:hasFlow [
                 bgf:varName ?flowName ;
                 bgf:hasUnits ?flowUnits
