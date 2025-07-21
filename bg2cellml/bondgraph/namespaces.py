@@ -22,13 +22,13 @@ from ..rdf import Namespace
 
 #===============================================================================
 
-BGF = Namespace('https://celldl.org/ontologies/bondgraph-framework#')
+BGF = Namespace('https://bg-rdf.org/ontologies/bondgraph-framework#')
 CDT = Namespace('https://w3id.org/cdt/')
 
 #===============================================================================
 
 NAMESPACES = {
-    'bgf': 'https://celldl.org/ontologies/bondgraph-framework#',
+    'bgf': 'https://bg-rdf.org/ontologies/bondgraph-framework#',
     'cdt': 'https://w3id.org/cdt/',
     'owl': 'http://www.w3.org/2002/07/owl#',
     'rdfs': 'http://www.w3.org/2000/01/rdf-schema#',
