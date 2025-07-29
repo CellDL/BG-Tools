@@ -582,7 +582,7 @@ BONDGRAPH_BONDS = """
 #===============================================================================
 
 class BondgraphModelSource:
-    def __init__(self, source: str, dump_resolved_rdf: bool=False):
+    def __init__(self, source: str, output_rdf: Optional[str]=None):
         self.__rdf_graph = RDFGraph(NAMESPACES)
         self.__source_path = Path(source).resolve()
         self.__loaded_sources: set[Path] = set()
@@ -592,10 +592,15 @@ class BondgraphModelSource:
         if len(base_models) < 1:
             raise ValueError(f'No BondgraphModels in source {source}')
         self.__load_blocks(self.__source_path)
+
         FRAMEWORK.resolve_composites(base_models[0][0], self.__rdf_graph)
         self.__generate_bonds(base_models[0][0])
-        if dump_resolved_rdf:
-            print(self.__rdf_graph.serialise())
+
+        if output_rdf is not None:
+            with open(output_rdf, 'w') as fp:
+                fp.write(self.__rdf_graph.serialise())
+            print(f'Expanded model saved as {output_rdf}')
+
         self.__models = { uri: BondgraphModel(self.__rdf_graph, uri, label)
                                 for (uri, label) in base_models }
 
