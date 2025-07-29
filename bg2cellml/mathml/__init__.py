@@ -34,7 +34,7 @@ from sympy.printing.mathml import MathMLContentPrinter
 
 #===============================================================================
 
-from ..utils import XMLNamespace
+from ..utils import etree_from_string, XMLNamespace
 
 #===============================================================================
 
@@ -304,11 +304,7 @@ class MathML:
 
     @classmethod
     def from_string(cls, formulae: str) -> 'MathML':
-        parser = etree.XMLParser(remove_blank_text=True)
-        try:
-            return cls(etree.fromstring(formulae, parser))
-        except etree.XMLSyntaxError as error:
-            raise ValueError(error)
+        return cls(etree_from_string(formulae))
 
     @property
     def mathml(self) -> etree.Element:

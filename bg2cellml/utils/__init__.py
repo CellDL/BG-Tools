@@ -18,6 +18,10 @@
 #
 #===============================================================================
 
+import lxml.etree as etree
+
+#===============================================================================
+
 """
 Generate URIs for lxml.etree.
 """
@@ -33,5 +37,14 @@ class XMLNamespace:
 
     def __getattr__(self, attr: str) -> str:
         return f'{{{self.__ns}}}{attr}'
+
+#===============================================================================
+
+def etree_from_string(xml: str) -> etree.Element:
+    parser = etree.XMLParser(remove_blank_text=True)
+    try:
+        return etree.fromstring(xml, parser)
+    except etree.XMLSyntaxError as error:
+        raise ValueError(error)
 
 #===============================================================================
