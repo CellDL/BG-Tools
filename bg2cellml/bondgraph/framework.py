@@ -229,15 +229,6 @@ class Domain(Labelled):
 #===============================================================================
 #===============================================================================
 
-ELEMENT_PORT_IDS = """
-    SELECT DISTINCT ?port
-    WHERE {
-        <%ELEMENT_URI%> bgf:hasPort ?port .
-    }
-    ORDER BY ?port"""
-
-#===============================================================================
-
 @dataclass
 class NamedPortVariable:
     name: str
@@ -294,6 +285,24 @@ ELEMENT_VARIABLES = """
         OPTIONAL { ?variable bgf:hasUnits ?units }
         OPTIONAL { ?variable bgf:hasValue ?value }
     }"""
+
+#===============================================================================
+
+ELEMENT_PORT_IDS = """
+    SELECT DISTINCT ?port ?portId ?componentId ?bondCount
+    WHERE {
+        {
+            { <%ELEMENT_URI%> bgf:hasPort ?port .
+            }
+      UNION { <%ELEMENT_URI%> bgf:hasPort [
+                bgf:portId ?portId ;
+                bgf:portComponent ?portComponent
+            ] .
+            ?portComponent bgf:componentId ?componentId .
+            OPTIONAL { ?portComponent bgf:bondCount ?bondCount }
+            }
+        }
+    } ORDER BY ?portId"""
 
 #===============================================================================
 
@@ -364,8 +373,13 @@ class ElementTemplate(Labelled):
 
     def __add_ports(self, framework: '_BondgraphFramework'):
     #=======================================================
-        port_ids = [str(row[0]) for row in framework.knowledge.query(
-                        ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri))]
+        port_ids = []
+        for row in framework.knowledge.query(
+                        ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri)):
+            if isinstance(row[0], Literal):
+                port_ids.append(str(row[0]))
+            elif isinstance(row[1], Literal) and isinstance(row[2], Literal):
+                port_ids.append(f'{row[2]}_{row[1]}')
         if len(port_ids):
             flow_suffixed = (len(port_ids) == 2) and (self.__element_class != DISSIPATOR_ELEMENT)
             self.__ports = {}
@@ -659,6 +673,7 @@ class _BondgraphFramework:
                         # Add a bond from the new junction to its element
                         model_graph.add((bond_uri, BGF.hasSource, junction_uri))
                         model_graph.add((bond_uri, BGF.hasTarget, element_uri))
+                        model_graph.add((junction_uri, BGF.hasElementPort, element_uri))
                     else:
                         # The element has multiple ports so do the above for each port
                         for port in composite.template.ports.items():
@@ -691,12 +706,14 @@ class _BondgraphFramework:
                                 model_graph.add((blank_node, BGF.element, element_uri))
                                 model_graph.add((blank_node, BGF.port, Literal(port_id)))
                                 model_graph.add((bond_uri, BGF.hasTarget, junction_uri))
+                                model_graph.add((junction_uri, BGF.hasElementPort, blank_node))
                             elif element_is_target:
                                 model_graph.add((bond_uri, BGF.hasSource, junction_uri))
                                 blank_node = BNode()
                                 model_graph.add((bond_uri, BGF.hasTarget, blank_node))
                                 model_graph.add((blank_node, BGF.element, element_uri))
                                 model_graph.add((blank_node, BGF.port, Literal(port_id)))
+                                model_graph.add((junction_uri, BGF.hasElementPort, blank_node))
                             else:
                                 raise ValueError(f'Port {port_id} of {element_uri} has no connections to it')
 
