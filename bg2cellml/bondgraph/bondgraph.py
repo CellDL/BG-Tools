@@ -121,12 +121,10 @@ class BondgraphElement(ModelElement):
         self.__variables = {}
         self.__port_variable_names = []
         for port in self.__ports.values():
-            if port.flow is not None:
-                self.__variables[port.flow.name] = port.flow.variable
-                self.__port_variable_names.append(port.flow.name)
-            if port.potential is not None:
-                self.__variables[port.potential.name] = port.potential.variable
-                self.__port_variable_names.append(port.potential.name)
+            self.__variables[port.flow.name] = port.flow.variable
+            self.__port_variable_names.append(port.flow.name)
+            self.__variables[port.potential.name] = port.potential.variable
+            self.__port_variable_names.append(port.potential.name)
         self.__variables.update({name: variable.copy(self.symbol)
                                 for name, variable in element_template.parameters.items()})
         self.__variables.update({name: variable.copy(self.symbol)
@@ -151,11 +149,11 @@ class BondgraphElement(ModelElement):
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
             self.__variables[intrinsic_var.name] = intrinsic_var.copy(self.symbol, True)
             self.__intrinsic_variable = self.__variables[intrinsic_var.name]
-            if (self.__element_class == FLOW_SOURCE
-            and (port_var := self.__ports[self.uri].flow) is not None):
+            if self.__element_class == FLOW_SOURCE:
+                port_var = self.__ports[self.uri].flow
                 port_var.variable = self.__intrinsic_variable
-            elif (self.__element_class == POTENTIAL_SOURCE
-            and (port_var := self.__ports[self.uri].potential) is not None):
+            elif self.__element_class == POTENTIAL_SOURCE:
+                port_var = self.__ports[self.uri].potential
                 port_var.variable = self.__intrinsic_variable
             if intrinsic_value is not None:
                 self.__intrinsic_variable.set_value(intrinsic_value)
@@ -308,12 +306,12 @@ class BondgraphJunction(ModelElement):
             raise ValueError(f'Cannot find domain for junction {self.uri}. Are there bonds to it?')
         self.__domain = domain
         if self.__type == ONENODE_JUNCTION:
-            if self.__associated_element_port is not None and self.__associated_element_port.flow is not None:
+            if self.__associated_element_port is not None:
                 self.__variables = [self.__associated_element_port.flow.variable]
             else:
                 self.__variables = [Variable(self.uri, self.symbol, self.__domain.flow.units, self.__value)]
         elif self.__type == ZERONODE_JUNCTION:
-            if self.__associated_element_port is not None and self.__associated_element_port.potential is not None:
+            if self.__associated_element_port is not None:
                 self.__variables = [self.__associated_element_port.potential.variable]
             else:
                 self.__variables = [Variable(self.uri, self.symbol, self.__domain.potential.units, self.__value)]
@@ -366,7 +364,7 @@ class BondgraphJunction(ModelElement):
     #===============================================
         if 'port' in node_dict:                         # A BondElement's port
             port: PowerPort = node_dict['port']
-            return port.flow.variable.symbol if port.flow is not None else ''
+            return port.flow.variable.symbol
         elif 'junction' in node_dict:
             junction: BondgraphJunction = node_dict['junction']
             if junction.type == ONENODE_JUNCTION:
@@ -381,7 +379,7 @@ class BondgraphJunction(ModelElement):
     #====================================================
         if 'port' in node_dict:                         # A BondElement's port
             port: PowerPort = node_dict['port']
-            return port.potential.variable.symbol if port.potential is not None else ''
+            return port.potential.variable.symbol
         elif 'junction' in node_dict:
             junction: BondgraphJunction = node_dict['junction']
             if junction.type == ZERONODE_JUNCTION:

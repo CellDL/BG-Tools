@@ -240,8 +240,7 @@ class NamedPortVariable:
 #===============================================================================
 
 class PowerPort:
-    def __init__(self, uri: URIRef, flow: Optional[NamedPortVariable],
-                                    potential: Optional[NamedPortVariable]):
+    def __init__(self, uri: URIRef, flow: NamedPortVariable, potential: NamedPortVariable):
         self.__uri = uri
         self.__flow = flow
         self.__potential = potential
@@ -250,20 +249,19 @@ class PowerPort:
         return f'{self.__uri.fragment}, potential: {self.__potential}, flow: {self.__flow}'
 
     @property
-    def flow(self) -> Optional[NamedPortVariable]:
+    def flow(self) -> NamedPortVariable:
         return self.__flow
 
     @property
-    def potential(self) -> Optional[NamedPortVariable]:
+    def potential(self) -> NamedPortVariable:
         return self.__potential
 
     def copy(self, suffix: Optional[str]=None) -> 'PowerPort':
     #=========================================================
         return PowerPort(self.__uri,
-            NamedPortVariable(name=self.__flow.name, variable=self.__flow.variable.copy(suffix))
-                if self.__flow is not None else None,
+            NamedPortVariable(name=self.__flow.name, variable=self.__flow.variable.copy(suffix)),
             NamedPortVariable(name=self.__potential.name, variable=self.__potential.variable.copy(suffix))
-                if self.__potential is not None else None)
+        )
 
 #===============================================================================
 #===============================================================================
@@ -390,10 +388,9 @@ class ElementTemplate(Labelled):
                 self.__ports[id] = PowerPort(self.uri + suffix, flow_var, potential_var)
         else:
             self.__ports = {'': PowerPort(self.uri,
-                                    self.__port_name_variable(self.domain.flow)
-                                        if self.__element_class != POTENTIAL_SOURCE else None,
+                                    self.__port_name_variable(self.domain.flow),
                                     self.__port_name_variable(self.domain.potential)
-                                        if self.__element_class != FLOW_SOURCE else None)
+                                )
                            }
 
     def __port_name_variable(self, domain_variable: Variable, suffix: str='') -> NamedPortVariable:
