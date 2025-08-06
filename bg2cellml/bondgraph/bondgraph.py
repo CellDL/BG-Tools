@@ -47,8 +47,8 @@ def make_element_port_id(element_uri: URIRef, port_id: str) -> URIRef:
 #===============================================================================
 
 class ModelElement(Labelled):
-    def __init__(self,  model: 'BondgraphModel', uri: URIRef, label: Optional[str]):
-        super().__init__(uri, label)
+    def __init__(self,  model: 'BondgraphModel', uri: URIRef, symbol: Optional[str], label: Optional[str]):
+        super().__init__(uri, symbol, label)
         self.__model = model
 
     @property
@@ -95,8 +95,8 @@ class BondgraphElement(ModelElement):
                         parameter_values: Optional[dict[str, VariableValue]]=None,
                         variable_values: Optional[dict[str, VariableValue]]=None,
                         domain_uri: Optional[URIRef]=None, intrinsic_value: Optional[Value]=None,
-                        label: Optional[str]=None):
-        super().__init__(model, uri, label)
+                        symbol: Optional[str]=None, label: Optional[str]=None):
+        super().__init__(model, uri, symbol, label)
         element_template = FRAMEWORK.element_template(element_type, domain_uri)
         if element_template is None:
             raise ValueError(f'Cannot find BondElement with type/domain of `{element_type}/{domain_uri}` for element {uri}')
@@ -163,7 +163,7 @@ class BondgraphElement(ModelElement):
     @classmethod
     def for_model(cls, model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
     #=============================================================================
-                                    domain_uri: Optional[URIRef], label: Optional[str]):
+                                    domain_uri: Optional[URIRef], symbol: Optional[str], label: Optional[str]):
         parameter_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # type: ignore
             for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT_URI%', uri))
         }
@@ -176,7 +176,7 @@ class BondgraphElement(ModelElement):
             break
         return cls(model, uri, element_type, domain_uri=domain_uri,
                     parameter_values=parameter_values, variable_values=variable_values,
-                    intrinsic_value=intrinsic_value, label=label)
+                    intrinsic_value=intrinsic_value, symbol=symbol, label=label)
 
     @property
     def domain(self) -> Domain:
@@ -247,7 +247,7 @@ class BondgraphBond(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: URIRef,
                         source: URIRef|BNode, target: URIRef|BNode,
                         label: Optional[str]=None):
-        super().__init__(model, uri, label)
+        super().__init__(model, uri, None, label)
         self.__source_id = self.__get_port(source, BGF.hasSource)
         self.__target_id = self.__get_port(target, BGF.hasTarget)
 
@@ -276,7 +276,7 @@ class BondgraphBond(ModelElement):
 class BondgraphJunction(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: URIRef, type: URIRef,
             label: Optional[str], value: Optional[Literal], element_port: Optional[PowerPort]):
-        super().__init__(model, uri, label)
+        super().__init__(model, uri, None, label)
         self.__type = type
         self.__junction = FRAMEWORK.junction(type)
         if self.__junction is None:
@@ -394,11 +394,12 @@ class BondgraphJunction(ModelElement):
 #===============================================================================
 
 MODEL_ELEMENTS = """
-    SELECT DISTINCT ?model ?uri ?type ?domain ?label
+    SELECT DISTINCT ?model ?uri ?type ?domain ?symbol ?label
     WHERE {
         ?model bgf:hasBondElement ?uri .
         ?uri a ?type .
         OPTIONAL { ?uri bgf:hasDomain ?domain }
+        OPTIONAL { ?uri bgf:hasSymbol ?symbol }
         OPTIONAL { ?uri rdfs:label ?label }
     } ORDER BY ?model ?uri"""
 
@@ -434,7 +435,7 @@ class BondgraphModel(Labelled):
     def __init__(self, rdf_graph: RDFGraph, uri: URIRef, label: Optional[str]=None):
         super().__init__(uri, label)
         self.__rdf_graph = rdf_graph
-        self.__elements = [BondgraphElement.for_model(self, row[1], row[2], row[3], row[4]) # type: ignore
+        self.__elements = [BondgraphElement.for_model(self, row[1], row[2], row[3], row[4], row[5]) # type: ignore
                                 for row in rdf_graph.query(MODEL_ELEMENTS)]
         element_ports = {}
         for element in self.__elements:

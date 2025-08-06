@@ -27,8 +27,12 @@ from ..rdf import URIRef
 #===============================================================================
 
 class Labelled:
-    def __init__(self, uri: URIRef, label: Optional[str]=None):
+    def __init__(self, uri: URIRef, symbol: Optional[str]=None, label: Optional[str]=None):
         self.__uri = uri
+        if symbol is not None:
+            self.__symbol = symbol
+        else:
+            self.__symbol = self.__uri.fragment
         self.__label = label
 
     def __str__(self):
@@ -46,7 +50,7 @@ class Labelled:
 
     @property
     def symbol(self):
-        return self.__uri.fragment
+        return self.__symbol
 
     @property
     def uri(self):
