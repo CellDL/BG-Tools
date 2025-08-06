@@ -51,7 +51,7 @@ VOI_UCUMUNIT = Literal('s', datatype=CDT.ucumunit)
 DISSIPATOR_ELEMENT = BGF.Dissipator
 FLOW_SOURCE        = BGF.FlowSource
 POTENTIAL_SOURCE   = BGF.PotentialSource
-POTENTIAL_STORE    = BGF.PotentialStore
+QUANTITY_STORE     = BGF.QuantityStore
 
 ONENODE_JUNCTION   = BGF.OneNode
 TRANSFORM_JUNCTION = BGF.TransformNode  # Can act as a transformer of gyrator
@@ -413,7 +413,7 @@ class ElementTemplate(Labelled):
             self.__variables[var_name] = Variable(self.uri, str(row[0]), row[1], row[2])   # type: ignore
         # A variable that is intrinsic to the element's class
         # Values of intrinsic variables are set by bgf:hasValue
-        if self.__element_class == POTENTIAL_STORE:
+        if self.__element_class == QUANTITY_STORE:
             self.__intrinsic_variable = self.__domain.quantity.copy()
         elif self.__element_class == POTENTIAL_SOURCE:
             self.__intrinsic_variable = self.__domain.potential.copy()
