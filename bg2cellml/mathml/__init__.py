@@ -189,10 +189,10 @@ class LinearEquations:
                                                     (np.array(self.__data_rows), np.array(self.__data_cols)))).tocsr()
         #print(self.__symbol_index)
         #print(self.__matrix.toarray())
-        self.__make_equations()
+        self.__build_equations()
 
-    def __make_equations(self):
-    #=========================
+    def __build_equations(self):
+    #===========================
         for row in self.__matrix:
             lhs = None
             lhs_factor = 1

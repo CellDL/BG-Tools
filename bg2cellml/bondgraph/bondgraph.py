@@ -40,7 +40,6 @@ from .namespaces import BGF, NAMESPACES
 from .utils import Labelled
 
 #===============================================================================
-#===============================================================================
 
 def make_element_port_id(element_uri: URIRef, port_id: str) -> URIRef:
 #=====================================================================
@@ -154,6 +153,7 @@ class BondgraphElement(ModelElement):
 
         self.__domain = element_template.domain
         self.__type = element_template.uri
+
         self.__ports: dict[URIRef, PowerPort] = {}
         for port_id, port in element_template.ports.items():
             self.__ports[make_element_port_id(self.uri, port_id)] = port.copy(self.symbol)
@@ -523,6 +523,7 @@ class BondgraphModel(Labelled):
                 raise ValueError(f'Bond {bond_uri} is missing source and/or target node')
             self.__bonds.append(
                 BondgraphBond(self, bond_uri, row[2], row[3], row[4]))                           # type: ignore
+
         self.__graph = nx.DiGraph()
         self.__make_bond_network()
         self.__assign_element_variables()
