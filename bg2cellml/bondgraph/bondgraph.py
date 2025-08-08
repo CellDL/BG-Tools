@@ -518,11 +518,11 @@ class BondgraphModel(Labelled):
                 for row in rdf_graph.query(MODEL_JUNCTIONS)]
         self.__bonds = []
         for row in rdf_graph.query(MODEL_BONDS):
-            uri: URIRef = row[1]                                                            # type: ignore
+            bond_uri: URIRef = row[1]                                                            # type: ignore
             if row[2] is None or row[3] is None:
-                raise ValueError(f'Bond {uri} is missing source and/or target node')
+                raise ValueError(f'Bond {bond_uri} is missing source and/or target node')
             self.__bonds.append(
-                BondgraphBond(self, uri, row[2], row[3], row[4]))                           # type: ignore
+                BondgraphBond(self, bond_uri, row[2], row[3], row[4]))                           # type: ignore
         self.__graph = nx.DiGraph()
         self.__make_bond_network()
         self.__assign_element_variables()
