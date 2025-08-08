@@ -301,14 +301,15 @@ class MathML:
         self.__variables = defaultdict(list)
         for element in self.__mathml.findall(f'.//{MATHML_NS.ci}'):
             self.__variables[element.text].append(element)
+        self.__build_equations()
 
     @classmethod
     def from_string(cls, formulae: str) -> 'MathML':
         return cls(etree_from_string(formulae))
 
     @property
-    def mathml(self) -> etree.Element:
-        return self.__mathml
+    def equalities(self) -> list[Equation]:
+        return self.__equalities
 
     @property
     def variables(self) -> list[str]:
@@ -336,21 +337,21 @@ class MathML:
             element.text = symbol
         self.__variables[symbol] = self.__variables[name]
         del self.__variables[name]
+        self.__build_equations()
 
-    def equations(self) -> list[Equation]:
-    #=====================================
-        equations: list[Equation] = []
+    def __build_equations(self):
+    #===========================
+        self.__equalities: list[Equation] = []
         for equation in self.__mathml.findall(f'.//{MATHML_NS.apply}/{MATHML_NS.eq}'):
             lhs = sympy_from_mathml(equation.getnext())
             rhs = sympy_from_mathml(equation.getnext().getnext())
             if isinstance(rhs, sympy.Derivative):
                 if isinstance(lhs, sympy.Derivative):
                     raise ValueError(f'Unsupported form of ODE equation: {equation.xml}')
-                equations.append(Equation(rhs, lhs))
+                self.__equalities.append(Equation(rhs, lhs))
             elif isinstance(lhs, sympy.Symbol) or isinstance(lhs, sympy.Derivative):
-                equations.append(Equation(lhs, rhs))
+                self.__equalities.append(Equation(lhs, rhs))
             else:
                 raise ValueError(f'Unsupported form of equation: {equation.xml}')
-        return equations
 
 #===============================================================================

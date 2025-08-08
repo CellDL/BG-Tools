@@ -48,8 +48,9 @@ VOI_UCUMUNIT = Literal('s', datatype=CDT.ucumunit)
 
 #===============================================================================
 
-DISSIPATOR_ELEMENT = BGF.Dissipator
+DISSIPATOR         = BGF.Dissipator
 FLOW_SOURCE        = BGF.FlowSource
+KINETIC_STORE      = BGF.FlowStore
 POTENTIAL_SOURCE   = BGF.PotentialSource
 QUANTITY_STORE     = BGF.QuantityStore
 
@@ -379,7 +380,7 @@ class ElementTemplate(Labelled):
             elif isinstance(row[1], Literal) and isinstance(row[2], Literal):
                 port_ids.append(f'{row[2]}_{row[1]}')
         if len(port_ids):
-            flow_suffixed = (len(port_ids) == 2) and (self.__element_class != DISSIPATOR_ELEMENT)
+            flow_suffixed = (len(port_ids) == 2) and (self.__element_class != DISSIPATOR)
             self.__ports = {}
             for id in port_ids:
                 suffix = f'_{id}'
@@ -473,6 +474,17 @@ class CompositeElement(Labelled):
         return self.__template
 
 #===============================================================================
+
+class CompositeTemplate(Labelled):
+    def __init__(self, uri: URIRef, template: ElementTemplate, label: Optional[str]):
+        super().__init__(uri, label)
+        self.__template = template
+
+    @property
+    def template(self):
+        return self.__template
+
+#===============================================================================
 #===============================================================================
 
 DOMAIN_QUERY = """
@@ -518,17 +530,19 @@ JUNCTION_STRUCTURES = """
     } ORDER BY ?junction"""
 
 COMPOSITE_ELEMENT_DEFINITIONS = """
-    SELECT DISTINCT ?uri ?template ?junction ?label
+    SELECT DISTINCT ?uri ?template ?label
     WHERE {
         ?uri
             a bgf:CompositeElement ;
-            bgf:elementTemplate ?template ;
-            bgf:junctionStructure ?junction .
+            rdfs:subClassOf* ?template .
+        ?template
+            a bgf:ElementTemplate .
         OPTIONAL { ?uri rdfs:label ?label }
     } ORDER BY ?uri"""
 
 #===============================================================================
 
+'''
 COMPOSITE_ELEMENTS = """
     SELECT DISTINCT ?model ?elementUri ?elementType
     WHERE {
@@ -537,6 +551,7 @@ COMPOSITE_ELEMENTS = """
             bgf:hasBondElement ?elementUri .
         ?elementUri a ?elementType .
     } ORDER BY ?model ?elementUri"""
+'''
 
 #===============================================================================
 
@@ -608,13 +623,13 @@ class _BondgraphFramework:
             row[0]: JunctionStructure(row[0], row[1])                   # type: ignore
                 for row in self.__knowledge.query(JUNCTION_STRUCTURES)}
 
-        self.__composite_elements: dict[URIRef, CompositeElement] = {}
+        self.__composite_elements: dict[URIRef, CompositeTemplate] = {}
         for row in self.__knowledge.query(COMPOSITE_ELEMENT_DEFINITIONS):
             if (element := self.__element_templates.get(row[1])) is None:   # type: ignore
                 raise ValueError(f'Unknown BondElement {row[1]} for composite {row[0]}')
-            if (junction := self.__junctions.get(row[2])) is None:          # type: ignore
-                raise ValueError(f'Unknown JunctionStructure {row[2]} for composite {row[0]}')
-            self.__composite_elements[row[0]] = CompositeElement(row[0], element, junction, row[3]) # type: ignore
+            #if (junction := self.__junctions.get(row[2])) is None:          # type: ignore
+            #    raise ValueError(f'Unknown JunctionStructure {row[2]} for composite {row[0]}')
+            self.__composite_elements[row[0]] = CompositeTemplate(row[0], element, row[2]) # type: ignore
 
     @property
     def knowledge(self):
@@ -624,9 +639,12 @@ class _BondgraphFramework:
     #=================================================
         return self.__domains.get(uri)
 
-    def element_template(self, element_type: URIRef, domain_uri: Optional[URIRef]) -> Optional[ElementTemplate]:
-    #========================================================================================================
+    def element_template(self, element_type: URIRef, domain_uri: Optional[URIRef]) -> Optional[ElementTemplate|CompositeTemplate]:
+    #=============================================================================================================================
         if domain_uri is None:
+            # First see if element_type refers to a composite
+            if (composite := self.__composite_elements.get(element_type)) is not None:
+                return composite
             return self.__element_templates.get(element_type)
         else:
             return self.__element_domains.get((element_type, domain_uri))
@@ -639,6 +657,8 @@ class _BondgraphFramework:
     #=======================================
         return list(self.__junctions.keys())
 
+
+    '''
     def resolve_composites(self, model_uri: URIRef, model_graph: RDFGraph):
     #======================================================================
         for row in model_graph.query(COMPOSITE_ELEMENTS):
@@ -713,6 +733,7 @@ class _BondgraphFramework:
                                 model_graph.add((junction_uri, BGF.hasElementPort, blank_node))
                             else:
                                 raise ValueError(f'Port {port_id} of {element_uri} has no connections to it')
+    '''
 
 #===============================================================================
 #===============================================================================

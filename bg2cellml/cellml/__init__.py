@@ -124,7 +124,7 @@ class CellMLModel:
         for variable in element.variables.values():
             self.__add_variable(variable)
         if (relation := element.constitutive_relation) is not None:
-            self.__element_equations.extend(relation.equations())
+            self.__element_equations.extend(relation.equalities)
 
     def __add_dimensionless_attrib(self):
     #====================================
@@ -187,13 +187,14 @@ class CellMLModel:
                 element_algebraics.append(equation)
             elif isinstance(equation.lhs, sympy.Derivative):
                 element_odes.append(equation)
-        junction_equations = self.__model.junction_equations.equations
+        junction_equations = self.__model.junction_equations
 
         self.__main.append(etree.Comment(' Bond ODEs'))
-        ode_resolver = ODEResolver(element_algebraics, junction_equations)
+#        ode_resolver = ODEResolver(element_algebraics, junction_equations)
         for equation in element_odes:
-            ode = ode_resolver.resolve(equation)
-            self.__main.append(ode.mathml_equation())
+#            ode = ode_resolver.resolve(equation)
+#            self.__main.append(ode.mathml_equation())
+            self.__main.append(equation.mathml_equation())
 
         self.__main.append(etree.Comment(' Bond algebraics'))
         for equation in element_algebraics:
