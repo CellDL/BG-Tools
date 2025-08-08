@@ -675,7 +675,7 @@ BONDGRAPH_BONDS = """
 #===============================================================================
 
 class BondgraphModelSource:
-    def __init__(self, source: str, output_rdf: Optional[str]=None):
+    def __init__(self, source: str, output_rdf: Optional[Path]=None):
         self.__rdf_graph = RDFGraph(NAMESPACES)
         self.__source_path = Path(source).resolve()
         self.__loaded_sources: set[Path] = set()
