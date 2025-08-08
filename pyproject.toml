@@ -23,6 +23,9 @@ dev = [
     "pytest>=8.4.0",
 ]
 
+[tool.setuptools]
+packages = ["bg2cellml"]
+
 [tool.uv.sources]
 libopencor = { git = "https://github.com/opencor/libopencor.git" }
 bg2celldl = { workspace = true }
