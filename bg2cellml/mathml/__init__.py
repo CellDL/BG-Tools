@@ -185,7 +185,8 @@ class LinearEquations:
 
     def make_matrix(self):
     #=====================
-        self.__matrix = scipy.sparse.coo_array((np.array(self.__data_values),
+        if len(self.__data_values):
+            self.__matrix = scipy.sparse.coo_array((np.array(self.__data_values),
                                                     (np.array(self.__data_rows), np.array(self.__data_cols)))).tocsr()
         #print(self.__symbol_index)
         #print(self.__matrix.toarray())
