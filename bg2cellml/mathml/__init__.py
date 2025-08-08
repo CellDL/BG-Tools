@@ -102,6 +102,9 @@ class Equation:
     lhs: sympy.Symbol | sympy.Derivative
     rhs: sympy.Basic
 
+    def __str__(self):
+        return f'{self.lhs} = {self.rhs}'
+
     def sympy_equation(self):
     #========================
         return sympy.Eq(self.lhs, self.rhs)
