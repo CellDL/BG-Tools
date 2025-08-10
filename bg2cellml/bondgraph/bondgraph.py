@@ -263,6 +263,17 @@ class BondgraphElement(ModelElement):
     # Substitute variable symbols into the constitutive relation
     def assign_variables(self, bond_graph: nx.DiGraph):
     #==================================================
+        ## Remove variables associated with any unconnected ports
+        unused_ports = []
+        for port_id, port in self.__ports.items():
+            if bond_graph.degree(port_id) == 0:
+                unused_ports.append(port_id)
+                if self.__element_class == DISSIPATOR:
+                    del self.__variables[port.potential.name]
+                    self.__port_variable_names.remove(port.potential.name)
+        for port_id in unused_ports:
+            del self.__ports[port_id]
+
         for var_name, value in self.__variable_values.items():
             if (variable := self.__variables.get(var_name)) is None:
                 raise ValueError(f'Element {self.uri} has unknown name {var_name} for {self.__type}')
