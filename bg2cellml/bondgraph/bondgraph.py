@@ -19,7 +19,7 @@
 #===============================================================================
 
 from pathlib import Path
-from typing import Optional
+from typing import cast, Optional
 
 #===============================================================================
 
@@ -45,10 +45,10 @@ def make_element_port_id(element_uri: URIRef, port_id: str) -> URIRef:
 #=====================================================================
     return element_uri if port_id in [None, ''] else element_uri + f'_{port_id}'
 
-def flow_symbol(node_dict: dict) -> sympy.Expr:
+def flow_symbol(node_dict: dict, expand=True) -> sympy.Expr:
 #==============================================
     if 'port' in node_dict:                         # A BondElement's port
-        if (expr := node_dict['element'].flow_expression) is not None:
+        if expand and (expr := node_dict['element'].flow_expression) is not None:
             return expr
         port: PowerPort = node_dict['port']
         return sympy.Symbol(port.flow.variable.symbol)
@@ -62,10 +62,10 @@ def flow_symbol(node_dict: dict) -> sympy.Expr:
             raise ValueError('Transform Nodes are not yet supported')
     raise ValueError(f'Unexpected bond graph node: {node_dict}')
 
-def potential_symbol(node_dict: dict) -> sympy.Expr:
-#===================================================
+def potential_symbol(node_dict: dict, expand=True) -> sympy.Expr:
+#================================================================
     if 'port' in node_dict:                         # A BondElement's port
-        if (expr := node_dict['element'].potential_expression) is not None:
+        if expand and (expr := node_dict['element'].potential_expression) is not None:
             return expr
         port: PowerPort = node_dict['port']
         return sympy.Symbol(port.potential.variable.symbol)
@@ -137,8 +137,10 @@ class BondgraphElement(ModelElement):
             raise ValueError(f'Cannot find BondElement with type/domain of `{element_type}/{domain_uri}` for element {uri}')
         if isinstance(template, CompositeTemplate):
             element_template = template.template
+            composite = True
         else:
             element_template = template
+            composite = False
         if element_template.domain is None:
             raise ValueError(f'No modelling domain for element {uri} with template {element_type}/{domain_uri}')
         elif domain_uri is not None and element_template.domain.uri != domain_uri:
@@ -162,7 +164,17 @@ class BondgraphElement(ModelElement):
         self.__potential_variable = None
         self.__flow_expression = None
         self.__potential_expression = None
-        self.__junction_equation = None
+        self.__implied_junction = None
+        if composite:
+            if self.__element_class == QUANTITY_STORE:
+                self.__implied_junction = ZERONODE_JUNCTION
+            elif self.__element_class == DISSIPATOR:
+                self.__implied_junction = ONENODE_JUNCTION
+        elif self.__element_class == POTENTIAL_SOURCE:
+            self.__implied_junction = ZERONODE_JUNCTION
+        elif self.__element_class == FLOW_SOURCE:
+            self.__implied_junction = ONENODE_JUNCTION
+        self.__junction_equations = []
 
         self.__variables = {}
         self.__port_variable_names = []
@@ -241,8 +253,8 @@ class BondgraphElement(ModelElement):
         return self.__flow_expression
 
     @property
-    def junction_equation(self) -> Optional[Equation]:
-        return self.__junction_equation
+    def junction_equations(self) -> list[Equation]:
+        return self.__junction_equations
 
     @property
     def ports(self) -> dict[URIRef, PowerPort]:
@@ -306,12 +318,13 @@ class BondgraphElement(ModelElement):
                     self.__flow_expression = eqn.rhs
                 elif eqn.lhs == self.__potential_variable:
                     self.__potential_expression = eqn.rhs
+
     def build_expressions(self, bond_graph: nx.DiGraph):
     #===================================================
-        for port_id in self.__ports.keys():
+        for port_id, port in self.__ports.items():
             flow_expr = None
             potential_expr = None
-            if self.__element_class in [POTENTIAL_SOURCE, QUANTITY_STORE]:
+            if self.__implied_junction == ZERONODE_JUNCTION:
                 # Sum of flows connected to junction is 0
                 inputs = [flow_symbol(bond_graph.nodes[node])
                                 for node in bond_graph.predecessors(port_id)]
@@ -319,8 +332,18 @@ class BondgraphElement(ModelElement):
                                 for node in bond_graph.successors(port_id)]
                 flow_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))   ## flow_expression
                 if self.__flow_variable is not None:
-                    self.__junction_equation = Equation(self.__flow_variable, flow_expr)
-            elif self.__element_class in [DISSIPATOR, FLOW_SOURCE]:
+                    self.__junction_equations.append(Equation(self.__flow_variable, flow_expr))
+                if len(self.__ports) > 1 and self.__element_class == QUANTITY_STORE:
+                    flow = sympy.Symbol(port.flow.variable.symbol)
+                    for node in bond_graph.predecessors(port_id):
+                        self.__junction_equations.append(Equation(flow,
+                                                         cast(sympy.Symbol, flow_symbol(bond_graph.nodes[node],
+                                                                                             expand=False))))
+                    for node in bond_graph.successors(port_id):
+                        self.__junction_equations.append(Equation(flow,
+                                                         cast(sympy.Symbol, flow_symbol(bond_graph.nodes[node],
+                                                                                             expand=False))))
+            elif self.__implied_junction == ONENODE_JUNCTION:
                 # Sum of potentials connected to junction is 0
                 inputs = [potential_symbol(bond_graph.nodes[node])
                                 for node in bond_graph.predecessors(port_id)]
@@ -328,7 +351,17 @@ class BondgraphElement(ModelElement):
                                 for node in bond_graph.successors(port_id)]
                 potential_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))
                 if self.__potential_variable is not None:
-                    self.__junction_equation = Equation(self.__potential_variable, potential_expr)
+                    self.__junction_equations.append(Equation(self.__potential_variable, potential_expr))
+                if len(self.__ports) > 1 and self.__element_class == DISSIPATOR:
+                    potential = sympy.Symbol(port.potential.variable.symbol)
+                    for node in bond_graph.predecessors(port_id):
+                        self.__junction_equations.append(Equation(potential,
+                                                         cast(sympy.Symbol, potential_symbol(bond_graph.nodes[node],
+                                                                                             expand=False))))
+                    for node in bond_graph.successors(port_id):
+                        self.__junction_equations.append(Equation(potential,
+                                                         cast(sympy.Symbol, potential_symbol(bond_graph.nodes[node],
+                                                                                             expand=False))))
             else:
                 raise ValueError(f'Unexpected bond graph node for {port_id}: {self.__element_class}')
 
@@ -545,8 +578,7 @@ class BondgraphModel(Labelled):
 #        self.__make_junction_equations()
         self.__junction_equations: list[Equation] = []
         for element in self.__elements:
-            if element.junction_equation is not None:
-                self.__junction_equations.append(element.junction_equation)
+            self.__junction_equations.extend(element.junction_equations)
 
     @property
     def elements(self):
