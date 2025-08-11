@@ -158,7 +158,7 @@ class BondgraphElement(ModelElement):
 
         self.__ports: dict[URIRef, PowerPort] = {}
         for port_id, port in element_template.ports.items():
-            self.__ports[make_element_port_id(self.uri, port_id)] = port.copy(self.symbol)
+            self.__ports[make_element_port_id(self.uri, port_id)] = port.copy(suffix=self.symbol, domain=self.__domain)
 
         self.__flow_variable = None
         self.__potential_variable = None
@@ -187,9 +187,9 @@ class BondgraphElement(ModelElement):
             self.__port_variable_names.add(port.flow.name)
             self.__variables[port.potential.name] = port.potential.variable
             self.__port_variable_names.add(port.potential.name)
-        self.__variables.update({name: variable.copy(self.symbol)
+        self.__variables.update({name: variable.copy(suffix=self.symbol, domain=self.__domain)
                                 for name, variable in element_template.parameters.items()})
-        self.__variables.update({name: variable.copy(self.symbol)
+        self.__variables.update({name: variable.copy(suffix=self.symbol, domain=self.__domain)
                                 for name, variable in element_template.variables.items()})
 
         # Defer assignment until we have the full bondgraph
@@ -209,7 +209,7 @@ class BondgraphElement(ModelElement):
             self.__variable_values.update(variable_values)
 
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
-            self.__variables[intrinsic_var.name] = intrinsic_var.copy(self.symbol, True)
+            self.__variables[intrinsic_var.name] = intrinsic_var.copy(suffix=self.symbol, strip_name=True, domain=self.__domain)
             self.__intrinsic_variable = self.__variables[intrinsic_var.name]
             if self.__element_class == FLOW_SOURCE:
                 port_var = self.__ports[self.uri].flow

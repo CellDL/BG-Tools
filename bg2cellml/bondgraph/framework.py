@@ -116,16 +116,26 @@ class Variable:
     def units(self) -> Units:
         return self.__units         # type: ignore
 
-    def copy(self, suffix: Optional[str]=None, strip_name: bool=False) -> 'Variable':
-    #================================================================================
+    def copy(self, suffix: Optional[str]=None, strip_name: bool=False, domain: Optional['Domain']=None) -> 'Variable':
+    #=================================================================================================================
         if strip_name and suffix is None:
             raise ValueError(f'Cannot strip name of variable {self.__name} if no suffix provided')
         elif suffix is None:
             name = self.__name
-        elif strip_name:
-            name = clean_name(suffix)
         else:
-            name = f'{self.__name}_{clean_name(suffix)}'
+            if strip_name:
+                name = clean_name(suffix)
+            else:
+                suffix = clean_name(suffix)
+                if domain is None:
+                    name = f'{self.__name}_{suffix}'
+                else:
+                    domain_symbols = domain.intrinsic_symbols
+                    suffix_parts = suffix.split('_')
+                    if self.name in domain_symbols and self.name == suffix_parts[0]:
+                        name = suffix
+                    else:
+                        name = f'{self.__name}_{suffix}'
         copy = Variable(self.__element_uri, name, self.__units, None)
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy
@@ -257,11 +267,11 @@ class PowerPort:
     def potential(self) -> NamedPortVariable:
         return self.__potential
 
-    def copy(self, suffix: Optional[str]=None) -> 'PowerPort':
-    #=========================================================
+    def copy(self, suffix: Optional[str]=None, domain: Optional[Domain]=None) -> 'PowerPort':
+    #========================================================================================
         return PowerPort(self.__uri,
-            NamedPortVariable(name=self.__flow.name, variable=self.__flow.variable.copy(suffix)),
-            NamedPortVariable(name=self.__potential.name, variable=self.__potential.variable.copy(suffix))
+            NamedPortVariable(name=self.__flow.name, variable=self.__flow.variable.copy(suffix=suffix, domain=domain)),
+            NamedPortVariable(name=self.__potential.name, variable=self.__potential.variable.copy(suffix=suffix, domain=domain))
         )
 
 #===============================================================================
