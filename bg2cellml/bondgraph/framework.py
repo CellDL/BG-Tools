@@ -28,7 +28,7 @@ from rdflib.namespace import RDF, XSD
 
 #===============================================================================
 
-from ..rdf import BNode, Literal, RDFGraph, URIRef
+from ..rdf import BNode, Literal, RDFGraph, ResultType, URIRef
 from ..units import Units, Value
 
 from ..mathml import MathML
@@ -60,9 +60,9 @@ ZERONODE_JUNCTION  = BGF.ZeroNode
 
 #===============================================================================
 
-def optional_integer(value: Optional[Literal], default: Optional[int]=None) -> Optional[int]:
-#============================================================================================
-    if value is not None and value.datatype == XSD.integer:
+def optional_integer(value: ResultType, default: Optional[int]=None) -> Optional[int]:
+#=====================================================================================
+    if value is not None and isinstance(value, Literal) and value.datatype == XSD.integer:
         return int(value)
     return default
 
@@ -288,17 +288,15 @@ ELEMENT_VARIABLES = """
 #===============================================================================
 
 ELEMENT_PORT_IDS = """
-    SELECT DISTINCT ?port ?portId ?componentId ?bondCount
+    SELECT DISTINCT ?portId ?bondCount
     WHERE {
         {
-            { <%ELEMENT_URI%> bgf:hasPort ?port .
+            { <%ELEMENT_URI%> bgf:hasPort ?portId .
             }
-      UNION { <%ELEMENT_URI%> bgf:hasPort [
-                bgf:portId ?portId ;
-                bgf:portComponent ?portComponent
-            ] .
-            ?portComponent bgf:componentId ?componentId .
-            OPTIONAL { ?portComponent bgf:bondCount ?bondCount }
+        UNION {
+            <%ELEMENT_URI%> bgf:hasPort ?port .
+            ?port bgf:portId ?portId ;
+            OPTIONAL { ?port bgf:bondCount ?bondCount }
             }
         }
     } ORDER BY ?portId"""
@@ -372,17 +370,15 @@ class ElementTemplate(Labelled):
 
     def __add_ports(self, framework: '_BondgraphFramework'):
     #=======================================================
-        port_ids = []
+        port_ids = {}
         for row in framework.knowledge.query(
                         ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri)):
             if isinstance(row[0], Literal):
-                port_ids.append(str(row[0]))
-            elif isinstance(row[1], Literal) and isinstance(row[2], Literal):
-                port_ids.append(f'{row[2]}_{row[1]}')
+                port_ids[str(row[0])] = optional_integer(row[1], 1)
         if len(port_ids):
             flow_suffixed = (len(port_ids) == 2) and (self.__element_class != DISSIPATOR)
             self.__ports = {}
-            for id in port_ids:
+            for id, count in port_ids.items():
                 suffix = f'_{id}'
                 flow_var = self.__port_name_variable(self.domain.flow, suffix if flow_suffixed else '')
                 potential_var = self.__port_name_variable(self.domain.potential, suffix)
