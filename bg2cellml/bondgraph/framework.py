@@ -657,6 +657,11 @@ class _BondgraphFramework:
     #=======================================
         return list(self.__junctions.keys())
 
+    def save_rdf(self, output_rdf: str|Path):
+    #========================================
+        with open(output_rdf, 'w') as fp:
+            fp.write(self.__knowledge.serialise())
+        print(f'BG-RDF schema saved as {output_rdf}')
 
     '''
     def resolve_composites(self, model_uri: URIRef, model_graph: RDFGraph):
