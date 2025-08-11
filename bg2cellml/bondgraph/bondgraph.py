@@ -177,12 +177,16 @@ class BondgraphElement(ModelElement):
         self.__junction_equations = []
 
         self.__variables = {}
-        self.__port_variable_names = []
+        self.__port_variable_names = set()
         for port in self.__ports.values():
+            # A port, by definition, always has flow and potential??
+            # Then for a composite storage element, element_flow = -sum(connected_flows)
+            #                "   dissapator   "        potential = -sum(connected_potentials)
+            #
             self.__variables[port.flow.name] = port.flow.variable
-            self.__port_variable_names.append(port.flow.name)
+            self.__port_variable_names.add(port.flow.name)
             self.__variables[port.potential.name] = port.potential.variable
-            self.__port_variable_names.append(port.potential.name)
+            self.__port_variable_names.add(port.potential.name)
         self.__variables.update({name: variable.copy(self.symbol)
                                 for name, variable in element_template.parameters.items()})
         self.__variables.update({name: variable.copy(self.symbol)
