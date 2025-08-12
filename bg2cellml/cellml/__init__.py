@@ -26,7 +26,7 @@ import sympy
 from ..bondgraph import BondgraphElement, BondgraphJunction, BondgraphModel
 from ..bondgraph import VOI_VARIABLE
 from ..bondgraph.framework import clean_name, Variable
-from ..mathml import Equation, MATHML_NS, ODEResolver
+from ..mathml import Equation, MATHML_NS
 from ..units import Units
 from ..utils import XMLNamespace
 
@@ -210,9 +210,6 @@ class CellMLModel:
         junction_equations = self.__model.junction_equations
 
         self.__main.append(etree.Comment(' Bond ODEs'))
-#        ode_resolver = ODEResolver(element_algebraics, junction_equations)
-#            ode = ode_resolver.resolve(equation)
-#            self.__main.append(ode.mathml_equation())
         for equation in sorted(element_odes, key=lambda eq: str(eq.lhs)):
             self.__main.append(equation.mathml_equation())
 
