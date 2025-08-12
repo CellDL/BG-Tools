@@ -184,15 +184,11 @@ def main():
     parser = argparse.ArgumentParser(description='BG-RDF to CellML and CellDL')
     parser.add_argument('-v', '--version', action='version', version=__version__)
     parser.add_argument('--no-errors', action='store_true', help='Only output CellML if it has no errors')
-    parser.add_argument('--save-framework', action='store_true', help='Optionally save RDF-BG schema')
     parser.add_argument('--save-rdf', action='store_true', help='Optionally save intermediate RDF graph')
     parser.add_argument('--output', metavar='OUTPUT_DIR', required=True, help='Directory where generated files are saved')
     parser.add_argument('bg_rdf', metavar='BG-RDF', help='Input BG-RDF source file')
 
     args = parser.parse_args()
-
-    if args.save_framework:
-        BondgraphFramework.save_rdf('bgrdf.schema.ttl')
 
     bg2cellml(args.bg_rdf, Path(args.output), save_rdf=args.save_rdf, save_if_no_errors=args.no_errors)
 

@@ -20,7 +20,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Self
+from typing import cast, Optional, Self
 
 #===============================================================================
 
@@ -190,7 +190,7 @@ class Domain(Labelled):
         self.__constants: list[Variable] = []
 
     @classmethod
-    def from_framework(cls, framework: '_BondgraphFramework',
+    def from_rdfgraph(cls, graph: RDFGraph,
                     uri: URIRef, label: Optional[str],
                     flow_name: str, flow_units: Literal,
                     potential_name: str, potential_units: Literal,
@@ -198,7 +198,7 @@ class Domain(Labelled):
         self = cls(uri, label, flow_name, flow_units,
                                 potential_name, potential_units,
                                 quantity_name, quantity_units)
-        self.__add_constants(framework)
+        self.__add_constants(graph)
         return self
 
     def __eq__(self, other):
@@ -231,10 +231,10 @@ class Domain(Labelled):
     def quantity(self):
         return self.__quantity
 
-    def __add_constants(self, framework: '_BondgraphFramework'):
-    #===========================================================
+    def __add_constants(self, graph: RDFGraph):
+    #==========================================
         self.__constants.extend([Variable(self.uri, str(row[0]), None, row[1])  # type: ignore
-                                for row in framework.knowledge.query(
+                                for row in graph.query(
                                         DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri))])
 
 #===============================================================================
@@ -340,13 +340,11 @@ class ElementTemplate(Labelled):
         self.__intrinsic_variable: Optional[Variable] = None
 
     @classmethod
-    def from_framework(cls, framework: '_BondgraphFramework', uri: URIRef, element_class: URIRef,
-                        label: Optional[str], domain_uri: URIRef, relation: str|Literal) -> Self:
-        if (domain := framework.domain(domain_uri)) is None:
-            raise ValueError(f'Unknown domain {domain_uri} for {uri} element')
+    def from_rdfgraph(cls, graph: RDFGraph, uri: URIRef, element_class: URIRef,
+                        label: Optional[str], domain: Domain, relation: str|Literal) -> Self:
         self = cls(uri, element_class, label, domain, relation)
-        self.__add_ports(framework)
-        self.__add_variables(framework)
+        self.__add_ports(graph)
+        self.__add_variables(graph)
         self.__check_names()
         return self
 
@@ -378,10 +376,10 @@ class ElementTemplate(Labelled):
     def variables(self) -> dict[str, Variable]:
         return self.__variables
 
-    def __add_ports(self, framework: '_BondgraphFramework'):
-    #=======================================================
+    def __add_ports(self, graph: RDFGraph):
+    #======================================
         port_ids = {}
-        for row in framework.knowledge.query(
+        for row in graph.query(
                         ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri)):
             if isinstance(row[0], Literal):
                 port_ids[str(row[0])] = optional_integer(row[1], 1)
@@ -406,14 +404,14 @@ class ElementTemplate(Labelled):
         return NamedPortVariable(name=port_var_name,
                                 variable=Variable(self.uri, port_var_name, domain_variable.units, None))
 
-    def __add_variables(self, framework: '_BondgraphFramework'):
-    #===========================================================
-        for row in framework.knowledge.query(ELEMENT_PARAMETERS.replace('%ELEMENT_URI%', self.uri, True)):
+    def __add_variables(self, graph: RDFGraph):
+    #==========================================
+        for row in graph.query(ELEMENT_PARAMETERS.replace('%ELEMENT_URI%', self.uri, True)):
             var_name = str(row[0])
             if var_name in self.__domain.intrinsic_symbols:
                 raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
             self.__parameters[var_name] = Variable(self.uri, str(row[0]), row[1], row[2])   # type: ignore
-        for row in framework.knowledge.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri, True)):
+        for row in graph.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri, True)):
             var_name = str(row[0])
             if var_name in self.__domain.intrinsic_symbols:
                 raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
@@ -609,41 +607,47 @@ class _BondgraphFramework:
             cls._instance = super(_BondgraphFramework, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, bg_knowledge: list[str|Path]):
-        self.__knowledge = RDFGraph(NAMESPACES)
-        for knowledge in bg_knowledge:
-            self.__knowledge.parse(knowledge)
-        self.__domains = {row[0]: Domain.from_framework(
-                                    self, row[0], row[1],                               # type: ignore
-                                    row[2], row[3], row[4], row[5], row[6], row[7])     # type: ignore
-                                for row in self.__knowledge.query(DOMAIN_QUERY)}
-        self.__element_templates: dict[URIRef, ElementTemplate] = {                     # type: ignore
-            row[0]: ElementTemplate.from_framework(self, row[0], row[1], row[2],        # type: ignore
-                                                   row[3], row[4])                      # type: ignore
-                for row in self.__knowledge.query(ELEMENT_TEMPLATE_DEFINITIONS)}
-        self.__element_domains: dict[tuple[URIRef, URIRef], ElementTemplate] = {
+    def __init__(self, bgf_ontology: str|Path, bgf_templates: Optional[list[str|Path]]=None):
+    #========================================================================================
+        self.__ontology = RDFGraph(NAMESPACES)
+        self.__ontology.parse(bgf_ontology)
+
+        self.__element_templates: dict[URIRef, ElementTemplate] = {}
+        self.__domains: dict[URIRef, Domain] = {}
+        self.__element_domains: dict[tuple[URIRef, URIRef], ElementTemplate] = {}
+        self.__junctions: dict[URIRef, JunctionStructure] = {}
+        self.__composite_elements: dict[URIRef, CompositeTemplate] = {}
+        if bgf_templates is not None:
+            for bgf_template in bgf_templates:
+                self.add_template(bgf_template)
+
+    def add_template(self, bgf_template: str|Path):
+    #==============================================
+        graph = RDFGraph(NAMESPACES)
+        graph.merge(self.__ontology)
+        graph.parse(bgf_template)
+        self.__domains.update({cast(URIRef, row[0]): Domain.from_rdfgraph(
+                                    graph, row[0], row[1],                          # pyright: ignore[reportArgumentType]
+                                    row[2], row[3], row[4], row[5], row[6], row[7]) # pyright: ignore[reportArgumentType]
+                                for row in graph.query(DOMAIN_QUERY)})
+        for row in graph.query(ELEMENT_TEMPLATE_DEFINITIONS):
+            if (domain := self.__domains.get(cast(URIRef, row[3]))) is None:
+                raise ValueError(f'Unknown domain {row[3]} for {row[0]} element')
+            self.__element_templates[cast(URIRef, row[0])] = ElementTemplate.from_rdfgraph(
+                                            graph, row[0], row[1], row[2],          # pyright: ignore[reportArgumentType]
+                                            domain, row[4])                         # pyright: ignore[reportArgumentType]
+        self.__element_domains.update({
             (element.element_class, element.domain.uri): element
                 for element in self.__element_templates.values() if element.domain is not None
-        }
-        self.__junctions: dict[URIRef, JunctionStructure] = {           # type: ignore
-            row[0]: JunctionStructure(row[0], row[1])                   # type: ignore
-                for row in self.__knowledge.query(JUNCTION_STRUCTURES)}
-
-        self.__composite_elements: dict[URIRef, CompositeTemplate] = {}
-        for row in self.__knowledge.query(COMPOSITE_ELEMENT_DEFINITIONS):
-            if (element := self.__element_templates.get(row[1])) is None:   # type: ignore
+        })
+        self.__junctions.update({cast(URIRef, row[0]): JunctionStructure(row[0], row[1])    # pyright: ignore[reportArgumentType]
+            for row in graph.query(JUNCTION_STRUCTURES)})
+        for row in graph.query(COMPOSITE_ELEMENT_DEFINITIONS):
+            if (element := self.__element_templates.get(cast(URIRef, row[1]))) is None:
                 raise ValueError(f'Unknown BondElement {row[1]} for composite {row[0]}')
             #if (junction := self.__junctions.get(row[2])) is None:          # type: ignore
             #    raise ValueError(f'Unknown JunctionStructure {row[2]} for composite {row[0]}')
-            self.__composite_elements[row[0]] = CompositeTemplate(row[0], element, row[2]) # type: ignore
-
-    @property
-    def knowledge(self):
-        return self.__knowledge
-
-    def domain(self, uri: URIRef) -> Optional[Domain]:
-    #=================================================
-        return self.__domains.get(uri)
+            self.__composite_elements[row[0]] = CompositeTemplate(row[0], element, row[2]) # pyright: ignore[reportArgumentType]
 
     def element_template(self, element_type: URIRef, domain_uri: Optional[URIRef]) -> Optional[ElementTemplate|CompositeTemplate]:
     #=============================================================================================================================
@@ -662,12 +666,6 @@ class _BondgraphFramework:
     def junction_classes(self) -> list[str]:
     #=======================================
         return list(self.__junctions.keys())
-
-    def save_rdf(self, output_rdf: str|Path):
-    #========================================
-        with open(output_rdf, 'w') as fp:
-            fp.write(self.__knowledge.serialise())
-        print(f'BG-RDF schema saved as {output_rdf}')
 
     '''
     def resolve_composites(self, model_uri: URIRef, model_graph: RDFGraph):
@@ -749,13 +747,14 @@ class _BondgraphFramework:
 #===============================================================================
 #===============================================================================
 
-BondgraphFramework = _BondgraphFramework([
-    SCHEMA_BASE / 'ontology.ttl',
-    SCHEMA_BASE / 'elements/chemical.ttl',
-    SCHEMA_BASE / 'elements/electrical.ttl',
-    SCHEMA_BASE / 'elements/hydraulic.ttl',
-    SCHEMA_BASE / 'elements/mechanical.ttl',
-])
+BondgraphFramework = _BondgraphFramework(
+    SCHEMA_BASE / 'ontology.ttl', [
+        SCHEMA_BASE / 'elements/chemical.ttl',
+        SCHEMA_BASE / 'elements/electrical.ttl',
+        SCHEMA_BASE / 'elements/hydraulic.ttl',
+        SCHEMA_BASE / 'elements/mechanical.ttl',
+    ]
+)
 
 #===============================================================================
 #===============================================================================
