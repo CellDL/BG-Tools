@@ -28,7 +28,7 @@ import sympy
 
 #===============================================================================
 
-from ..rdf import BNode, Literal, ResultRow, RDFGraph, URIRef
+from ..rdf import BNode, Literal, ResultRow, ResultType, RDFGraph, URIRef
 from ..mathml import Equation, LinearEquations, MathML
 from ..units import Value
 
@@ -721,6 +721,16 @@ BONDGRAPH_BONDS = """
 
 #===============================================================================
 
+BONDGRAPH_MODEL_TEMPLATES = """
+    SELECT DISTINCT ?template
+    WHERE {
+        <%MODEL%>
+            a bgf:BondgraphModel ;
+            bgf:usesTemplate ?template .
+    }"""
+
+#===============================================================================
+
 class BondgraphModelSource:
     def __init__(self, source: str, output_rdf: Optional[Path]=None):
         self.__rdf_graph = RDFGraph(NAMESPACES)
@@ -741,8 +751,21 @@ class BondgraphModelSource:
                 fp.write(self.__rdf_graph.serialise())
             print(f'Expanded model saved as {output_rdf}')
 
-        self.__models = { uri: BondgraphModel(self.__rdf_graph, uri, label)
-                                for (uri, label) in base_models }
+        self.__models: dict[URIRef, BondgraphModel] = {}
+        for (uri, label) in base_models:
+            for row in self.__rdf_graph.query(BONDGRAPH_MODEL_TEMPLATES.replace('%MODEL%', uri)):
+                self.__add_template(row[0])
+            self.__models[uri] = BondgraphModel(self.__rdf_graph, uri, label)
+
+    def __add_template(self, path: ResultType):
+    #==========================================
+        if isinstance(path, URIRef):
+            FRAMEWORK.add_template(path)
+        elif isinstance(path, Literal):
+            FRAMEWORK.add_template(self.__source_path
+                                        .parent
+                                        .joinpath(str(path))
+                                        .resolve())
 
     def __generate_bonds(self, model_uri: URIRef):
     #=============================================

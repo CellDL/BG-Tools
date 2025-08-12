@@ -619,10 +619,10 @@ class _BondgraphFramework:
         self.__composite_elements: dict[URIRef, CompositeTemplate] = {}
         if bgf_templates is not None:
             for bgf_template in bgf_templates:
-                self.add_template(bgf_template)
+                self.add_template(Path(bgf_template))
 
-    def add_template(self, bgf_template: str|Path):
-    #==============================================
+    def add_template(self, bgf_template: Path|URIRef):
+    #=================================================
         graph = RDFGraph(NAMESPACES)
         graph.merge(self.__ontology)
         graph.parse(bgf_template)
