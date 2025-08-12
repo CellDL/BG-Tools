@@ -66,6 +66,11 @@ DIMENSIONLESS_UNIT_DEFINITION = [
 
 #===============================================================================
 
+def symbol_sort_key(symbol: str) -> str:
+    return (symbol[2:] + symbol[0:2]) if symbol[0:2] in ['u_', 'v_'] else symbol
+
+#===============================================================================
+
 class CellMLVariable:
     def __init__(self, variable: Variable):
         self.__symbol = variable.symbol
@@ -97,10 +102,11 @@ class CellMLModel:
         self.__main = cellml_subelement(self.__cellml, 'component', name='main')
         self.__model = model
         self.__known_units: set[str] = set()
-        self.__known_symbols: set[str] = set()
+        self.__known_fixed: set[str] = set()
+        self.__known_variables: dict[str, Variable] = {}
 
         self.__add_unit_xml(DIMENSIONLESS_UNIT_DEFINITION)  ## Only if <cn> in MathML??
-        self.__add_variable(VOI_VARIABLE)       # only if VOI in some element's CR??
+        self.__add_fixed(VOI_VARIABLE)       # only if VOI in some element's CR??
 
         self.__element_equations: list[Equation] = []
         for element in model.elements:
@@ -109,7 +115,8 @@ class CellMLModel:
         for junction in model.junctions:
             self.__add_junction_variables(junction)
 
-        self.__simplify_equations_to_mathml()
+        self.__output_variable_definitions()
+        self.__equations_to_mathml()
         self.__add_dimensionless_attrib()
 
     @property
@@ -120,7 +127,7 @@ class CellMLModel:
     def __add_element(self, element: BondgraphElement):
     #==================================================
         for constant in element.domain.constants:
-            self.__add_variable(constant)
+            self.__add_fixed(constant)
         for variable in element.variables.values():
             self.__add_variable(variable)
         if (relation := element.constitutive_relation) is not None:
@@ -130,6 +137,14 @@ class CellMLModel:
     #====================================
         for element in self.__main.findall(f'.//{MATHML_NS.cn}'):
             element.attrib[CELLML_UNITS_ATTRIB] = DIMENSIONLESS_UNITS_NAME
+
+    def __add_fixed(self, variable: Variable):
+    #===========================================
+        if variable.symbol not in self.__known_fixed:
+            self.__add_units(variable.units)
+            cellml_variable = CellMLVariable(variable)
+            self.__main.append(cellml_variable.get_element())
+            self.__known_fixed.add(variable.symbol)
 
     def __add_junction_variables(self, junction: BondgraphJunction):
     #===============================================================
@@ -151,11 +166,16 @@ class CellMLModel:
 
     def __add_variable(self, variable: Variable):
     #============================================
-        if variable.symbol not in self.__known_symbols:
+        if variable.symbol not in self.__known_variables:
+            self.__known_variables[variable.symbol] = variable
+
+    def __output_variable_definitions(self):
+    #=======================================
+        for symbol in sorted(self.__known_variables.keys(), key=symbol_sort_key):
+            variable = self.__known_variables[symbol]
             self.__add_units(variable.units)
             cellml_variable = CellMLVariable(variable)
             self.__main.append(cellml_variable.get_element())
-            self.__known_symbols.add(variable.symbol)
 
     def __elements_from_units(self, units: Units) -> list[list[str]]:
     #================================================================
@@ -178,8 +198,8 @@ class CellMLModel:
         result.append(elements_from_units(units))
         return result
 
-    def __simplify_equations_to_mathml(self):
-    #========================================
+    def __equations_to_mathml(self):
+    #===============================
         element_odes = []
         element_algebraics: list[Equation] = []
         for equation in self.__element_equations:
@@ -191,17 +211,17 @@ class CellMLModel:
 
         self.__main.append(etree.Comment(' Bond ODEs'))
 #        ode_resolver = ODEResolver(element_algebraics, junction_equations)
-        for equation in element_odes:
 #            ode = ode_resolver.resolve(equation)
 #            self.__main.append(ode.mathml_equation())
+        for equation in sorted(element_odes, key=lambda eq: str(eq.lhs)):
             self.__main.append(equation.mathml_equation())
 
         self.__main.append(etree.Comment(' Bond algebraics'))
-        for equation in element_algebraics:
+        for equation in sorted(element_algebraics, key=lambda eq: symbol_sort_key(str(eq.lhs))):
             self.__main.append(equation.mathml_equation())
 
         self.__main.append(etree.Comment(' Junction structures'))
-        for equation in junction_equations:
+        for equation in sorted(junction_equations, key=lambda eq: symbol_sort_key(str(eq.lhs))):
             self.__main.append(equation.mathml_equation())
 
     def to_xml(self) -> str:
