@@ -607,47 +607,53 @@ class _BondgraphFramework:
             cls._instance = super(_BondgraphFramework, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, bgf_ontology: str|Path, bgf_templates: Optional[list[str|Path]]=None):
-    #========================================================================================
+    def __init__(self, bgf_ontology: str|Path, bgf_templates: Optional[list[Path|URIRef]]=None):
+    #===========================================================================================
         self.__ontology = RDFGraph(NAMESPACES)
         self.__ontology.parse(bgf_ontology)
-
         self.__element_templates: dict[URIRef, ElementTemplate] = {}
         self.__domains: dict[URIRef, Domain] = {}
         self.__element_domains: dict[tuple[URIRef, URIRef], ElementTemplate] = {}
         self.__junctions: dict[URIRef, JunctionStructure] = {}
         self.__composite_elements: dict[URIRef, CompositeTemplate] = {}
+        self.__loaded_templates = set()
         if bgf_templates is not None:
             for bgf_template in bgf_templates:
-                self.add_template(Path(bgf_template))
+                self.add_template(bgf_template)
 
     def add_template(self, bgf_template: Path|URIRef):
     #=================================================
-        graph = RDFGraph(NAMESPACES)
-        graph.merge(self.__ontology)
-        graph.parse(bgf_template)
-        self.__domains.update({cast(URIRef, row[0]): Domain.from_rdfgraph(
-                                    graph, row[0], row[1],                          # pyright: ignore[reportArgumentType]
-                                    row[2], row[3], row[4], row[5], row[6], row[7]) # pyright: ignore[reportArgumentType]
-                                for row in graph.query(DOMAIN_QUERY)})
-        for row in graph.query(ELEMENT_TEMPLATE_DEFINITIONS):
-            if (domain := self.__domains.get(cast(URIRef, row[3]))) is None:
-                raise ValueError(f'Unknown domain {row[3]} for {row[0]} element')
-            self.__element_templates[cast(URIRef, row[0])] = ElementTemplate.from_rdfgraph(
-                                            graph, row[0], row[1], row[2],          # pyright: ignore[reportArgumentType]
-                                            domain, row[4])                         # pyright: ignore[reportArgumentType]
-        self.__element_domains.update({
-            (element.element_class, element.domain.uri): element
-                for element in self.__element_templates.values() if element.domain is not None
-        })
-        self.__junctions.update({cast(URIRef, row[0]): JunctionStructure(row[0], row[1])    # pyright: ignore[reportArgumentType]
-            for row in graph.query(JUNCTION_STRUCTURES)})
-        for row in graph.query(COMPOSITE_ELEMENT_DEFINITIONS):
-            if (element := self.__element_templates.get(cast(URIRef, row[1]))) is None:
-                raise ValueError(f'Unknown BondElement {row[1]} for composite {row[0]}')
-            #if (junction := self.__junctions.get(row[2])) is None:          # type: ignore
-            #    raise ValueError(f'Unknown JunctionStructure {row[2]} for composite {row[0]}')
-            self.__composite_elements[row[0]] = CompositeTemplate(row[0], element, row[2]) # pyright: ignore[reportArgumentType]
+        if isinstance(bgf_template, Path):
+            template_uri = bgf_template.resolve().as_uri()
+        else:
+            template_uri = bgf_template
+        if template_uri not in self.__loaded_templates:
+            self.__loaded_templates.add(template_uri)
+            graph = RDFGraph(NAMESPACES)
+            graph.merge(self.__ontology)
+            graph.parse(template_uri)
+            self.__domains.update({cast(URIRef, row[0]): Domain.from_rdfgraph(
+                                        graph, row[0], row[1],                          # pyright: ignore[reportArgumentType]
+                                        row[2], row[3], row[4], row[5], row[6], row[7]) # pyright: ignore[reportArgumentType]
+                                    for row in graph.query(DOMAIN_QUERY)})
+            for row in graph.query(ELEMENT_TEMPLATE_DEFINITIONS):
+                if (domain := self.__domains.get(cast(URIRef, row[3]))) is None:
+                    raise ValueError(f'Unknown domain {row[3]} for {row[0]} element')
+                self.__element_templates[cast(URIRef, row[0])] = ElementTemplate.from_rdfgraph(
+                                                graph, row[0], row[1], row[2],          # pyright: ignore[reportArgumentType]
+                                                domain, row[4])                         # pyright: ignore[reportArgumentType]
+            self.__element_domains.update({
+                (element.element_class, element.domain.uri): element
+                    for element in self.__element_templates.values() if element.domain is not None
+            })
+            self.__junctions.update({cast(URIRef, row[0]): JunctionStructure(row[0], row[1])    # pyright: ignore[reportArgumentType]
+                for row in graph.query(JUNCTION_STRUCTURES)})
+            for row in graph.query(COMPOSITE_ELEMENT_DEFINITIONS):
+                if (element := self.__element_templates.get(cast(URIRef, row[1]))) is None:
+                    raise ValueError(f'Unknown BondElement {row[1]} for composite {row[0]}')
+                #if (junction := self.__junctions.get(row[2])) is None:          # type: ignore
+                #    raise ValueError(f'Unknown JunctionStructure {row[2]} for composite {row[0]}')
+                self.__composite_elements[row[0]] = CompositeTemplate(row[0], element, row[2]) # pyright: ignore[reportArgumentType]
 
     def element_template(self, element_type: URIRef, domain_uri: Optional[URIRef]) -> Optional[ElementTemplate|CompositeTemplate]:
     #=============================================================================================================================
