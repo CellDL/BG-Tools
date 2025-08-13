@@ -399,7 +399,7 @@ class ElementTemplate(Labelled):
                            }
 
     def __port_name_variable(self, domain_variable: Variable, suffix: str='') -> NamedPortVariable:
-    #==========================================================================================
+    #==============================================================================================
         port_var_name = f'{domain_variable.name}{suffix}'
         return NamedPortVariable(name=port_var_name,
                                 variable=Variable(self.uri, port_var_name, domain_variable.units, None))
@@ -603,6 +603,7 @@ class _BondgraphFramework:
     _instance = None
 
     def __new__(cls, *args, **kwargs):
+    #=================================
         if cls._instance is None:
             cls._instance = super(_BondgraphFramework, cls).__new__(cls)
         return cls._instance
