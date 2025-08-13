@@ -546,13 +546,6 @@ MODEL_BONDS = """
         OPTIONAL { ?powerBond rdfs:label ?label }
     }"""
 
-BONDGRAPH_MODELS = """
-    SELECT DISTINCT ?uri ?label
-    WHERE {
-        ?uri a bgf:BondgraphModel .
-        OPTIONAL { ?uri rdfs:label ?label }
-    } ORDER BY ?uri"""
-
 #===============================================================================
 
 class BondgraphModel(Labelled):
