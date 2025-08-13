@@ -97,7 +97,7 @@ class ModelElement(Labelled):
 ELEMENT_PARAMETER_VALUES = """
     SELECT DISTINCT ?name ?value ?symbol
     WHERE {
-        <%ELEMENT_URI%> bgf:parameterValue ?variable .
+        <%ELEMENT%> bgf:parameterValue ?variable .
         ?variable
             bgf:varName ?name ;
             bgf:hasValue ?value .
@@ -107,13 +107,13 @@ ELEMENT_PARAMETER_VALUES = """
 ELEMENT_STATE_VALUE = """
     SELECT DISTINCT ?value
     WHERE {
-        <%ELEMENT_URI%> bgf:hasValue ?value .
+        <%ELEMENT%> bgf:hasValue ?value .
     }"""
 
 ELEMENT_VARIABLE_VALUES = """
     SELECT DISTINCT ?name ?value ?symbol
     WHERE {
-        <%ELEMENT_URI%> bgf:variableValue ?variable .
+        <%ELEMENT%> bgf:variableValue ?variable .
         ?variable
             bgf:varName ?name ;
             bgf:hasValue ?value .
@@ -228,13 +228,13 @@ class BondgraphElement(ModelElement):
     #=============================================================================
                                     domain_uri: Optional[URIRef], symbol: Optional[str], label: Optional[str]):
         parameter_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # type: ignore
-            for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT_URI%', uri))
+            for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT%', uri))
         }
         variable_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # type: ignore
-            for row in model.sparql_query(ELEMENT_VARIABLE_VALUES.replace('%ELEMENT_URI%', uri))
+            for row in model.sparql_query(ELEMENT_VARIABLE_VALUES.replace('%ELEMENT%', uri))
         }
         intrinsic_value: Optional[Value] = None
-        for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT_URI%', uri)):
+        for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT%', uri)):
             intrinsic_value = Value.from_literal(row[0])                            # type: ignore
             break
         return cls(model, uri, element_type, domain_uri=domain_uri,
