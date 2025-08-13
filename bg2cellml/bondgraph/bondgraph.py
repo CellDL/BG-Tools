@@ -19,7 +19,7 @@
 #===============================================================================
 
 from pathlib import Path
-from typing import cast, Optional
+from typing import Optional
 
 #===============================================================================
 
@@ -31,6 +31,7 @@ import sympy
 from ..rdf import BNode, Literal, ResultRow, ResultType, RDFGraph, URIRef
 from ..mathml import Equation, LinearEquations, MathML
 from ..units import Value
+from ..utils import log, pretty_uri
 
 from .framework import BondgraphFramework as FRAMEWORK, CompositeTemplate, Domain, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
@@ -45,8 +46,8 @@ def make_element_port_id(element_uri: URIRef, port_id: str) -> URIRef:
 #=====================================================================
     return element_uri if port_id in [None, ''] else element_uri + f'_{port_id}'
 
-def flow_symbol(node_dict: dict, expand=True) -> sympy.Expr:
-#==============================================
+def flow_symbol(node_dict: dict, expand=True) -> Optional[sympy.Expr]:
+#=====================================================================
     if 'port' in node_dict:                         # A BondElement's port
         if expand and (expr := node_dict['element'].flow_expression) is not None:
             return expr
@@ -57,13 +58,13 @@ def flow_symbol(node_dict: dict, expand=True) -> sympy.Expr:
         if junction.type == ONENODE_JUNCTION:
             return sympy.Symbol(junction.variables[0].symbol)
         elif junction.type == ZERONODE_JUNCTION:
-            raise ValueError(f'Adjacent Zero Nodes to junction {junction.uri} must be merged')
+            log.error(f'Adjacent Zero Nodes to junction {junction.uri} must be merged')
         elif junction.type == TRANSFORM_JUNCTION:
-            raise ValueError('Transform Nodes are not yet supported')
-    raise ValueError(f'Unexpected bond graph node: {node_dict}')
+            log.error('Transform Nodes are not yet supported')
+    log.error(f'Unexpected bond graph node: {node_dict}')
 
-def potential_symbol(node_dict: dict, expand=True) -> sympy.Expr:
-#================================================================
+def potential_symbol(node_dict: dict, expand=True) -> Optional[sympy.Expr]:
+#==========================================================================
     if 'port' in node_dict:                         # A BondElement's port
         if expand and (expr := node_dict['element'].potential_expression) is not None:
             return expr
@@ -74,10 +75,10 @@ def potential_symbol(node_dict: dict, expand=True) -> sympy.Expr:
         if junction.type == ZERONODE_JUNCTION:
             return sympy.Symbol(junction.variables[0].symbol)
         elif junction.type == ONENODE_JUNCTION:
-            raise ValueError(f'Adjacent One Nodes to junction {junction.uri} must be merged')
+            log.error(f'Adjacent One Nodes to junction {junction.uri} must be merged')
         elif junction.type == TRANSFORM_JUNCTION:
-            raise ValueError('Transform Nodes are not yet supported')
-    raise ValueError(f'Unexpected bond graph node: {node_dict}')
+            log.error('Transform Nodes are not yet supported')
+    log.error(f'Unexpected bond graph node: {node_dict}')
 
 #===============================================================================
 
@@ -196,16 +197,16 @@ class BondgraphElement(ModelElement):
         self.__variable_values = {}
         if parameter_values is None:
             if len(element_template.parameters):
-                raise ValueError(f'No parameters given for element {uri}')
+                log.error(f'No parameters given for element {pretty_uri(uri)}')
         else:
             for name in element_template.parameters.keys():
                 if name not in parameter_values:
-                    raise ValueError(f'Missing value for parameter {name} of element {uri}')
+                    log.error(f'Missing value for parameter {name} of element {pretty_uri(uri)}')
             self.__variable_values.update(parameter_values)
         if variable_values is not None:
             for name in variable_values.keys():
                 if name not in name not in self.__variables:
-                    raise ValueError(f'Unknown variable {name} for element {uri}')
+                    log.error(f'Unknown variable {name} for element {pretty_uri(uri)}')
             self.__variable_values.update(variable_values)
 
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
@@ -292,20 +293,25 @@ class BondgraphElement(ModelElement):
 
         for var_name, value in self.__variable_values.items():
             if (variable := self.__variables.get(var_name)) is None:
-                raise ValueError(f'Element {self.uri} has unknown name {var_name} for {self.__type}')
+                log.error(f'Element {pretty_uri(self.uri)} has unknown name {var_name} for {self.__type}')
+                continue
             if value[1] is not None:
                 variable.set_symbol(value[1])
             if isinstance(value[0], Literal):
                 variable.set_value(Value.from_literal(value[0]))
             elif isinstance(value[0], URIRef):
                 if value[0] not in bond_graph:
-                    raise ValueError(f'Value for {self.uri} refers to unknown element: {value[0]}')
+                    log.error(f'Value for {pretty_uri(self.uri)} refers to unknown element: {value[0]}')
+                    continue
                 elif (element := bond_graph.nodes[value[0]].get('element')) is None:
-                    raise ValueError(f'Value for {self.uri} is not a bond element: {value[0]}')
+                    log.error(f'Value for {pretty_uri(self.uri)} is not a bond element: {value[0]}')
+                    continue
                 elif element.__intrinsic_variable is None:
-                    raise ValueError(f'Value for {self.uri} is an element with no intrinsic variable: {value[0]}')
+                    log.error(f'Value for {pretty_uri(self.uri)} is an element with no intrinsic variable: {value[0]}')
+                    continue
                 elif variable.units != element.__intrinsic_variable.units:
-                    raise ValueError(f'Units incompatible for {self.uri} value: {value[0]}')
+                    log.error(f'Units incompatible for {pretty_uri(self.uri)} value: {value[0]}')
+                    continue
                 else:
                     self.__variables[var_name] = element.__intrinsic_variable
 
@@ -330,44 +336,40 @@ class BondgraphElement(ModelElement):
             potential_expr = None
             if self.__implied_junction == ZERONODE_JUNCTION:
                 # Sum of flows connected to junction is 0
-                inputs = [flow_symbol(bond_graph.nodes[node])
-                                for node in bond_graph.predecessors(port_id)]
-                outputs = [flow_symbol(bond_graph.nodes[node])
-                                for node in bond_graph.successors(port_id)]
+                inputs = [symbol for node in bond_graph.predecessors(port_id)
+                            if (symbol := flow_symbol(bond_graph.nodes[node])) is not None]
+                outputs = [symbol for node in bond_graph.successors(port_id)
+                            if (symbol := flow_symbol(bond_graph.nodes[node])) is not None]
                 flow_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))   ## flow_expression
                 if self.__flow_variable is not None:
                     self.__junction_equations.append(Equation(self.__flow_variable, flow_expr))
                 if len(self.__ports) > 1 and self.__element_class == QUANTITY_STORE:
                     flow = sympy.Symbol(port.flow.variable.symbol)
                     for node in bond_graph.predecessors(port_id):
-                        self.__junction_equations.append(Equation(flow,
-                                                         cast(sympy.Symbol, flow_symbol(bond_graph.nodes[node],
-                                                                                             expand=False))))
+                        if (symbol := flow_symbol(bond_graph.nodes[node], expand=False)) is not None:
+                            self.__junction_equations.append(Equation(flow, symbol))
                     for node in bond_graph.successors(port_id):
-                        self.__junction_equations.append(Equation(flow,
-                                                         cast(sympy.Symbol, flow_symbol(bond_graph.nodes[node],
-                                                                                             expand=False))))
+                        if (symbol := flow_symbol(bond_graph.nodes[node], expand=False)) is not None:
+                            self.__junction_equations.append(Equation(flow, symbol))
             elif self.__implied_junction == ONENODE_JUNCTION:
                 # Sum of potentials connected to junction is 0
-                inputs = [potential_symbol(bond_graph.nodes[node])
-                                for node in bond_graph.predecessors(port_id)]
-                outputs = [potential_symbol(bond_graph.nodes[node])
-                                for node in bond_graph.successors(port_id)]
+                inputs = [symbol for node in bond_graph.predecessors(port_id)
+                            if (symbol := potential_symbol(bond_graph.nodes[node])) is not None]
+                outputs = [symbol for node in bond_graph.successors(port_id)
+                            if (symbol := potential_symbol(bond_graph.nodes[node])) is not None]
                 potential_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))
                 if self.__potential_variable is not None:
                     self.__junction_equations.append(Equation(self.__potential_variable, potential_expr))
                 if len(self.__ports) > 1 and self.__element_class == DISSIPATOR:
                     potential = sympy.Symbol(port.potential.variable.symbol)
                     for node in bond_graph.predecessors(port_id):
-                        self.__junction_equations.append(Equation(potential,
-                                                         cast(sympy.Symbol, potential_symbol(bond_graph.nodes[node],
-                                                                                             expand=False))))
+                        if (symbol := potential_symbol(bond_graph.nodes[node], expand=False)) is not None:
+                            self.__junction_equations.append(Equation(potential, symbol))
                     for node in bond_graph.successors(port_id):
-                        self.__junction_equations.append(Equation(potential,
-                                                         cast(sympy.Symbol, potential_symbol(bond_graph.nodes[node],
-                                                                                             expand=False))))
+                        if (symbol := potential_symbol(bond_graph.nodes[node], expand=False)) is not None:
+                            self.__junction_equations.append(Equation(potential, symbol))
             else:
-                raise ValueError(f'Unexpected bond graph node for {port_id}: {self.__element_class}')
+                log.error(f'Unexpected bond graph node for {pretty_uri(port_id)}: {self.__element_class}')
 
             if self.__constitutive_relation is not None:
                 for eqn in self.__constitutive_relation.equalities:
@@ -451,7 +453,8 @@ class BondgraphJunction(ModelElement):
     #=============================================================
         attributes = bond_graph.nodes[self.uri]
         if (domain := attributes.get('domain')) is None:
-            raise ValueError(f'Cannot find domain for junction {self.uri}. Are there bonds to it?')
+            log.error(f'Cannot find domain for junction {pretty_uri(self.uri)}. Are there bonds to it?')
+            return
         self.__domain = domain
         if self.__type == ONENODE_JUNCTION:
             if self.__associated_element_port is not None:
@@ -464,7 +467,7 @@ class BondgraphJunction(ModelElement):
             else:
                 self.__variables = [Variable(self.uri, self.symbol, self.__domain.potential.units, self.__value)]
         elif self.__type == TRANSFORM_JUNCTION:
-            raise ValueError(f'Transform Nodes ({self.uri}) are not yet supported')
+            log.error(f'Transform Nodes {pretty_uri(self.uri)} are not yet supported')
             ## each port needs a domain, if gyrator different domains...
 
     '''
@@ -475,9 +478,9 @@ class BondgraphJunction(ModelElement):
             if self.__type == ONENODE_JUNCTION:
                 # Sum of potentials connected to junction is 0
                 inputs = [symbol for node in bond_graph.predecessors(self.uri)
-                            if (symbol := self.__potential_symbol(bond_graph.nodes[node])) != '']
+                            if (symbol := potential_symbol(bond_graph.nodes[node])) != '']
                 outputs = [symbol for node in bond_graph.successors(self.uri)
-                            if (symbol := self.__potential_symbol(bond_graph.nodes[node])) != '']
+                            if (symbol := potential_symbol(bond_graph.nodes[node])) != '']
                 equal_value = [node_dict['port'].flow.variable.symbol
                                 for node in bond_graph.predecessors(self.uri)
                                     if 'port' in (node_dict := bond_graph.nodes[node])
@@ -489,9 +492,9 @@ class BondgraphJunction(ModelElement):
             elif self.__type == ZERONODE_JUNCTION:
                 # Sum of flows connected to junction is 0
                 inputs = [symbol for node in bond_graph.predecessors(self.uri)
-                            if (symbol := self.__flow_symbol(bond_graph.nodes[node])) != '']
+                            if (symbol := flow_symbol(bond_graph.nodes[node])) != '']
                 outputs = [symbol for node in bond_graph.successors(self.uri)
-                            if (symbol := self.__flow_symbol(bond_graph.nodes[node])) != '']
+                            if (symbol := flow_symbol(bond_graph.nodes[node])) != '']
                 equal_value = [node_dict['port'].potential.variable.symbol
                                 for node in bond_graph.predecessors(self.uri)
                                     if 'port' in (node_dict := bond_graph.nodes[node])
@@ -558,6 +561,8 @@ class BondgraphModel(Labelled):
         self.__rdf_graph = rdf_graph
         self.__elements = [BondgraphElement.for_model(self, row[1], row[2], row[3], row[4], row[5]) # type: ignore
                                 for row in rdf_graph.query(MODEL_ELEMENTS)]
+        if len(self.__elements) == 0:
+            log.error(f'Model {(pretty_uri(uri))} has no elements...')
         element_ports = {}
         for element in self.__elements:
             element_ports.update(element.ports)
@@ -568,7 +573,7 @@ class BondgraphModel(Labelled):
         for row in rdf_graph.query(MODEL_BONDS):
             bond_uri: URIRef = row[1]                                                            # type: ignore
             if row[2] is None or row[3] is None:
-                raise ValueError(f'Bond {bond_uri} is missing source and/or target node')
+                log.error(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
             self.__bonds.append(
                 BondgraphBond(self, bond_uri, row[2], row[3], row[4]))                           # type: ignore
 
@@ -621,7 +626,7 @@ class BondgraphModel(Labelled):
                     for neighbour in undirected_graph.neighbors(node):
                         check_node(neighbour, domain)
                 elif domain != (node_domain := self.__graph.nodes[node]['domain']):
-                    raise ValueError(f'Node {node} with domain {node_domain} incompatible with {domain}')
+                    log.error(f'Node {node} with domain {node_domain} incompatible with {domain}')
 
         for element in self.__elements:
             for port_id in element.ports.keys():
@@ -653,9 +658,14 @@ class BondgraphModel(Labelled):
             source = bond.source_id
             target = bond.target_id
             if source not in self.__graph and target not in self.__graph:
-                raise ValueError(f'No element or junction for source and target of bond {bond.uri}')
-            elif source not in self.__graph or target not in self.__graph:
-                raise ValueError(f'No element or junction for source or target of bond {bond.uri}')
+                log.error(f'No element or junction for source {pretty_uri(source)} and target {pretty_uri(target)} of bond {pretty_uri(bond.uri)}')
+                continue
+            elif source not in self.__graph:
+                log.error(f'No element or junction for source {pretty_uri(source)} of bond {pretty_uri(bond.uri)}')
+                continue
+            elif target not in self.__graph:
+                log.error(f'No element or junction for target {pretty_uri(target)} of bond {pretty_uri(bond.uri)}')
+                continue
             self.__graph.add_edge(source, target)
 
     def sparql_query(self, query: str) -> list[ResultRow]:

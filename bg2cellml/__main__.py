@@ -24,7 +24,6 @@ from pathlib import Path
 #===============================================================================
 
 import libopencor as loc
-import structlog
 
 #===============================================================================
 
@@ -32,22 +31,10 @@ from bg2cellml.version import __version__
 
 #===============================================================================
 
-structlog.configure(
-    processors=[
-        structlog.processors.TimeStamper(fmt="ISO"),
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.StackInfoRenderer(),
-        structlog.dev.ConsoleRenderer()
-    ]
-)
-
-logger = structlog.get_logger()
-
-#===============================================================================
-
 from bg2cellml.bondgraph import BondgraphModel, BondgraphModelSource
 from bg2cellml.bondgraph.framework import BondgraphFramework
 from bg2cellml.cellml import CellMLModel
+from bg2cellml.utils import log
 
 from graph2celldl import Graph2CellDL
 
@@ -113,15 +100,15 @@ def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_no_errors: bo
     has_issues = False
     if file.has_issues:
         for issue in file.issues:
-            print(issue.description)
-        print(f'{file.issue_count} CellML validation issues...')
+            log.warning(issue.description)
+        log.warning(f'{file.issue_count} CellML validation issues...')
         has_issues = True
     else:
         simulation = loc.SedDocument(file)
         if simulation.has_issues:
             for issue in simulation.issues:
-                print(issue.description)
-            print(f'{simulation.issue_count} issues creating simulation from CellML...')
+                log.warning(issue.description)
+            log.warning(f'{simulation.issue_count} issues creating simulation from CellML...')
             has_issues = True
         else:
             simulation.simulations[0].output_end_time = 0.1
@@ -131,16 +118,16 @@ def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_no_errors: bo
             instance.run()
             if instance.has_issues:
                 for issue in instance.issues:
-                    print(issue.description)
-                print(f'{instance.issue_count} issues running simulation created from CellML...')
+                    log.warning(issue.description)
+                log.warning(f'{instance.issue_count} issues running simulation created from CellML...')
                 has_issues = True
 
     if has_issues and save_if_no_errors:
-        print('No CellML generated')
+        log.warning('No CellML generated')
     else:
         with open(cellml_file, 'w') as fp:
             fp.write(cellml)
-            print(f'Generated {cellml_file}')
+            log.info(f'Generated {cellml_file}')
 
 def model2celldl(model: BondgraphModel, celldl_file: Path):
 #==========================================================
@@ -165,7 +152,7 @@ def model2celldl(model: BondgraphModel, celldl_file: Path):
     celldl_graph = Graph2CellDL(G, layout_method='spring',
         stylesheet=BGF_STYLESHEET, node_size=(150, 100), connection_stroke_width=6)
     celldl_graph.save_diagram(celldl_file)
-    print(f'Created {celldl_file}')
+    log.info(f'Created {celldl_file}')
 
 def bg2cellml(bondgraph_rdf_source: str, output_path: Path, save_rdf: bool=False, save_if_no_errors: bool=True):
 #=============================================================================================================

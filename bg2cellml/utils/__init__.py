@@ -18,8 +18,52 @@
 #
 #===============================================================================
 
-import lxml.etree as etree
+from typing import Optional
 
+import lxml.etree as etree
+import structlog
+from structlog.dev import BRIGHT, DIM, GREEN, RESET_ALL
+
+#===============================================================================
+
+from ..bondgraph.namespaces import LOCAL_MODEL_BASE
+from ..rdf import URIRef
+
+#===============================================================================
+#===============================================================================
+
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="ISO"),
+        structlog.processors.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.StackInfoRenderer(),
+        structlog.dev.ConsoleRenderer(colors=True)
+    ]
+)
+
+log = structlog.get_logger()
+
+#===============================================================================
+#===============================================================================
+
+def pretty_uri(uri: Optional[str|URIRef]) -> str:
+#================================================
+    if uri is not None:
+        uri = str(uri)
+        if uri.startswith(LOCAL_MODEL_BASE):
+            pretty = uri[len(LOCAL_MODEL_BASE):]
+        else:
+            parts = uri.split('#', 1)
+            if len(parts) > 1:
+                pretty = '#' + parts[1]
+            else:
+                pretty = uri
+    else:
+        pretty = 'None'
+    return f'{RESET_ALL}{GREEN}{pretty}{RESET_ALL}{BRIGHT}'
+
+#===============================================================================
 #===============================================================================
 
 """
