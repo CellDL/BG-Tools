@@ -68,6 +68,9 @@ class RDFGraph:
     #===================================
         return uri.n3(self.__graph.namespace_manager)
 
+    def merge(self, graph: 'RDFGraph'):
+    #==================================
+        self.__graph += graph.__graph
 
     def query(self, query: str) -> list[ResultRow]:
     #==============================================
