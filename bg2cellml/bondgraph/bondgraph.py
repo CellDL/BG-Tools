@@ -518,33 +518,33 @@ class BondgraphJunction(ModelElement):
 #===============================================================================
 
 MODEL_ELEMENTS = """
-    SELECT DISTINCT ?model ?uri ?type ?domain ?symbol ?label
+    SELECT DISTINCT ?uri ?type ?domain ?symbol ?label
     WHERE {
-        ?model bgf:hasBondElement ?uri .
+        <%MODEL%> bgf:hasBondElement ?uri .
         ?uri a ?type .
         OPTIONAL { ?uri bgf:hasDomain ?domain }
         OPTIONAL { ?uri bgf:hasSymbol ?symbol }
         OPTIONAL { ?uri rdfs:label ?label }
-    } ORDER BY ?model ?uri"""
+    }"""
 
 MODEL_JUNCTIONS = """
-    SELECT DISTINCT ?model ?uri ?type ?label ?value ?elementPort
+    SELECT DISTINCT ?uri ?type ?label ?value ?elementPort
     WHERE {
-        ?model bgf:hasJunctionStructure ?uri .
+        <%MODEL%> bgf:hasJunctionStructure ?uri .
         ?uri a ?type .
         OPTIONAL { ?uri rdfs:label ?label }
         OPTIONAL { ?uri bgf:hasValue ?value }
         OPTIONAL { ?uri bgf:hasElementPort ?elementPort }
-    } ORDER BY ?model ?uri"""
+    }"""
 
 MODEL_BONDS = """
-    SELECT DISTINCT ?model ?powerBond ?source ?target ?label
+    SELECT DISTINCT ?powerBond ?source ?target ?label
     WHERE {
-        ?model bgf:hasPowerBond ?powerBond .
+        <%MODEL%> bgf:hasPowerBond ?powerBond .
         OPTIONAL { ?powerBond bgf:hasSource ?source }
         OPTIONAL { ?powerBond bgf:hasTarget ?target }
         OPTIONAL { ?powerBond rdfs:label ?label }
-    } ORDER BY ?model"""
+    }"""
 
 BONDGRAPH_MODELS = """
     SELECT DISTINCT ?uri ?label
@@ -559,23 +559,24 @@ class BondgraphModel(Labelled):
     def __init__(self, rdf_graph: RDFGraph, uri: URIRef, label: Optional[str]=None):
         super().__init__(uri, label)
         self.__rdf_graph = rdf_graph
-        self.__elements = [BondgraphElement.for_model(self, row[1], row[2], row[3], row[4], row[5]) # type: ignore
-                                for row in rdf_graph.query(MODEL_ELEMENTS)]
+        self.__elements = [BondgraphElement.for_model(self, row[0], row[1], row[2], row[3], row[4]) # type: ignore
+                                for row in rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
         if len(self.__elements) == 0:
             log.error(f'Model {(pretty_uri(uri))} has no elements...')
         element_ports = {}
         for element in self.__elements:
             element_ports.update(element.ports)
         self.__junctions = [
-            BondgraphJunction(self, row[1], row[2], row[3], row[4], element_ports.get(row[5]))  # type: ignore
-                for row in rdf_graph.query(MODEL_JUNCTIONS)]
+            BondgraphJunction(self, row[0], row[1], row[2], row[3], element_ports.get(row[4]))  # type: ignore
+                for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = []
-        for row in rdf_graph.query(MODEL_BONDS):
-            bond_uri: URIRef = row[1]                                                            # type: ignore
-            if row[2] is None or row[3] is None:
+        for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', uri)):
+            bond_uri: URIRef = row[0]                                                            # type: ignore
+            if row[1] is None or row[2] is None:
                 log.error(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
+                continue
             self.__bonds.append(
-                BondgraphBond(self, bond_uri, row[2], row[3], row[4]))                           # type: ignore
+                BondgraphBond(self, bond_uri, row[1], row[2], row[3]))                           # type: ignore
 
         self.__graph = nx.DiGraph()
         self.__make_bond_network()
