@@ -92,8 +92,8 @@ def string_to_list(string: str) -> list[int]:
 #============================================
     return [ord(x) for x in string]
 
-def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_no_errors: bool=True):
-#========================================================================================
+def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_errors: bool=False):
+#======================================================================================
     cellml = CellMLModel(model).to_xml()
     file = loc.File(str(cellml_file), False)
     file.contents = string_to_list(cellml)
@@ -122,7 +122,7 @@ def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_no_errors: bo
                 log.warning(f'{instance.issue_count} issues running simulation created from CellML...')
                 has_issues = True
 
-    if has_issues and save_if_no_errors:
+    if has_issues and not save_if_errors:
         log.warning('No CellML generated')
     else:
         with open(cellml_file, 'w') as fp:
@@ -154,14 +154,14 @@ def model2celldl(model: BondgraphModel, celldl_file: Path):
     celldl_graph.save_diagram(celldl_file)
     log.info(f'Created {pretty_log(celldl_file)}')
 
-def bg2cellml(bondgraph_rdf_source: str, output_path: Path, save_rdf: bool=False, save_if_no_errors: bool=True):
+def bg2cellml(bondgraph_rdf_source: str, output_path: Path, save_rdf: bool=False, save_if_errors: bool=False):
 #=============================================================================================================
     source = Path(bondgraph_rdf_source)
     if not source.exists():
         raise IOError(f'Missing BG-RDF source file: {bondgraph_rdf_source}')
     output_rdf = (output_path / f'{source.stem}.ttl') if save_rdf else None
     for model in BondgraphModelSource(bondgraph_rdf_source, output_rdf=output_rdf).models:
-        model2cellml(model, output_path / f'{source.stem}.cellml', save_if_no_errors)
+        model2cellml(model, output_path / f'{source.stem}.cellml', save_if_errors)
         model2celldl(model, output_path / f'{source.stem}.celldl.svg')
 
 #===============================================================================
@@ -170,14 +170,14 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description='BG-RDF to CellML and CellDL')
     parser.add_argument('-v', '--version', action='version', version=__version__)
-    parser.add_argument('--no-errors', action='store_true', help='Only output CellML if it has no errors')
+    parser.add_argument('--save-errors', action='store_true', help='Output CellML even if it has errors')
     parser.add_argument('--save-rdf', action='store_true', help='Optionally save intermediate RDF graph')
     parser.add_argument('--output', metavar='OUTPUT_DIR', required=True, help='Directory where generated files are saved')
     parser.add_argument('bg_rdf', metavar='BG-RDF', help='Input BG-RDF source file')
 
     args = parser.parse_args()
 
-    bg2cellml(args.bg_rdf, Path(args.output), save_rdf=args.save_rdf, save_if_no_errors=args.no_errors)
+    bg2cellml(args.bg_rdf, Path(args.output), save_rdf=args.save_rdf, save_if_errors=args.save_errors)
 
 #===============================================================================
 
