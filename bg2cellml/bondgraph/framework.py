@@ -491,6 +491,11 @@ class CompositeTemplate(Labelled):
 #===============================================================================
 #===============================================================================
 
+type BondgraphElementTemplate = ElementTemplate | CompositeTemplate
+
+#===============================================================================
+#===============================================================================
+
 DOMAIN_QUERY = """
     SELECT DISTINCT ?domain ?label
                     ?flowName ?flowUnits
@@ -657,8 +662,8 @@ class _BondgraphFramework:
                 #    raise ValueError(f'Unknown JunctionStructure {row[2]} for composite {row[0]}')
                 self.__composite_elements[row[0]] = CompositeTemplate(row[0], element, row[2]) # pyright: ignore[reportArgumentType]
 
-    def element_template(self, element_type: URIRef, domain_uri: Optional[URIRef]) -> Optional[ElementTemplate|CompositeTemplate]:
-    #=============================================================================================================================
+    def element_template(self, element_type: URIRef, domain_uri: Optional[URIRef]) -> Optional[BondgraphElementTemplate]:
+    #====================================================================================================================
         if domain_uri is None:
             # First see if element_type refers to a composite
             if (composite := self.__composite_elements.get(element_type)) is not None:

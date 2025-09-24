@@ -33,7 +33,8 @@ from ..mathml import Equation, LinearEquations, MathML
 from ..units import Value
 from ..utils import log, pretty_log, pretty_uri
 
-from .framework import BondgraphFramework as FRAMEWORK, CompositeTemplate, Domain, PowerPort, Variable
+from .framework import BondgraphFramework as FRAMEWORK, BondgraphElementTemplate, CompositeTemplate
+from .framework import Domain, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
 from .framework import FLOW_SOURCE, POTENTIAL_SOURCE
 from .framework import DISSIPATOR, KINETIC_STORE, QUANTITY_STORE
@@ -127,15 +128,13 @@ type VariableValue = tuple[Literal|URIRef, Optional[str]]
 #===============================================================================
 
 class BondgraphElement(ModelElement):
-    def __init__(self,  model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
+    def __init__(self,  model: 'BondgraphModel', uri: URIRef, template: BondgraphElementTemplate,
                         parameter_values: Optional[dict[str, VariableValue]]=None,
                         variable_values: Optional[dict[str, VariableValue]]=None,
                         domain_uri: Optional[URIRef]=None, intrinsic_value: Optional[Value]=None,
                         symbol: Optional[str]=None, label: Optional[str]=None):
         super().__init__(model, uri, symbol, label)
-        template = FRAMEWORK.element_template(element_type, domain_uri)
-        if template is None:
-            raise ValueError(f'Cannot find BondElement with type/domain of `{element_type}/{domain_uri}` for element {uri}')
+        element_type = pretty_uri(template.uri)
         if isinstance(template, CompositeTemplate):
             element_template = template.template
             composite = True
@@ -146,6 +145,7 @@ class BondgraphElement(ModelElement):
             raise ValueError(f'No modelling domain for element {uri} with template {element_type}/{domain_uri}')
         elif domain_uri is not None and element_template.domain.uri != domain_uri:
             raise ValueError(f'Domain mismatch for element {uri} with template {element_type}/{domain_uri}')
+
         self.__element_class = element_template.element_class
         if self.__element_class in [FLOW_SOURCE, POTENTIAL_SOURCE]:
             self.__constitutive_relation = None
@@ -224,8 +224,8 @@ class BondgraphElement(ModelElement):
             self.__intrinsic_variable = None
 
     @classmethod
-    def for_model(cls, model: 'BondgraphModel', uri: URIRef, element_type: URIRef,
-    #=============================================================================
+    def for_model(cls, model: 'BondgraphModel', uri: URIRef, template: BondgraphElementTemplate,
+    #===========================================================================================
                                     domain_uri: Optional[URIRef], symbol: Optional[str], label: Optional[str]):
         parameter_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # type: ignore
             for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT%', uri))
@@ -237,7 +237,7 @@ class BondgraphElement(ModelElement):
         for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT%', uri)):
             intrinsic_value = Value.from_literal(row[0])                            # type: ignore
             break
-        return cls(model, uri, element_type, domain_uri=domain_uri,
+        return cls(model, uri, template, domain_uri=domain_uri,
                     parameter_values=parameter_values, variable_values=variable_values,
                     intrinsic_value=intrinsic_value, symbol=symbol, label=label)
 
@@ -525,7 +525,7 @@ MODEL_ELEMENTS = """
         OPTIONAL { ?uri bgf:hasDomain ?domain }
         OPTIONAL { ?uri bgf:hasSymbol ?symbol }
         OPTIONAL { ?uri rdfs:label ?label }
-    }"""
+    } ORDER BY ?uri ?type"""
 
 MODEL_JUNCTIONS = """
     SELECT DISTINCT ?uri ?type ?label ?value ?elementPort
@@ -552,8 +552,27 @@ class BondgraphModel(Labelled):
     def __init__(self, rdf_graph: RDFGraph, uri: URIRef, label: Optional[str]=None):
         super().__init__(uri, label)
         self.__rdf_graph = rdf_graph
-        self.__elements = [BondgraphElement.for_model(self, row[0], row[1], row[2], row[3], row[4]) # type: ignore
-                                for row in rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', uri))]
+        self.__elements = []
+        last_element_uri = None
+        element = None
+        for row in rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', uri)):
+            if row[0] != last_element_uri:
+                if last_element_uri is not None and element is None:
+                    log.error(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF class')
+                element = None
+                last_element_uri = row[0]
+            template = FRAMEWORK.element_template(row[1], row[2])   # pyright: ignore[reportArgumentType]
+            if template is not None:
+                if element is None:
+                    try:
+                        element = BondgraphElement.for_model(self, row[0], template, row[2], row[3], row[4]) # type: ignore
+                        self.__elements.append(element)
+                    except ValueError as e:
+                        log.error(str(e))
+                else:
+                    log.error(f'BondElement {pretty_uri(row[0])} has more than one BG-RDF class')
+        if last_element_uri is not None and element is None:
+            log.error(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF class')
         if len(self.__elements) == 0:
             log.error(f'Model {(pretty_uri(uri))} has no elements...')
         element_ports = {}
