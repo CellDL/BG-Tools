@@ -18,11 +18,11 @@
 #
 #===============================================================================
 
-from typing import Optional
+from typing import Any, Optional
 
 import lxml.etree as etree
 import structlog
-from structlog.dev import BRIGHT, DIM, GREEN, RESET_ALL
+from structlog.dev import BRIGHT, GREEN, RESET_ALL
 
 #===============================================================================
 
@@ -47,8 +47,12 @@ log = structlog.get_logger()
 #===============================================================================
 #===============================================================================
 
-def pretty_uri(uri: Optional[str|URIRef]) -> str:
-#================================================
+def pretty_log(s: Any) -> str:
+#=============================
+    return f'{RESET_ALL}{GREEN}{str(s)}{RESET_ALL}{BRIGHT}'
+
+def pretty_uri(uri: Optional['str|URIRef']) -> str:
+#==================================================
     if uri is not None:
         uri = str(uri)
         if uri.startswith(LOCAL_MODEL_BASE):
@@ -61,7 +65,7 @@ def pretty_uri(uri: Optional[str|URIRef]) -> str:
                 pretty = uri
     else:
         pretty = 'None'
-    return f'{RESET_ALL}{GREEN}{pretty}{RESET_ALL}{BRIGHT}'
+    return pretty_log(pretty)
 
 #===============================================================================
 #===============================================================================

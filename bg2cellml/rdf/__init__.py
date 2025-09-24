@@ -28,6 +28,10 @@ from rdflib import BNode, Literal, URIRef
 
 #===============================================================================
 
+from ..utils import log, pretty_log
+
+#===============================================================================
+
 type ResultType = BNode | Literal | URIRef | None
 type ResultRow = list[ResultType]
 
@@ -74,10 +78,19 @@ class RDFGraph:
 
     def query(self, query: str) -> list[ResultRow]:
     #==============================================
-        return self.__graph.query(query)    # type: ignore
+        try:
+            return self.__graph.query(query)    # type: ignore
+        except Exception as e:
+            log.error(str(e))
+            log.info(f'Query: {query}')
+            return []
+
     def parse(self, source_uri: str|Path):
     #=====================================
-        self.__graph.parse(location=str(source_uri), format='turtle')
+        try:
+            self.__graph.parse(location=str(source_uri), format='turtle')
+        except Exception as e:
+            log.error(str(e))
 
     def remove(self, triple: tuple) -> Self:
     #=======================================

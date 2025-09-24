@@ -31,7 +31,7 @@ import sympy
 from ..rdf import BNode, Literal, ResultRow, ResultType, RDFGraph, URIRef
 from ..mathml import Equation, LinearEquations, MathML
 from ..units import Value
-from ..utils import log, pretty_uri
+from ..utils import log, pretty_log, pretty_uri
 
 from .framework import BondgraphFramework as FRAMEWORK, CompositeTemplate, Domain, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
@@ -753,7 +753,7 @@ class BondgraphModelSource:
         if output_rdf is not None:
             with open(output_rdf, 'w') as fp:
                 fp.write(self.__rdf_graph.serialise())
-            print(f'Expanded model saved as {output_rdf}')
+            log.info(f'Expanded model saved as {pretty_log(output_rdf)}')
 
         self.__models: dict[URIRef, BondgraphModel] = {}
         for (uri, label) in base_models:

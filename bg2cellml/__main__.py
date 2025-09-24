@@ -34,7 +34,7 @@ from bg2cellml.version import __version__
 from bg2cellml.bondgraph import BondgraphModel, BondgraphModelSource
 from bg2cellml.bondgraph.framework import BondgraphFramework
 from bg2cellml.cellml import CellMLModel
-from bg2cellml.utils import log
+from bg2cellml.utils import log, pretty_log
 
 from graph2celldl import Graph2CellDL
 
@@ -127,7 +127,7 @@ def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_no_errors: bo
     else:
         with open(cellml_file, 'w') as fp:
             fp.write(cellml)
-            log.info(f'Generated {cellml_file}')
+            log.info(f'Generated {pretty_log(cellml_file)}')
 
 def model2celldl(model: BondgraphModel, celldl_file: Path):
 #==========================================================
@@ -152,7 +152,7 @@ def model2celldl(model: BondgraphModel, celldl_file: Path):
     celldl_graph = Graph2CellDL(G, layout_method='spring',
         stylesheet=BGF_STYLESHEET, node_size=(150, 100), connection_stroke_width=6)
     celldl_graph.save_diagram(celldl_file)
-    log.info(f'Created {celldl_file}')
+    log.info(f'Created {pretty_log(celldl_file)}')
 
 def bg2cellml(bondgraph_rdf_source: str, output_path: Path, save_rdf: bool=False, save_if_no_errors: bool=True):
 #=============================================================================================================
