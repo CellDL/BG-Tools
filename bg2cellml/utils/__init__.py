@@ -18,7 +18,9 @@
 #
 #===============================================================================
 
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
+
+#===============================================================================
 
 import lxml.etree as etree
 import structlog
@@ -26,8 +28,12 @@ from structlog.dev import BRIGHT, GREEN, RESET_ALL
 
 #===============================================================================
 
-from ..bondgraph.namespaces import LOCAL_MODEL_BASE
-from ..rdf import URIRef
+if TYPE_CHECKING:
+    from ..rdf import URIRef
+
+#===============================================================================
+
+LOCAL_MODEL_BASE = 'https://bg-rdf.org/models/local/'
 
 #===============================================================================
 #===============================================================================
