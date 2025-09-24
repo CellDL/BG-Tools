@@ -632,7 +632,8 @@ class _BondgraphFramework:
             self.__loaded_templates.add(template_uri)
             graph = RDFGraph(NAMESPACES)
             graph.merge(self.__ontology)
-            graph.parse(template_uri)
+            if not graph.parse(template_uri):
+                return
             self.__domains.update({cast(URIRef, row[0]): Domain.from_rdfgraph(
                                         graph, row[0], row[1],                          # pyright: ignore[reportArgumentType]
                                         row[2], row[3], row[4], row[5], row[6], row[7]) # pyright: ignore[reportArgumentType]

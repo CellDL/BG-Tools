@@ -85,12 +85,14 @@ class RDFGraph:
             log.info(f'Query: {query}')
             return []
 
-    def parse(self, source_uri: str|Path):
-    #=====================================
+    def parse(self, source_uri: str|Path) -> bool:
+    #=============================================
         try:
             self.__graph.parse(location=str(source_uri), format='turtle')
+            return True
         except Exception as e:
             log.error(str(e))
+            return False
 
     def remove(self, triple: tuple) -> Self:
     #=======================================
