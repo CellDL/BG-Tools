@@ -154,13 +154,13 @@ def model2celldl(model: BondgraphModel, celldl_file: Path):
     celldl_graph.save_diagram(celldl_file)
     log.info(f'Created {pretty_log(celldl_file)}')
 
-def bg2cellml(bondgraph_rdf_source: str, output_path: Path, save_rdf: bool=False, save_if_errors: bool=False):
-#=============================================================================================================
+def bg2cellml(bondgraph_rdf_source: str, output_path: Path, save_rdf: bool=False, save_if_errors: bool=False, debug: bool=False):
+#================================================================================================================================
     source = Path(bondgraph_rdf_source)
     if not source.exists():
         raise IOError(f'Missing BG-RDF source file: {bondgraph_rdf_source}')
     output_rdf = (output_path / f'{source.stem}.ttl') if save_rdf else None
-    for model in BondgraphModelSource(bondgraph_rdf_source, output_rdf=output_rdf).models:
+    for model in BondgraphModelSource(bondgraph_rdf_source, output_rdf=output_rdf, debug=debug).models:
         model2cellml(model, output_path / f'{source.stem}.cellml', save_if_errors)
         model2celldl(model, output_path / f'{source.stem}.celldl.svg')
 
@@ -170,6 +170,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description='BG-RDF to CellML and CellDL')
     parser.add_argument('-v', '--version', action='version', version=__version__)
+    parser.add_argument('--debug', action='store_true', help='Show generated equations for model')
     parser.add_argument('--save-errors', action='store_true', help='Output CellML even if it has errors')
     parser.add_argument('--save-rdf', action='store_true', help='Optionally save intermediate RDF graph')
     parser.add_argument('--output', metavar='OUTPUT_DIR', required=True, help='Directory where generated files are saved')
@@ -177,7 +178,7 @@ def main():
 
     args = parser.parse_args()
 
-    bg2cellml(args.bg_rdf, Path(args.output), save_rdf=args.save_rdf, save_if_errors=args.save_errors)
+    bg2cellml(args.bg_rdf, Path(args.output), save_rdf=args.save_rdf, save_if_errors=args.save_errors, debug=args.debug)
 
 #===============================================================================
 

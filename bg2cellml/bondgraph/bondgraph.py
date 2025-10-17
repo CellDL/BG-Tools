@@ -31,7 +31,7 @@ import sympy
 from ..rdf import BNode, Literal, ResultRow, ResultType, RDFGraph, URIRef
 from ..mathml import Equation, LinearEquations, MathML
 from ..units import Value
-from ..utils import log, pretty_log, pretty_uri
+from ..utils import bright, log, pretty_log, pretty_uri
 
 from .framework import BondgraphFramework as FRAMEWORK, BondgraphElementTemplate, CompositeTemplate
 from .framework import Domain, PowerPort, Variable
@@ -549,7 +549,7 @@ MODEL_BONDS = """
 #===============================================================================
 
 class BondgraphModel(Labelled):
-    def __init__(self, rdf_graph: RDFGraph, uri: URIRef, label: Optional[str]=None):
+    def __init__(self, rdf_graph: RDFGraph, uri: URIRef, label: Optional[str]=None, debug=False):
         super().__init__(uri, label)
         self.__rdf_graph = rdf_graph
         self.__elements = []
@@ -601,6 +601,22 @@ class BondgraphModel(Labelled):
         self.__junction_equations: list[Equation] = []
         for element in self.__elements:
             self.__junction_equations.extend(element.junction_equations)
+        if debug:
+            print(f'{bright()}Elements:')
+            for element in self.__elements:
+                print(' ', pretty_uri(element.uri))
+                if (cr := element.constitutive_relation) is not None:
+                    for eq in cr.equations:
+                        print('   ', eq)
+                for eq in element.equations:
+                    print('   ', eq)
+            print('Junctions:')
+            for junction in self.__junctions:
+                print(' ', pretty_uri(junction.uri))
+                equations = junction.equations(self.__graph)
+                for eq in equations:
+                    print('   ', eq)
+
 
     @property
     def elements(self):
@@ -755,7 +771,7 @@ BONDGRAPH_MODEL_TEMPLATES = """
 #===============================================================================
 
 class BondgraphModelSource:
-    def __init__(self, source: str, output_rdf: Optional[Path]=None):
+    def __init__(self, source: str, output_rdf: Optional[Path]=None, debug=False):
         self.__rdf_graph = RDFGraph(NAMESPACES)
         self.__source_path = Path(source).resolve()
         self.__loaded_sources: set[Path] = set()
@@ -778,7 +794,7 @@ class BondgraphModelSource:
         for (uri, label) in base_models:
             for row in self.__rdf_graph.query(BONDGRAPH_MODEL_TEMPLATES.replace('%MODEL%', uri)):
                 self.__add_template(row[0])
-            self.__models[uri] = BondgraphModel(self.__rdf_graph, uri, label)
+            self.__models[uri] = BondgraphModel(self.__rdf_graph, uri, label, debug=debug)
 
     def __add_template(self, path: ResultType):
     #==========================================
