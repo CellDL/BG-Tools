@@ -19,7 +19,6 @@
 #===============================================================================
 
 from collections import defaultdict
-from collections.abc import Hashable
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Optional
@@ -28,7 +27,6 @@ from typing import Optional
 
 import lxml.etree as etree
 import numpy as np
-import scipy.sparse
 import sympy
 from sympy.printing.mathml import MathMLContentPrinter
 
@@ -114,187 +112,6 @@ class Equation:
         return etree.fromstring(
             sympy_to_mathml(
                 self.sympy_equation()))
-
-#===============================================================================
-
-"""
-Maps a ``key`` to an ``int`` to use as an index.
-"""
-class KeyIndex(dict[Hashable, int]):
-    def __init__(self):
-        self.__keys: list[Hashable] = []
-
-    def __getitem__(self, key: Hashable):
-    #===============================
-        if key in self:
-           return super().__getitem__(key)
-        else:
-           index = len(self.__keys)
-           self.__keys.append(key)
-           super().__setitem__(key, index)
-           return index
-
-    def key(self, index: int) -> Hashable:
-    #=====================================
-        return self.__keys[index]
-
-#===============================================================================
-
-class LinearEquations:
-    def __init__(self):
-        self.__symbol_index = KeyIndex()
-        self.__data_cols: list[int] = []
-        self.__data_rows: list[int] = []
-        self.__data_values: list[int] = []
-        self.__equation_number: int = 0
-        self.__matrix = scipy.sparse.csr_array((0, 0), dtype=np.int8)
-        self.__equalities: list[Equation] = []
-        self.__equations: list[sympy.Expr] = []
-
-    @property
-    def equations(self) -> list[Equation]:
-    #=====================================
-        return self.__equalities
-
-    @property
-    def sympy_equations(self) -> list[sympy.Expr]:
-    #=============================================
-        return self.__equations
-
-    @property
-    def matrix(self):
-    #================
-        return self.__matrix
-
-    @property
-    def symbol_index(self):
-    #======================
-        return self.__symbol_index
-
-    def add_equation(self, inputs: list[str], outputs: list[str]):
-    #=============================================================
-        if set(inputs) != set(outputs):
-            for input in inputs:
-                col = self.__symbol_index[input]
-                self.__data_cols.append(col)
-                self.__data_rows.append(self.__equation_number)
-                self.__data_values.append(1)
-            for output in outputs:
-                col = self.__symbol_index[output]
-                self.__data_cols.append(col)
-                self.__data_rows.append(self.__equation_number)
-                self.__data_values.append(-1)
-            self.__equation_number += 1
-
-    def make_matrix(self):
-    #=====================
-        if len(self.__data_values):
-            self.__matrix = scipy.sparse.coo_array((np.array(self.__data_values),
-                                                    (np.array(self.__data_rows), np.array(self.__data_cols)))).tocsr()
-        #print(self.__symbol_index)
-        #print(self.__matrix.toarray())
-        self.__build_equations()
-
-    def __build_equations(self):
-    #===========================
-        for row in self.__matrix:
-            lhs = None
-            lhs_factor = 1
-            rhs_terms = []
-            coefficients = row.toarray()    # type: ignore
-            for symbol, index in self.__symbol_index.items():
-                if abs(coefficients[index]) == 1:
-                    if lhs is None:
-                        lhs = sympy.Symbol(symbol)
-                        lhs_factor = coefficients[index]
-                    else:
-                        rhs_terms.append(coefficients[index]*sympy.Symbol(symbol))
-            if lhs is None:
-                raise ValueError(f'Cannot determine LHS of equation: {[str(term) for term in rhs_terms]}')
-            elif rhs_terms:
-                self.__equalities.append(Equation(lhs, sympy.Mul(-lhs_factor, sympy.Add(*rhs_terms))))
-                self.__equations.append(sympy.Add(lhs, *rhs_terms))
-
-#===============================================================================
-
-class EquationSet:
-    def __init__(self, equations: list[Equation]):
-        self.__equations = equations
-        self.__var_equations = defaultdict(set)
-        self.__free_symbols = set()
-        for n, equation in enumerate(self.__equations):
-            free_symbols = equation.rhs.free_symbols
-            free_symbols.add(equation.lhs)
-            self.__free_symbols |= free_symbols
-            for symbol in free_symbols:
-                self.__var_equations[symbol].add(n)
-        self.reset()
-
-    def contains(self, symbol) -> bool:
-    #==================================
-        return symbol in self.__free_symbols
-
-    def reset(self):
-    #===============
-        self.__used_equations = []
-
-    def solve(self, symbol: sympy.Basic) -> Optional[sympy.Expr]:
-    #============================================================
-        indices = self.__var_equations[symbol]
-        for index in indices:
-            if index not in self.__used_equations:
-                equation = self.__equations[index]
-                self.__used_equations.append(index)
-                if symbol == equation.lhs:
-                    soln = equation.rhs
-                elif symbol == -equation.lhs:
-                    soln = -equation.rhs
-                else:
-                    try:
-                        soln = sympy.solve(equation.lhs - equation.rhs, symbol, dict=True)
-                        soln = soln[0][symbol] if len(soln) == 1 else None
-                    except NotImplementedError:
-                        soln = None
-                if soln is not None:
-                    return soln
-
-#===============================================================================
-
-class ODEResolver:
-    def __init__(self, algebraics: list[Equation], junctions: list[Equation]):
-        self.__algebraic_set = EquationSet(algebraics)
-        self.__junction_set = EquationSet(junctions)
-
-    def resolve(self, ode: Equation) -> Equation:
-    #============================================
-        self.__junction_set.reset()
-        self.__algebraic_set.reset()
-        return Equation(ode.lhs, self.__resolve_rhs(ode.rhs))
-
-    def __resolve_rhs(self, rhs: sympy.Basic) -> sympy.Basic:
-    #========================================================
-        free_symbols = list(rhs.free_symbols)
-        symbol_index = 0
-        seen_symbols = set()
-        while symbol_index < len(free_symbols):
-            symbol = free_symbols[symbol_index]
-            symbol_index += 1
-            if symbol not in seen_symbols:
-                seen_symbols.add(symbol)
-                # First try to solve for symbol in algebriacs
-                if self.__algebraic_set.contains(symbol):
-                    soln = self.__algebraic_set.solve(symbol)
-                    if soln is not None:
-                        rhs = rhs.subs(symbol, soln)
-                        # Don't resolve symbols in solution
-                        continue
-                if self.__junction_set.contains(symbol):
-                    soln = self.__junction_set.solve(symbol)
-                    if soln is not None:
-                        rhs = rhs.subs(symbol, soln)
-                        # Resolve symbols in solution
-                        free_symbols.extend(soln.free_symbols)
-        return rhs
 
 #===============================================================================
 #===============================================================================
