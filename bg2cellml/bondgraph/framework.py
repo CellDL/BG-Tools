@@ -77,7 +77,7 @@ class Variable:
     def __init__(self, element_uri: URIRef, name: str, units: Optional[Literal|Units], value: Optional[Literal]):
         self.__element_uri = element_uri
         self.__name = clean_name(name)
-        self.__symbol = None
+        self.__symbol: Optional[str] = None
         self.__units = Units.from_ucum(units) if isinstance(units, Literal) else units
         if value is not None:
             self.__value = Value.from_literal(value)
@@ -105,7 +105,7 @@ class Variable:
         return self.__name
 
     @property
-    def symbol(self):
+    def symbol(self) -> str:
         return self.__symbol if self.__symbol is not None else self.__name
 
     @property
