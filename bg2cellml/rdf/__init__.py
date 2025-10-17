@@ -54,7 +54,7 @@ class Namespace:
 
 class RDFGraph:
     def __init__(self, namespaces: Optional[dict[str, str]]=None):
-        self.__graph = rdflib.Graph(bind_namespaces='none')
+        self.__graph = rdflib.Graph(bind_namespaces='none', store='Oxigraph')
         if namespaces is not None:
             for prefix, namespace in namespaces.items():
                 self.__graph.bind(prefix, namespace)
@@ -88,7 +88,7 @@ class RDFGraph:
     def parse(self, source_uri: str|Path) -> bool:
     #=============================================
         try:
-            self.__graph.parse(location=str(source_uri), format='turtle')
+            self.__graph.parse(location=str(source_uri), format='ox-turtle')
             return True
         except Exception as e:
             log.error(str(e))
@@ -101,7 +101,7 @@ class RDFGraph:
 
     def serialise(self) -> str:
     #==========================
-        return self.__graph.serialize(format='turtle')
+        return self.__graph.serialize(format='ox-turtle')
 
     def triples(self, triple: tuple):
     #================================
