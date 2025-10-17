@@ -59,6 +59,10 @@ class RDFGraph:
             for prefix, namespace in namespaces.items():
                 self.__graph.bind(prefix, namespace)
 
+    @property
+    def graph(self):
+        return self.__graph
+
     def __contains__(self, triple: tuple) -> bool:
     #=============================================
         return triple in self.__graph
