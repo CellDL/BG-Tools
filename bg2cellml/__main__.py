@@ -114,7 +114,7 @@ def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_errors: bool=
             simulation.simulations[0].output_end_time = 0.1
             simulation.simulations[0].number_of_steps = 10
 
-            instance = simulation.instantiate(True)
+            instance = simulation.instantiate()
             instance.run()
             if instance.has_issues:
                 for issue in instance.issues:
