@@ -415,6 +415,8 @@ class ElementTemplate(Labelled):
         # Values of intrinsic variables are set by bgf:hasValue
         if self.__element_class == QUANTITY_STORE:
             self.__intrinsic_variable = self.__domain.quantity.copy()
+        if self.__element_class == KINETIC_STORE:
+            self.__intrinsic_variable = self.__domain.flow.copy()
         elif self.__element_class == POTENTIAL_SOURCE:
             self.__intrinsic_variable = self.__domain.potential.copy()
         elif self.__element_class == FLOW_SOURCE:
