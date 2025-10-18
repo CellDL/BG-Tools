@@ -29,7 +29,7 @@ import sympy
 #===============================================================================
 
 from ..rdf import BNode, Literal, ResultRow, ResultType, RDFGraph, URIRef
-from ..mathml import Equation, LinearEquations, MathML
+from ..mathml import Equation, MathML
 from ..units import Value
 from ..utils import bright, log, pretty_log, pretty_uri
 
@@ -596,8 +596,6 @@ class BondgraphModel(Labelled):
         self.__check_and_assign_domains_to_bond_network()
         self.__assign_junction_domains()
 
-#        self.__junction_equations = LinearEquations()
-#        self.__make_junction_equations()
         self.__junction_equations: list[Equation] = []
         for element in self.__elements:
             self.__junction_equations.extend(element.junction_equations)
@@ -665,13 +663,6 @@ class BondgraphModel(Labelled):
     #===================================
         for junction in self.__junctions:
             junction.assign_domain_and_variables(self.__graph)
-
-    def __make_junction_equations(self):
-    #===================================
-        pass
-#        for junction in self.__junctions:
-#            junction.assign_relation(self.__graph, self.__junction_equations)
-#        self.__junction_equations.make_matrix()
 
     # Construct network graph of PowerBonds
     def __make_bond_network(self):
