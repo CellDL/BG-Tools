@@ -741,11 +741,11 @@ BONDGRAPH_MODELS = """
 #===============================================================================
 
 BONDGRAPH_MODEL_BLOCKS = """
-    SELECT DISTINCT ?blockSource
+    SELECT DISTINCT ?blockUrl
     WHERE {
-        ?uri
+        <%MODEL%>
             a bgf:BondgraphModel ;
-            bgf:hasBlock ?blockSource .
+            bgf:hasBlock ?blockUrl .
     }"""
 
 #===============================================================================
@@ -801,16 +801,18 @@ class BondgraphModelSource:
     def __init__(self, source: str, output_rdf: Optional[Path]=None, debug=False):
         self.__rdf_graph = RDFGraph(NAMESPACES)
         self.__source_path = Path(source).resolve()
-        self.__loaded_sources: set[Path] = set()
-        self.__load_rdf(self.__source_path)
-        base_models: list[tuple[URIRef, Optional[Literal]]] = [(row[0], row[1])     # type: ignore
-            for row in self.__rdf_graph.query(BONDGRAPH_MODELS)]
-        if len(base_models) < 1:
-            raise ValueError(f'No BondgraphModels in source {source}')
-        self.__load_blocks(self.__source_path)
+        source_url = self.__source_path.as_uri()
+        self.__loaded_sources: set[str] = set()
+        self.__load_rdf(source_url)
+        base_models = []
+        for row in self.__rdf_graph.query(BONDGRAPH_MODELS):
+            uri = cast(URIRef, row[0])
+            base_models.append((uri, row[1]))
+            self.__load_blocks(uri, source_url)
+            self.__generate_bonds(uri)
 
-        ##FRAMEWORK.resolve_composites(base_models[0][0], self.__rdf_graph)
-        self.__generate_bonds(base_models[0][0])
+        if len(base_models) < 1:
+            log.error(f'No BondgraphModels in source {source}')
 
         if output_rdf is not None:
             with open(output_rdf, 'w') as fp:
@@ -822,6 +824,10 @@ class BondgraphModelSource:
             for row in self.__rdf_graph.query(BONDGRAPH_MODEL_TEMPLATES.replace('%MODEL%', uri)):
                 self.__add_template(row[0])
             self.__models[uri] = BondgraphModel(self.__rdf_graph, uri, label, debug=debug)
+
+    @property
+    def models(self):
+        return list(self.__models.values())
 
     def __add_template(self, path: ResultType):
     #==========================================
@@ -854,26 +860,23 @@ class BondgraphModelSource:
               or (None, BGF.hasJunctionStructure, target) in self.__rdf_graph)):
                 self.__rdf_graph.add((model_uri, BGF.hasPowerBond, row[0]))
 
-    def __load_blocks(self, base_path: Path):
-    #========================================
-        for row in self.__rdf_graph.query(BONDGRAPH_MODEL_BLOCKS):
-            path = base_path.parent.joinpath(str(row[0])).resolve()
-            self.__load_source(path)
+    def __load_blocks(self, model_uri: URIRef, base_path: str):
+    #==========================================================
+        ## need to make sure blocks are only loaded once. c.f templates
+        for row in self.__rdf_graph.query(BONDGRAPH_MODEL_BLOCKS.replace('%MODEL%', str(model_uri))):
+            self.__load_rdf(urldefrag(str(row[0])).url)
 
-    def __load_rdf(self, source_path: Path):
-    #=======================================
-        self.__rdf_graph.parse(source_path.as_uri())
-        self.__loaded_sources.add(source_path)
-
-    def __load_source(self, source_path: Path):
-    #==========================================
+    def __load_rdf(self, source_path: str):
+    #======================================
         if source_path not in self.__loaded_sources:
-            self.__load_rdf(source_path)
-            self.__load_blocks(source_path)
-
-    @property
-    def models(self):
-        return list(self.__models.values())
+            self.__loaded_sources.add(source_path)
+            graph = RDFGraph(NAMESPACES)
+            graph.parse(source_path)
+            for row in graph.query(BONDGRAPH_MODELS):
+                if isinstance(row[0], URIRef):
+                    #FRAMEWORK.resolve_composites(row[0], graph)
+                    self.__load_blocks(row[0], source_path)
+            self.__rdf_graph.merge(graph)
 
 #===============================================================================
 #===============================================================================
