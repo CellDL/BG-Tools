@@ -212,7 +212,7 @@ class BondgraphElement(ModelElement):
             self.__variable_values.update(variable_values)
 
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
-            self.__variables[intrinsic_var.name] = intrinsic_var.copy(suffix=self.symbol, strip_name=True, domain=self.__domain)
+            self.__variables[intrinsic_var.name] = intrinsic_var.copy(suffix=self.symbol, domain=self.__domain)
             self.__intrinsic_variable = self.__variables[intrinsic_var.name]
             if self.__element_class == FLOW_SOURCE:
                 port_var = self.__ports[self.uri].flow
