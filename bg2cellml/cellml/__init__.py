@@ -108,13 +108,10 @@ class CellMLModel:
         self.__add_unit_xml(DIMENSIONLESS_UNIT_DEFINITION)  ## Only if <cn> in MathML??
         self.__add_fixed(VOI_VARIABLE)       # only if VOI in some element's CR??
 
-        self.__element_equations: list[Equation] = []
         for element in model.elements:
             self.__add_element(element)
-
         for junction in model.junctions:
             self.__add_junction_variables(junction)
-
         self.__output_variable_definitions()
         self.__equations_to_mathml()
         self.__add_dimensionless_attrib()
@@ -130,8 +127,6 @@ class CellMLModel:
             self.__add_fixed(constant)
         for variable in element.variables.values():
             self.__add_variable(variable)
-        if (relation := element.constitutive_relation) is not None:
-            self.__element_equations.extend(relation.equalities)
 
     def __add_dimensionless_attrib(self):
     #====================================
@@ -198,28 +193,32 @@ class CellMLModel:
         result.append(elements_from_units(units))
         return result
 
+    def __output_equations(self, equations: list[Equation], description: str):
+    #=========================================================================
+        if len(equations):
+            self.__main.append(etree.Comment(f' {description}'))
+            for equation in sorted(equations, key=lambda eq: str(eq.lhs)):
+                self.__main.append(equation.mathml_equation())
+
     def __equations_to_mathml(self):
     #===============================
-        element_odes = []
+        equations = self.__model.equations
+        element_odes: list[Equation] = []
         element_algebraics: list[Equation] = []
-        for equation in self.__element_equations:
-            if isinstance(equation.lhs, sympy.Symbol):
+        junction_algebraics: list[Equation] = []
+        for equation in equations:
+            if equation.provenance == 'cr':
+                if isinstance(equation.lhs, sympy.Symbol):
+                    element_algebraics.append(equation)
+                elif isinstance(equation.lhs, sympy.Derivative):
+                    element_odes.append(equation)
+            elif equation.provenance == 'be':
                 element_algebraics.append(equation)
-            elif isinstance(equation.lhs, sympy.Derivative):
-                element_odes.append(equation)
-        junction_equations = self.__model.junction_equations
-
-        self.__main.append(etree.Comment(' Bond ODEs'))
-        for equation in sorted(element_odes, key=lambda eq: str(eq.lhs)):
-            self.__main.append(equation.mathml_equation())
-
-        self.__main.append(etree.Comment(' Bond algebraics'))
-        for equation in sorted(element_algebraics, key=lambda eq: symbol_sort_key(str(eq.lhs))):
-            self.__main.append(equation.mathml_equation())
-
-        self.__main.append(etree.Comment(' Junction structures'))
-        for equation in sorted(junction_equations, key=lambda eq: symbol_sort_key(str(eq.lhs))):
-            self.__main.append(equation.mathml_equation())
+            else:
+                junction_algebraics.append(equation)
+        self.__output_equations(element_odes, 'Element ODEs')
+        self.__output_equations(element_algebraics, 'Element algebraics')
+        self.__output_equations(junction_algebraics, 'Junction algebraics')
 
     def to_xml(self) -> str:
     #=======================

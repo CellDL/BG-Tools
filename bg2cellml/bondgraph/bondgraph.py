@@ -19,7 +19,8 @@
 #===============================================================================
 
 from pathlib import Path
-from typing import Optional
+from typing import cast, Optional
+from urllib.parse import urldefrag
 
 #===============================================================================
 
@@ -165,6 +166,8 @@ class BondgraphElement(ModelElement):
         self.__potential_variable = None
         self.__flow_expression = None
         self.__potential_expression = None
+        self.__equations = []
+
         self.__implied_junction = None
         if composite:
             if self.__element_class == QUANTITY_STORE:
@@ -175,7 +178,6 @@ class BondgraphElement(ModelElement):
             self.__implied_junction = ZERONODE_JUNCTION
         elif self.__element_class == FLOW_SOURCE:
             self.__implied_junction = ONENODE_JUNCTION
-        self.__junction_equations = []
 
         self.__variables = {}
         self.__port_variable_names = set()
@@ -258,8 +260,8 @@ class BondgraphElement(ModelElement):
         return self.__flow_expression
 
     @property
-    def junction_equations(self) -> list[Equation]:
-        return self.__junction_equations
+    def equations(self) -> list[Equation]:
+        return self.__equations
 
     @property
     def ports(self) -> dict[URIRef, PowerPort]:
@@ -323,7 +325,7 @@ class BondgraphElement(ModelElement):
             for name, variable in self.__variables.items():
                 self.__constitutive_relation.substitute(name, variable.symbol,
                                                         missing_ok=(name in self.__port_variable_names))
-            for eqn in self.__constitutive_relation.equalities:
+            for eqn in self.__constitutive_relation.equations:
                 if eqn.lhs == self.__flow_variable:
                     self.__flow_expression = eqn.rhs
                 elif eqn.lhs == self.__potential_variable:
@@ -372,7 +374,7 @@ class BondgraphElement(ModelElement):
                 log.error(f'Unexpected bond graph node for {pretty_uri(port_id)}: {self.__element_class}')
 
             if self.__constitutive_relation is not None:
-                for eqn in self.__constitutive_relation.equalities:
+                for eqn in self.__constitutive_relation.equations:
                     if eqn.rhs == self.__flow_variable and flow_expr:
                         eqn.rhs = flow_expr
                     elif eqn.lhs == self.__potential_variable and potential_expr:
@@ -470,21 +472,25 @@ class BondgraphJunction(ModelElement):
             log.error(f'Transform Nodes {pretty_uri(self.uri)} are not yet supported')
             ## each port needs a domain, if gyrator different domains...
 
-    '''
-    def assign_relation(self, bond_graph: nx.DiGraph, equations: 'LinearEquations'):
-    #===============================================================================
+    def equations(self, bond_graph: nx.DiGraph) -> list[Equation]:
+    #=============================================================
+        ## is this where we multiply by bondCount??
+        equations: list[Equation] = []
         if bond_graph.degree[self.uri] > 1:   # type: ignore
             # we are connected to several nodes
+            inputs = []
+            outputs = []
+            equal_value: list[str] = []
             if self.__type == ONENODE_JUNCTION:
                 # Sum of potentials connected to junction is 0
                 inputs = [symbol for node in bond_graph.predecessors(self.uri)
-                            if (symbol := potential_symbol(bond_graph.nodes[node])) != '']
+                            if (symbol := potential_symbol(bond_graph.nodes[node])) is not None]
                 outputs = [symbol for node in bond_graph.successors(self.uri)
-                            if (symbol := potential_symbol(bond_graph.nodes[node])) != '']
-                equal_value = [node_dict['port'].flow.variable.symbol
+                            if (symbol := potential_symbol(bond_graph.nodes[node])) is not None]
+                equal_value.extend([node_dict['port'].flow.variable.symbol
                                 for node in bond_graph.predecessors(self.uri)
                                     if 'port' in (node_dict := bond_graph.nodes[node])
-                                        and node_dict['element'].element_class != POTENTIAL_SOURCE]
+                                        and node_dict['element'].element_class != POTENTIAL_SOURCE])
                 equal_value.extend([node_dict['port'].flow.variable.symbol
                                 for node in bond_graph.successors(self.uri)
                                     if 'port' in (node_dict := bond_graph.nodes[node])
@@ -492,27 +498,39 @@ class BondgraphJunction(ModelElement):
             elif self.__type == ZERONODE_JUNCTION:
                 # Sum of flows connected to junction is 0
                 inputs = [symbol for node in bond_graph.predecessors(self.uri)
-                            if (symbol := flow_symbol(bond_graph.nodes[node])) != '']
+                            if (symbol := flow_symbol(bond_graph.nodes[node])) is not None]
                 outputs = [symbol for node in bond_graph.successors(self.uri)
-                            if (symbol := flow_symbol(bond_graph.nodes[node])) != '']
-                equal_value = [node_dict['port'].potential.variable.symbol
+                            if (symbol := flow_symbol(bond_graph.nodes[node])) is not None]
+
+                equal_value.extend([node_dict['port'].potential.variable.symbol
                                 for node in bond_graph.predecessors(self.uri)
                                     if 'port' in (node_dict := bond_graph.nodes[node])
-                                        and node_dict['element'].element_class != FLOW_SOURCE]
+                                        and node_dict['element'].element_class != FLOW_SOURCE])
                 equal_value.extend([node_dict['port'].potential.variable.symbol
                                 for node in bond_graph.successors(self.uri)
                                     if 'port' in (node_dict := bond_graph.nodes[node])
                                         and node_dict['element'].element_class != FLOW_SOURCE])
             else:
                 raise ValueError(f'Unexpected bond graph node for {self.uri}: {self.__type}')
-            equations.add_equation(inputs, outputs)
-            # The first junction variable represents the flow/potential of the node itself
-            junction_symbol = self.__variables[0].symbol
-            for symbol in equal_value:
-                if symbol != junction_symbol:
-                    equations.add_equation([junction_symbol], [symbol])
-    '''
 
+            if len(equal_value):
+                # The first junction variable represents the flow/potential of the node itself
+                junction_symbol = sympy.Symbol(self.__variables[0].symbol)
+                for value in equal_value:
+                    # Filter out known equality between an implied junction and an element's port
+                    if (symbol := sympy.Symbol(value)) != junction_symbol:
+                        equations.append(Equation(junction_symbol, sympy.Symbol(value)))
+            if len(inputs) or len(outputs):
+                if len(outputs):
+                    lhs = outputs.pop()
+                    if len(outputs):
+                        equations.append(Equation(lhs, sympy.Add(sympy.Mul(-1, sympy.Add(*outputs)), *inputs)))
+                    else:
+                        equations.append(Equation(lhs, sympy.Add(*inputs)))
+                elif len(inputs) > 1:
+                    lhs = inputs.pop()
+                    equations.append(Equation(lhs, sympy.Mul(-1, sympy.Add(*inputs))))
+        return equations
 
 #===============================================================================
 #===============================================================================
@@ -592,13 +610,25 @@ class BondgraphModel(Labelled):
 
         self.__graph = nx.DiGraph()
         self.__make_bond_network()
-        self.__assign_element_variables()
         self.__check_and_assign_domains_to_bond_network()
-        self.__assign_junction_domains()
+        self.__assign_junction_domain_and_variables()
+        self.__assign_element_variables_and_equations()
 
-        self.__junction_equations: list[Equation] = []
+        self.__equations: list[Equation] = []
         for element in self.__elements:
-            self.__junction_equations.extend(element.junction_equations)
+            if (cr := element.constitutive_relation) is not None:
+                self.__equations.extend(cr.equations)
+                for eq in cr.equations:
+                    eq.provenance = 'cr'
+            self.__equations.extend(element.equations)
+            for eq in element.equations:
+                eq.provenance = 'be'
+        for junction in self.__junctions:
+            equations = junction.equations(self.__graph)
+            self.__equations.extend(equations)
+            for eq in equations:
+                eq.provenance = 'js'
+
         if debug:
             print(f'{bright()}Elements:')
             for element in self.__elements:
@@ -615,7 +645,6 @@ class BondgraphModel(Labelled):
                 for eq in equations:
                     print('   ', eq)
 
-
     @property
     def elements(self):
         return self.__elements
@@ -625,19 +654,24 @@ class BondgraphModel(Labelled):
         return self.__junctions
 
     @property
-    def junction_equations(self):
-        return self.__junction_equations
+    def equations(self):
+        return self.__equations
 
     @property
     def network_graph(self) -> nx.DiGraph:
         return self.__graph.copy()
 
-    def __assign_element_variables(self):
-    #====================================
+    def __assign_element_variables_and_equations(self):
+    #==================================================
         for element in self.__elements:
             element.assign_variables(self.__graph)
         for element in self.__elements:
             element.build_expressions(self.__graph)
+
+    def __assign_junction_domain_and_variables(self):
+    #================================================
+        for junction in self.__junctions:
+            junction.assign_domain_and_variables(self.__graph)
 
     # Assign junction domains from elements and check consistency
     def __check_and_assign_domains_to_bond_network(self):
@@ -658,11 +692,6 @@ class BondgraphModel(Labelled):
         for element in self.__elements:
             for port_id in element.ports.keys():
                 check_node(port_id, element.domain)
-
-    def __assign_junction_domains(self):
-    #===================================
-        for junction in self.__junctions:
-            junction.assign_domain_and_variables(self.__graph)
 
     # Construct network graph of PowerBonds
     def __make_bond_network(self):
