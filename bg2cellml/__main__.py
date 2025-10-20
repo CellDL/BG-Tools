@@ -35,8 +35,6 @@ from bg2cellml.bondgraph import BondgraphModel, BondgraphModelSource
 from bg2cellml.cellml import CellMLModel
 from bg2cellml.utils import log, pretty_log
 
-from graph2celldl import Graph2CellDL
-
 #===============================================================================
 #===============================================================================
 
@@ -128,31 +126,6 @@ def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_errors: bool=
             fp.write(cellml)
             log.info(f'Generated {pretty_log(cellml_file)}')
 
-def model2celldl(model: BondgraphModel, celldl_file: Path):
-#==========================================================
-    G = model.network_graph
-
-    # Merge together multiple nodes for an element
-    element_nodes = defaultdict(list)
-    for node, element in G.nodes(data='element'):
-        if element is not None:
-            element_nodes[element.uri].append(node)     # type: ignore
-    for element, nodes in element_nodes.items():
-        if len(nodes) > 1:
-            base_node = nodes[0]
-            for node in nodes[1:]:
-                for edge_domain in G.in_edges(node, data='domain'):
-                    G.add_edge(edge_domain[0], base_node, domain=edge_domain[2])
-                for edge_domain in G.out_edges(node, data='domain'):
-                    G.add_edge(base_node, edge_domain[1], domain=edge_domain[2])
-                G.remove_node(node)
-
-    G.graph['k'] = 0.1                   # Parameter for spring layout
-    celldl_graph = Graph2CellDL(G, layout_method='spring',
-        stylesheet=BGF_STYLESHEET, node_size=(150, 100), connection_stroke_width=6)
-    celldl_graph.save_diagram(celldl_file)
-    log.info(f'Created {pretty_log(celldl_file)}')
-
 def bg2cellml(bondgraph_rdf_source: str, output_path: Path, save_rdf: bool=False, save_if_errors: bool=False, debug: bool=False):
 #================================================================================================================================
     source = Path(bondgraph_rdf_source)
@@ -161,13 +134,12 @@ def bg2cellml(bondgraph_rdf_source: str, output_path: Path, save_rdf: bool=False
     output_rdf = (output_path / f'{source.stem}.ttl') if save_rdf else None
     for model in BondgraphModelSource(bondgraph_rdf_source, output_rdf=output_rdf, debug=debug).models:
         model2cellml(model, output_path / f'{source.stem}.cellml', save_if_errors)
-        model2celldl(model, output_path / f'{source.stem}.celldl.svg')
 
 #===============================================================================
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description='BG-RDF to CellML and CellDL')
+    parser = argparse.ArgumentParser(description='Convert BG-RDF models to CellML')
     parser.add_argument('-v', '--version', action='version', version=__version__)
     parser.add_argument('--debug', action='store_true', help='Show generated equations for model')
     parser.add_argument('--save-errors', action='store_true', help='Output CellML even if it has errors')

@@ -7,7 +7,6 @@ authors = [
 ]
 requires-python = "==3.12.*"
 dependencies = [
-    "celldltools",
     "lxml>=5.4.0",
     "networkx>=3.3",
     "numpy>=2.3.0",
@@ -35,4 +34,3 @@ packages = ["bg2cellml"]
 
 [tool.uv.sources]
 libopencor = { git = "https://github.com/opencor/libopencor.git" }
-celldltools = {path = '/Users/dbro078/CellDL/bondgraph-tools/celldltools', editable=true}
