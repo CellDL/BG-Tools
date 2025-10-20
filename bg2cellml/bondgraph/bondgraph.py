@@ -48,13 +48,17 @@ def make_element_port_id(element_uri: URIRef, port_id: str) -> URIRef:
 #=====================================================================
     return element_uri if port_id in [None, ''] else element_uri + f'_{port_id}'
 
-def flow_symbol(node_dict: dict, expand=True) -> Optional[sympy.Expr]:
-#=====================================================================
+def flow_expression(node_dict: dict) -> Optional[sympy.Expr]:
+#============================================================
+    if ('port' in node_dict
+    and (expr := node_dict['element'].flow_expression) is not None):
+        return expr
+    return flow_symbol(node_dict)
+
+def flow_symbol(node_dict: dict) -> Optional[sympy.Symbol]:
+#==========================================================
     if 'port' in node_dict:                         # A BondElement's port
-        if expand and (expr := node_dict['element'].flow_expression) is not None:
-            return expr
-        port: PowerPort = node_dict['port']
-        return sympy.Symbol(port.flow.variable.symbol)
+        return sympy.Symbol(node_dict['port'].flow.variable.symbol)
     elif 'junction' in node_dict:
         junction: BondgraphJunction = node_dict['junction']
         if junction.type == ONENODE_JUNCTION:
@@ -63,15 +67,19 @@ def flow_symbol(node_dict: dict, expand=True) -> Optional[sympy.Expr]:
             log.error(f'Adjacent Zero Nodes to junction {junction.uri} must be merged')
         elif junction.type == TRANSFORM_JUNCTION:
             log.error('Transform Nodes are not yet supported')
-    log.error(f'Unexpected bond graph node: {node_dict}')
+    log.error(f'Unexpected bond graph node, cannot get flow: {node_dict}')
 
-def potential_symbol(node_dict: dict, expand=True) -> Optional[sympy.Expr]:
-#==========================================================================
+def potential_expression(node_dict: dict) -> Optional[sympy.Expr]:
+#=================================================================
+    if ('port' in node_dict
+    and (expr := node_dict['element'].potential_expression) is not None):
+        return expr
+    return potential_symbol(node_dict)
+
+def potential_symbol(node_dict: dict) -> Optional[sympy.Symbol]:
+#===============================================================
     if 'port' in node_dict:                         # A BondElement's port
-        if expand and (expr := node_dict['element'].potential_expression) is not None:
-            return expr
-        port: PowerPort = node_dict['port']
-        return sympy.Symbol(port.potential.variable.symbol)
+        return sympy.Symbol(node_dict['port'].potential.variable.symbol)
     elif 'junction' in node_dict:
         junction: BondgraphJunction = node_dict['junction']
         if junction.type == ZERONODE_JUNCTION:
@@ -80,7 +88,7 @@ def potential_symbol(node_dict: dict, expand=True) -> Optional[sympy.Expr]:
             log.error(f'Adjacent One Nodes to junction {junction.uri} must be merged')
         elif junction.type == TRANSFORM_JUNCTION:
             log.error('Transform Nodes are not yet supported')
-    log.error(f'Unexpected bond graph node: {node_dict}')
+    log.error(f'Unexpected bond graph node, cannot get potential: {node_dict}')
 
 #===============================================================================
 
@@ -338,41 +346,40 @@ class BondgraphElement(ModelElement):
             potential_expr = None
             if self.__implied_junction == ZERONODE_JUNCTION:
                 # Sum of flows connected to junction is 0
-                inputs = [symbol for node in bond_graph.predecessors(port_id)
-                            if (symbol := flow_symbol(bond_graph.nodes[node])) is not None]
-                outputs = [symbol for node in bond_graph.successors(port_id)
-                            if (symbol := flow_symbol(bond_graph.nodes[node])) is not None]
+                inputs = [expr for node in bond_graph.predecessors(port_id)
+                            if (expr := flow_expression(bond_graph.nodes[node])) is not None]
+                outputs = [expr for node in bond_graph.successors(port_id)
+                            if (expr := flow_expression(bond_graph.nodes[node])) is not None]
                 flow_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))   ## flow_expression
                 if self.__flow_variable is not None:
-                    self.__junction_equations.append(Equation(self.__flow_variable, flow_expr))
+                    self.__equations.append(Equation(self.__flow_variable, flow_expr))
                 if len(self.__ports) > 1 and self.__element_class == QUANTITY_STORE:
+                    # Two port capacitor...
                     flow = sympy.Symbol(port.flow.variable.symbol)
                     for node in bond_graph.predecessors(port_id):
-                        if (symbol := flow_symbol(bond_graph.nodes[node], expand=False)) is not None:
-                            self.__junction_equations.append(Equation(flow, symbol))
+                        if (symbol := flow_symbol(bond_graph.nodes[node])) is not None:
+                            self.__equations.append(Equation(flow, symbol))
                     for node in bond_graph.successors(port_id):
-                        if (symbol := flow_symbol(bond_graph.nodes[node], expand=False)) is not None:
-                            self.__junction_equations.append(Equation(flow, symbol))
+                        if (symbol := flow_symbol(bond_graph.nodes[node])) is not None:
+                            self.__equations.append(Equation(flow, symbol))
             elif self.__implied_junction == ONENODE_JUNCTION:
                 # Sum of potentials connected to junction is 0
-                inputs = [symbol for node in bond_graph.predecessors(port_id)
-                            if (symbol := potential_symbol(bond_graph.nodes[node])) is not None]
-                outputs = [symbol for node in bond_graph.successors(port_id)
-                            if (symbol := potential_symbol(bond_graph.nodes[node])) is not None]
+                inputs = [expr for node in bond_graph.predecessors(port_id)
+                            if (expr := potential_expression(bond_graph.nodes[node])) is not None]
+                outputs = [expr for node in bond_graph.successors(port_id)
+                            if (expr := potential_expression(bond_graph.nodes[node])) is not None]
                 potential_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))
                 if self.__potential_variable is not None:
-                    self.__junction_equations.append(Equation(self.__potential_variable, potential_expr))
+                    self.__equations.append(Equation(self.__potential_variable, potential_expr))
                 if len(self.__ports) > 1 and self.__element_class == DISSIPATOR:
+                    # Reaction...
                     potential = sympy.Symbol(port.potential.variable.symbol)
                     for node in bond_graph.predecessors(port_id):
-                        if (symbol := potential_symbol(bond_graph.nodes[node], expand=False)) is not None:
-                            self.__junction_equations.append(Equation(potential, symbol))
+                        if (symbol := potential_symbol(bond_graph.nodes[node])) is not None:
+                            self.__equations.append(Equation(potential, symbol))
                     for node in bond_graph.successors(port_id):
-                        if (symbol := potential_symbol(bond_graph.nodes[node], expand=False)) is not None:
-                            self.__junction_equations.append(Equation(potential, symbol))
-            else:
-                log.error(f'Unexpected bond graph node for {pretty_uri(port_id)}: {self.__element_class}')
-
+                        if (symbol := potential_symbol(bond_graph.nodes[node])) is not None:
+                            self.__equations.append(Equation(potential, symbol))
             if self.__constitutive_relation is not None:
                 for eqn in self.__constitutive_relation.equations:
                     if eqn.rhs == self.__flow_variable and flow_expr:
