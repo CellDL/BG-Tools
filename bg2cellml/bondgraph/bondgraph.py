@@ -38,7 +38,7 @@ from .framework import BondgraphFramework as FRAMEWORK, BondgraphElementTemplate
 from .framework import Domain, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
 from .framework import FLOW_SOURCE, POTENTIAL_SOURCE
-from .framework import DISSIPATOR, KINETIC_STORE, QUANTITY_STORE
+from .framework import DISSIPATOR, FLOW_STORE, QUANTITY_STORE
 from .namespaces import BGF, NAMESPACES
 from .utils import Labelled
 
@@ -179,6 +179,8 @@ class BondgraphElement(ModelElement):
         self.__implied_junction = None
         if composite:
             if self.__element_class == QUANTITY_STORE:
+                self.__implied_junction = ZERONODE_JUNCTION
+            elif self.__element_class == FLOW_STORE:
                 self.__implied_junction = ZERONODE_JUNCTION
             elif self.__element_class == DISSIPATOR:
                 self.__implied_junction = ONENODE_JUNCTION

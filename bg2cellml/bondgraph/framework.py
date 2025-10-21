@@ -50,7 +50,7 @@ VOI_UCUMUNIT = Literal('s', datatype=CDT.ucumunit)
 
 DISSIPATOR         = BGF.Dissipator
 FLOW_SOURCE        = BGF.FlowSource
-KINETIC_STORE      = BGF.FlowStore
+FLOW_STORE         = BGF.FlowStore
 POTENTIAL_SOURCE   = BGF.PotentialSource
 QUANTITY_STORE     = BGF.QuantityStore
 
@@ -415,7 +415,7 @@ class ElementTemplate(Labelled):
         # Values of intrinsic variables are set by bgf:hasValue
         if self.__element_class == QUANTITY_STORE:
             self.__intrinsic_variable = self.__domain.quantity.copy()
-        if self.__element_class == KINETIC_STORE:
+        if self.__element_class == FLOW_STORE:
             self.__intrinsic_variable = self.__domain.flow.copy()
         elif self.__element_class == POTENTIAL_SOURCE:
             self.__intrinsic_variable = self.__domain.potential.copy()
