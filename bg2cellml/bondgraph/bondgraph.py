@@ -436,7 +436,7 @@ class BondgraphBond(ModelElement):
 
 class BondgraphJunction(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: URIRef, type: URIRef,
-            label: Optional[str], value: Optional[Literal], element_port: Optional[PowerPort]):
+            label: Optional[str], value: Optional[Literal]):
         super().__init__(model, uri, None, label)
         self.__type = type
         self.__junction = FRAMEWORK.junction(type)
@@ -445,7 +445,6 @@ class BondgraphJunction(ModelElement):
         self.__constitutive_relation = None
         self.__domain = None
         self.__value = value
-        self.__associated_element_port = element_port
         self.__variables: list[Variable] = []
 
     @property
@@ -468,15 +467,9 @@ class BondgraphJunction(ModelElement):
             return
         self.__domain = domain
         if self.__type == ONENODE_JUNCTION:
-            if self.__associated_element_port is not None:
-                self.__variables = [self.__associated_element_port.flow.variable]
-            else:
-                self.__variables = [Variable(self.uri, self.symbol, self.__domain.flow.units, self.__value)]
+            self.__variables = [Variable(self.uri, self.symbol, self.__domain.flow.units, self.__value)]
         elif self.__type == ZERONODE_JUNCTION:
-            if self.__associated_element_port is not None:
-                self.__variables = [self.__associated_element_port.potential.variable]
-            else:
-                self.__variables = [Variable(self.uri, self.symbol, self.__domain.potential.units, self.__value)]
+            self.__variables = [Variable(self.uri, self.symbol, self.__domain.potential.units, self.__value)]
         elif self.__type == TRANSFORM_JUNCTION:
             log.error(f'Transform Nodes {pretty_uri(self.uri)} are not yet supported')
             ## each port needs a domain, if gyrator different domains...
@@ -555,13 +548,12 @@ MODEL_ELEMENTS = """
     } ORDER BY ?uri ?type"""
 
 MODEL_JUNCTIONS = """
-    SELECT DISTINCT ?uri ?type ?label ?value ?elementPort
+    SELECT DISTINCT ?uri ?type ?label ?value
     WHERE {
         <%MODEL%> bgf:hasJunctionStructure ?uri .
         ?uri a ?type .
         OPTIONAL { ?uri rdfs:label ?label }
         OPTIONAL { ?uri bgf:hasValue ?value }
-        OPTIONAL { ?uri bgf:hasElementPort ?elementPort }
     }"""
 
 MODEL_BONDS = """
@@ -606,7 +598,7 @@ class BondgraphModel(Labelled):
         for element in self.__elements:
             element_ports.update(element.ports)
         self.__junctions = [
-            BondgraphJunction(self, row[0], row[1], row[2], row[3], element_ports.get(row[4]))  # type: ignore
+            BondgraphJunction(self, row[0], row[1], row[2], row[3])                             # type: ignore
                 for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = []
         for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', uri)):
