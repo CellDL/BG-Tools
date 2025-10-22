@@ -132,7 +132,7 @@ wheels = [
 [[package]]
 name = "bg2cellml"
 version = "0.6.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "libopencor" },
     { name = "lxml" },

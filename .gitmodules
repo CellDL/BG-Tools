@@ -1,0 +1,3 @@
+[submodule "BG-RDF"]
+	path = BG-RDF
+	url = https://github.com/CellDL/BG-RDF

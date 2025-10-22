@@ -37,7 +37,11 @@ from .utils import Labelled
 
 #===============================================================================
 
-BGF_ONTOLOGY = 'https://bg-rdf.org/ontologies/bondgraph-framework.ttl'
+BGF_FRAMEWORK_PATH = (Path( __file__).parent / '../../BG-RDF/').resolve()
+BGF_ONTOLOGY = BGF_FRAMEWORK_PATH / 'schema/ontology.ttl'
+
+BGF_TEMPLATE_PATH = BGF_FRAMEWORK_PATH / 'templates'
+BGF_TEMPLATE_PREFIX = 'https://bg-rdf.org/templates/'
 
 #===============================================================================
 
@@ -628,6 +632,8 @@ class _BondgraphFramework:
     #=================================================
         if isinstance(bgf_template, Path):
             template_uri = bgf_template.resolve().as_uri()
+        elif bgf_template.startswith(BGF_TEMPLATE_PREFIX):
+            template_uri = (BGF_TEMPLATE_PATH / bgf_template[len(BGF_TEMPLATE_PREFIX):]).as_uri()
         else:
             template_uri = bgf_template
         if template_uri not in self.__loaded_templates:
