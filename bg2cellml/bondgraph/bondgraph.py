@@ -467,9 +467,9 @@ class BondgraphJunction(ModelElement):
             return
         self.__domain = domain
         if self.__type == ONENODE_JUNCTION:
-            self.__variables = [Variable(self.uri, self.symbol, self.__domain.flow.units, self.__value)]
+            self.__variables = [Variable(self.uri, self.symbol, units=self.__port_domains[0].flow.units, value=self.__value)]
         elif self.__type == ZERONODE_JUNCTION:
-            self.__variables = [Variable(self.uri, self.symbol, self.__domain.potential.units, self.__value)]
+            self.__variables = [Variable(self.uri, self.symbol, units=self.__port_domains[0].potential.units, value=self.__value)]
         elif self.__type == TRANSFORM_JUNCTION:
             log.error(f'Transform Nodes {pretty_uri(self.uri)} are not yet supported')
             ## each port needs a domain, if gyrator different domains...

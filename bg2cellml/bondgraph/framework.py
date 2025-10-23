@@ -78,7 +78,8 @@ def clean_name(name: str) -> str:
 #===============================================================================
 
 class Variable:
-    def __init__(self, element_uri: URIRef, name: str, units: Optional[Literal|Units], value: Optional[Literal]):
+    def __init__(self, element_uri: URIRef, name: str, units: Optional[Literal|Units]=None,
+                                                       value: Optional[Literal]=None):
         self.__element_uri = element_uri
         self.__name = clean_name(name)
         self.__symbol: Optional[str] = None
@@ -135,7 +136,7 @@ class Variable:
                     name = suffix
                 else:
                     name = f'{self.__name}_{suffix}'
-        copy = Variable(self.__element_uri, name, self.__units, None)
+        copy = Variable(self.__element_uri, name, units=self.__units)
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy
 
@@ -154,7 +155,7 @@ class Variable:
 
 #===============================================================================
 
-VOI_VARIABLE = Variable(URIRef(''), VOI_SYMBOL, VOI_UCUMUNIT, None)
+VOI_VARIABLE = Variable(URIRef(''), VOI_SYMBOL, units=VOI_UCUMUNIT)
 
 #===============================================================================
 #===============================================================================
@@ -178,9 +179,9 @@ class Domain(Labelled):
                     potential_name: str, potential_units: Literal,
                     quantity_name: str, quantity_units: Literal):
         super().__init__(uri, label)
-        self.__flow = Variable(self.uri, flow_name, flow_units, None)
-        self.__potential = Variable(self.uri, potential_name, potential_units, None)
-        self.__quantity = Variable(self.uri, quantity_name, quantity_units, None)
+        self.__flow = Variable(self.uri, flow_name, units=flow_units)
+        self.__potential = Variable(self.uri, potential_name, units=potential_units)
+        self.__quantity = Variable(self.uri, quantity_name, units=quantity_units)
         self.__intrinsic_symbols = [
             self.__flow.symbol,
             self.__potential.symbol,
@@ -232,7 +233,7 @@ class Domain(Labelled):
 
     def __add_constants(self, graph: RDFGraph):
     #==========================================
-        self.__constants.extend([Variable(self.uri, str(row[0]), None, row[1])  # type: ignore
+        self.__constants.extend([Variable(self.uri, str(row[0]), value=row[1])  # type: ignore
                                 for row in graph.query(
                                         DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri))])
 
@@ -401,7 +402,7 @@ class ElementTemplate(Labelled):
     #==============================================================================================
         port_var_name = f'{domain_variable.name}{suffix}'
         return NamedPortVariable(name=port_var_name,
-                                variable=Variable(self.uri, port_var_name, domain_variable.units, None))
+                                variable=Variable(self.uri, port_var_name, units=domain_variable.units))
 
     def __add_variables(self, graph: RDFGraph):
     #==========================================
@@ -409,12 +410,12 @@ class ElementTemplate(Labelled):
             var_name = str(row[0])
             if var_name in self.__domain.intrinsic_symbols:
                 raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
-            self.__parameters[var_name] = Variable(self.uri, str(row[0]), row[1], row[2])   # type: ignore
+            self.__parameters[var_name] = Variable(self.uri, str(row[0]), units=row[1], value=row[2])   # type: ignore
         for row in graph.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri, True)):
             var_name = str(row[0])
             if var_name in self.__domain.intrinsic_symbols:
                 raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
-            self.__variables[var_name] = Variable(self.uri, str(row[0]), row[1], row[2])   # type: ignore
+            self.__variables[var_name] = Variable(self.uri, str(row[0]), units=row[1], value=row[2])   # type: ignore
         # A variable that is intrinsic to the element's class
         # Values of intrinsic variables are set by bgf:hasValue
         if self.__element_class == QUANTITY_STORE:
