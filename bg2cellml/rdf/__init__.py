@@ -103,9 +103,11 @@ class RDFGraph:
         self.__graph.remove(triple)
         return self
 
-    def serialise(self) -> str:
-    #==========================
-        return self.__graph.serialize(format='ox-turtle')
+    def serialise(self, source_url: Optional[str]=None) -> str:
+    #==========================================================
+        if source_url is not None:
+            self.__graph.bind('', f'{source_url}#')
+        return self.__graph.serialize(format='turtle')
 
     def triples(self, triple: tuple):
     #================================

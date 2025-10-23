@@ -807,7 +807,7 @@ class BondgraphModelSource:
 
         if output_rdf is not None:
             with open(output_rdf, 'w') as fp:
-                fp.write(self.__rdf_graph.serialise())
+                fp.write(self.__rdf_graph.serialise(source_url=source_url))
             log.info(f'Expanded model saved as {pretty_log(output_rdf)}')
 
         self.__models: dict[URIRef, BondgraphModel] = {}
