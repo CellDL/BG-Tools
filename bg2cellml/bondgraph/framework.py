@@ -334,7 +334,7 @@ class ElementTemplate(Labelled):
                 self.__relation = MathML.from_string(mathml)
             except ValueError as error:
                 raise ValueError(f'{self.uri}: {error}')
-        self.__ports: dict[str, PowerPort] = {}
+        self.__power_ports: dict[str, PowerPort] = {}
         self.__parameters: dict[str, Variable] = {}
         self.__variables: dict[str, Variable] = {}
         self.__intrinsic_variable: Optional[Variable] = None
@@ -369,8 +369,8 @@ class ElementTemplate(Labelled):
         return self.__parameters
 
     @property
-    def ports(self) -> dict[str, PowerPort]:
-        return self.__ports
+    def power_ports(self) -> dict[str, PowerPort]:
+        return self.__power_ports
 
     @property
     def variables(self) -> dict[str, Variable]:
@@ -385,18 +385,17 @@ class ElementTemplate(Labelled):
                 port_ids[str(row[0])] = optional_integer(row[1], 1)
         if len(port_ids):
             flow_suffixed = (len(port_ids) == 2) and (self.__element_class != DISSIPATOR)
-            self.__ports = {}
+            self.__power_ports = {}
             for id, count in port_ids.items():
                 suffix = f'_{id}'
                 flow_var = self.__port_name_variable(self.domain.flow, suffix if flow_suffixed else '')
                 potential_var = self.__port_name_variable(self.domain.potential, suffix)
-                self.__ports[id] = PowerPort(self.uri + suffix, flow_var, potential_var)
+                self.__power_ports[id] = PowerPort(self.uri + suffix, flow_var, potential_var)
         else:
-            self.__ports = {'': PowerPort(self.uri,
+            self.__power_ports = {'': PowerPort(self.uri,
                                     self.__port_name_variable(self.domain.flow),
                                     self.__port_name_variable(self.domain.potential)
-                                )
-                           }
+                                 )}
 
     def __port_name_variable(self, domain_variable: Variable, suffix: str='') -> NamedPortVariable:
     #==============================================================================================
@@ -442,7 +441,7 @@ class ElementTemplate(Labelled):
         eqn_names = self.__relation.variables if self.__relation is not None else []
         if len(names) > len(eqn_names):
             raise ValueError(f"{self.uri} has variables that are not in it's constitutive relation")
-        for port in self.__ports.values():
+        for port in self.__power_ports.values():
             if port.flow is not None:
                 add_name(port.flow.name, False)
             if port.potential is not None:

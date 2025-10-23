@@ -44,8 +44,8 @@ from .utils import Labelled
 
 #===============================================================================
 
-def make_element_port_id(element_uri: URIRef, port_id: str) -> URIRef:
-#=====================================================================
+def make_element_port_uri(element_uri: URIRef, port_id: str) -> URIRef:
+#======================================================================
     return element_uri if port_id in [None, ''] else element_uri + f'_{port_id}'
 
 def flow_expression(node_dict: dict) -> Optional[sympy.Expr]:
@@ -166,9 +166,9 @@ class BondgraphElement(ModelElement):
         self.__domain = element_template.domain
         self.__type = element_template.uri
 
-        self.__ports: dict[URIRef, PowerPort] = {}
-        for port_id, port in element_template.ports.items():
-            self.__ports[make_element_port_id(self.uri, port_id)] = port.copy(suffix=self.symbol, domain=self.__domain)
+        self.__power_ports: dict[URIRef, PowerPort] = {}
+        for port_id, port in element_template.power_ports.items():
+            self.__power_ports[make_element_port_uri(self.uri, port_id)] = port.copy(suffix=self.symbol, domain=self.__domain)
 
         self.__flow_variable = None
         self.__potential_variable = None
@@ -191,7 +191,7 @@ class BondgraphElement(ModelElement):
 
         self.__variables = {}
         self.__port_variable_names = set()
-        for port in self.__ports.values():
+        for port in self.__power_ports.values():
             # A port, by definition, always has flow and potential??
             # Then for a composite storage element, element_flow = -sum(connected_flows)
             #                "   dissapator   "        potential = -sum(connected_potentials)
@@ -225,10 +225,10 @@ class BondgraphElement(ModelElement):
             self.__variables[intrinsic_var.name] = intrinsic_var.copy(suffix=self.symbol, domain=self.__domain)
             self.__intrinsic_variable = self.__variables[intrinsic_var.name]
             if self.__element_class == FLOW_SOURCE:
-                port_var = self.__ports[self.uri].flow
+                port_var = self.__power_ports[self.uri].flow
                 port_var.variable = self.__intrinsic_variable
             elif self.__element_class == POTENTIAL_SOURCE:
-                port_var = self.__ports[self.uri].potential
+                port_var = self.__power_ports[self.uri].potential
                 port_var.variable = self.__intrinsic_variable
             if intrinsic_value is not None:
                 self.__intrinsic_variable.set_value(intrinsic_value)
@@ -274,8 +274,8 @@ class BondgraphElement(ModelElement):
         return self.__equations
 
     @property
-    def ports(self) -> dict[URIRef, PowerPort]:
-        return self.__ports
+    def power_ports(self) -> dict[URIRef, PowerPort]:
+        return self.__power_ports
 
     @property
     def potential_expression(self) -> Optional[sympy.Basic]:
@@ -294,14 +294,14 @@ class BondgraphElement(ModelElement):
     #==================================================
         ## Remove variables associated with any unconnected ports
         unused_ports = []
-        for port_id, port in self.__ports.items():
-            if bond_graph.degree(port_id) == 0:
-                unused_ports.append(port_id)
+        for port_uri, port in self.__power_ports.items():
+            if bond_graph.degree(port_uri) == 0:     # pyright: ignore[reportCallIssue]
+                unused_ports.append(port_uri)
                 if self.__element_class == DISSIPATOR:
                     del self.__variables[port.potential.name]
                     self.__port_variable_names.remove(port.potential.name)
-        for port_id in unused_ports:
-            del self.__ports[port_id]
+        for port_uri in unused_ports:
+            del self.__power_ports[port_uri]
 
         for var_name, value in self.__variable_values.items():
             if (variable := self.__variables.get(var_name)) is None:
@@ -343,7 +343,7 @@ class BondgraphElement(ModelElement):
 
     def build_expressions(self, bond_graph: nx.DiGraph):
     #===================================================
-        for port_id, port in self.__ports.items():
+        for port_id, port in self.__power_ports.items():
             flow_expr = None
             potential_expr = None
             if self.__implied_junction == ZERONODE_JUNCTION:
@@ -355,7 +355,7 @@ class BondgraphElement(ModelElement):
                 flow_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))   ## flow_expression
                 if self.__flow_variable is not None:
                     self.__equations.append(Equation(self.__flow_variable, flow_expr))
-                if len(self.__ports) > 1 and self.__element_class == QUANTITY_STORE:
+                if len(self.__power_ports) > 1 and self.__element_class == QUANTITY_STORE:
                     # Two port capacitor...
                     flow = sympy.Symbol(port.flow.variable.symbol)
                     for node in bond_graph.predecessors(port_id):
@@ -373,7 +373,7 @@ class BondgraphElement(ModelElement):
                 potential_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))
                 if self.__potential_variable is not None:
                     self.__equations.append(Equation(self.__potential_variable, potential_expr))
-                if len(self.__ports) > 1 and self.__element_class == DISSIPATOR:
+                if len(self.__power_ports) > 1 and self.__element_class == DISSIPATOR:
                     # Reaction...
                     potential = sympy.Symbol(port.potential.variable.symbol)
                     for node in bond_graph.predecessors(port_id):
@@ -409,8 +409,8 @@ class BondgraphBond(ModelElement):
                         source: URIRef|BNode, target: URIRef|BNode,
                         label: Optional[str]=None):
         super().__init__(model, uri, None, label)
-        self.__source_id = self.__get_port(source, BGF.hasSource)
-        self.__target_id = self.__get_port(target, BGF.hasTarget)
+        self.__source_id = self.__get_port_uri(source, BGF.hasSource)
+        self.__target_id = self.__get_port_uri(target, BGF.hasTarget)
 
     @property
     def source_id(self) -> Optional[URIRef]:
@@ -420,16 +420,16 @@ class BondgraphBond(ModelElement):
     def target_id(self) -> Optional[URIRef]:
         return self.__target_id
 
-    def __get_port(self, port: URIRef|BNode, reln: URIRef) -> Optional[URIRef]:
-    #==========================================================================
-        if isinstance(port, BNode):
+    def __get_port_uri(self, port_uri: URIRef|BNode, reln: URIRef) -> Optional[URIRef]:
+    #==================================================================================
+        if isinstance(port_uri, BNode):
             for row in self.model.sparql_query(
                 MODEL_BOND_PORTS.replace('%MODEL%', self.model.uri)
                                 .replace('%BOND%', self.uri)
                                 .replace('%BOND_RELN%', reln)):
-                return make_element_port_id(row[0], str(row[1]))    # type: ignore
+                return make_element_port_uri(row[0], str(row[1]))    # type: ignore
         else:
-            return make_element_port_id(port, '')
+            return port_uri
 
 #===============================================================================
 #===============================================================================
@@ -594,9 +594,6 @@ class BondgraphModel(Labelled):
             log.error(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF class')
         if len(self.__elements) == 0:
             log.error(f'Model {(pretty_uri(uri))} has no elements...')
-        element_ports = {}
-        for element in self.__elements:
-            element_ports.update(element.ports)
         self.__junctions = [
             BondgraphJunction(self, row[0], row[1], row[2], row[3])                             # type: ignore
                 for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
@@ -691,15 +688,15 @@ class BondgraphModel(Labelled):
                     log.error(f'Node {node} with domain {node_domain} incompatible with {domain}')
 
         for element in self.__elements:
-            for port_id in element.ports.keys():
-                check_node(port_id, element.domain)
+            for port_uri in element.power_ports.keys():
+                check_node(port_uri, element.domain)
 
     # Construct network graph of PowerBonds
     def __make_bond_network(self):
     #=============================
         for element in self.__elements:
-            for port_id, port in element.ports.items():
-                self.__graph.add_node(port_id,
+            for port_uri, port in element.power_ports.items():
+                self.__graph.add_node(port_uri, uri=port_uri,
                     type=self.__rdf_graph.curie(element.type), port=port, element=element, label=element.symbol)
         for junction in self.__junctions:
             self.__graph.add_node(junction.uri,
