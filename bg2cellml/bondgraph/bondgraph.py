@@ -237,15 +237,15 @@ class BondgraphElement(ModelElement):
     def for_model(cls, model: 'BondgraphModel', uri: URIRef, template: BondgraphElementTemplate,
     #===========================================================================================
                                     domain_uri: Optional[URIRef], symbol: Optional[str], label: Optional[str]):
-        parameter_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # type: ignore
+        parameter_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # pyright: ignore[reportAssignmentType]
             for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT%', uri))
         }
-        variable_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # type: ignore
+        variable_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # pyright: ignore[reportAssignmentType]
             for row in model.sparql_query(ELEMENT_VARIABLE_VALUES.replace('%ELEMENT%', uri))
         }
         intrinsic_value: Optional[Value] = None
         for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT%', uri)):
-            intrinsic_value = Value.from_literal(row[0])                            # type: ignore
+            intrinsic_value = Value.from_literal(row[0])                            # pyright: ignore[reportArgumentType]
             break
         return cls(model, uri, template, domain_uri=domain_uri,
                     parameter_values=parameter_values, variable_values=variable_values,
@@ -425,7 +425,7 @@ class BondgraphBond(ModelElement):
                 MODEL_BOND_PORTS.replace('%MODEL%', self.model.uri)
                                 .replace('%BOND%', self.uri)
                                 .replace('%BOND_RELN%', reln)):
-                return make_element_port_uri(row[0], str(row[1]))    # type: ignore
+                return make_element_port_uri(row[0], str(row[1]))    # pyright: ignore[reportArgumentType]
         else:
             return port_uri
 
@@ -628,7 +628,8 @@ class BondgraphModel(Labelled):
             if template is not None:
                 if element is None:
                     try:
-                        element = BondgraphElement.for_model(self, row[0], template, row[2], row[3], row[4]) # type: ignore
+                        element = BondgraphElement.for_model(self, row[0], template,    # pyright: ignore[reportArgumentType]
+                                                             row[2], row[3], row[4])    # pyright: ignore[reportArgumentType]
                         self.__elements.append(element)
                     except ValueError as e:
                         log.error(str(e))
@@ -643,12 +644,12 @@ class BondgraphModel(Labelled):
                 for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = []
         for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', uri)):
-            bond_uri: URIRef = row[0]                                                            # type: ignore
+            bond_uri: URIRef = row[0]                                                   # pyright: ignore[reportAssignmentType]
             if row[1] is None or row[2] is None:
                 log.error(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
                 continue
             self.__bonds.append(
-                BondgraphBond(self, bond_uri, row[1], row[2], row[3]))                           # type: ignore
+                BondgraphBond(self, bond_uri, row[1], row[2], row[3]))                  # pyright: ignore[reportArgumentType]
 
         self.__graph = nx.DiGraph()
         self.__make_bond_network()
