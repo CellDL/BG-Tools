@@ -63,6 +63,67 @@ TRANSFORM_JUNCTION = BGF.TransformNode  # Can act as a transformer of gyrator
 ZERONODE_JUNCTION  = BGF.ZeroNode
 
 #===============================================================================
+#===============================================================================
+
+TRANSFORM_RATIO_NAME     = 'RATIO'
+
+TRANSFORM_FLOW_NAME      = 'v'
+TRANSFORM_POTENTIAL_NAME = 'u'
+
+TRANSFORM_PORT_IDS       = ['0', '1']
+
+#===============================================================================
+
+GYRATOR_EQUATIONS = MathML.from_string(f"""
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <apply>
+            <eq/>
+            <ci>{TRANSFORM_POTENTIAL_NAME}_{TRANSFORM_PORT_IDS[0]}</ci>
+            <apply>
+                <times/>
+                <ci>{TRANSFORM_RATIO_NAME}</ci>
+                <ci>{TRANSFORM_FLOW_NAME}_{TRANSFORM_PORT_IDS[1]}</ci>
+            </apply>
+        </apply>
+        <apply>
+            <eq/>
+            <ci>{TRANSFORM_POTENTIAL_NAME}_{TRANSFORM_PORT_IDS[1]}</ci>
+            <apply>
+                <times/>
+                <ci>{TRANSFORM_RATIO_NAME}</ci>
+                <ci>{TRANSFORM_FLOW_NAME}_{TRANSFORM_PORT_IDS[0]}</ci>
+            </apply>
+        </apply>
+    </math>
+""")
+
+#===============================================================================
+
+TRANSFORMER_EQUATIONS = MathML.from_string(f"""
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <apply>
+            <eq/>
+            <ci>{TRANSFORM_POTENTIAL_NAME}_{TRANSFORM_PORT_IDS[1]}</ci>
+            <apply>
+                <times/>
+                <ci>{TRANSFORM_RATIO_NAME}</ci>
+                <ci>{TRANSFORM_POTENTIAL_NAME}_{TRANSFORM_PORT_IDS[0]}</ci>
+            </apply>
+        </apply>
+        <apply>
+            <eq/>
+            <ci>{TRANSFORM_FLOW_NAME}_{TRANSFORM_PORT_IDS[1]}</ci>
+            <apply>
+                <divide/>
+                <ci>{TRANSFORM_FLOW_NAME}_{TRANSFORM_PORT_IDS[0]}</ci>
+                <ci>{TRANSFORM_RATIO_NAME}</ci>
+            </apply>
+        </apply>
+    </math>
+""")
+
+#===============================================================================
+#===============================================================================
 
 def optional_integer(value: ResultType, default: Optional[int]=None) -> Optional[int]:
 #=====================================================================================
