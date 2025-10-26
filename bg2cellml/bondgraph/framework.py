@@ -297,7 +297,7 @@ ELEMENT_VARIABLES = """
 
 #===============================================================================
 
-ELEMENT_PORT_IDS = """
+ELEMENT_PORT_BONDS = """
     SELECT DISTINCT ?portId ?bondCount
     WHERE {
         {
@@ -378,15 +378,15 @@ class ElementTemplate(Labelled):
 
     def __add_ports(self, graph: RDFGraph):
     #======================================
-        port_ids = {}
+        port_bonds: dict[str, int|None] = {}
         for row in graph.query(
-                        ELEMENT_PORT_IDS.replace('%ELEMENT_URI%', self.uri)):
+                        ELEMENT_PORT_BONDS.replace('%ELEMENT_URI%', self.uri)):
             if isinstance(row[0], Literal):
-                port_ids[str(row[0])] = optional_integer(row[1], 1)
-        if len(port_ids):
-            flow_suffixed = (len(port_ids) == 2) and (self.__element_class != DISSIPATOR)
+                port_bonds[str(row[0])] = optional_integer(row[1], 1)
+        if len(port_bonds):
+            flow_suffixed = (len(port_bonds) == 2) and (self.__element_class != DISSIPATOR)
             self.__power_ports = {}
-            for id, count in port_ids.items():
+            for id, bond_count in port_bonds.items():
                 suffix = f'_{id}'
                 flow_var = self.__port_name_variable(self.domain.flow, suffix if flow_suffixed else '')
                 potential_var = self.__port_name_variable(self.domain.potential, suffix)
