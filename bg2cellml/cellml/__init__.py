@@ -143,7 +143,7 @@ class CellMLModel:
 
     def __add_junction_variables(self, junction: BondgraphJunction):
     #===============================================================
-        for variable in junction.variables:
+        for variable in junction.variables.values():
             self.__add_variable(variable)
 
     def __add_units(self, units: Units):
