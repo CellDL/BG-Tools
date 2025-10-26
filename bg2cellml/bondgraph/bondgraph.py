@@ -434,8 +434,8 @@ class BondgraphBond(ModelElement):
 
 class BondgraphJunction(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: URIRef, type: URIRef,
-            label: Optional[str], value: Optional[Literal]):
-        super().__init__(model, uri, None, label)
+            label: Optional[str], value: Optional[Literal], symbol: Optional[Literal]):
+        super().__init__(model, uri, symbol, label)
         self.__type = type
         self.__junction = FRAMEWORK.junction(type)
         if self.__junction is None:
@@ -591,12 +591,13 @@ MODEL_ELEMENTS = """
     } ORDER BY ?uri ?type"""
 
 MODEL_JUNCTIONS = """
-    SELECT DISTINCT ?uri ?type ?label ?value
+    SELECT DISTINCT ?uri ?type ?label ?value ?symbol
     WHERE {
         <%MODEL%> bgf:hasJunctionStructure ?uri .
         ?uri a ?type .
         OPTIONAL { ?uri rdfs:label ?label }
         OPTIONAL { ?uri bgf:hasValue ?value }
+        OPTIONAL { ?uri bgf:hasSymbol ?symbol }
     }"""
 
 MODEL_BONDS = """
@@ -638,7 +639,7 @@ class BondgraphModel(Labelled):
         if len(self.__elements) == 0:
             log.error(f'Model {(pretty_uri(uri))} has no elements...')
         self.__junctions = [
-            BondgraphJunction(self, row[0], row[1], row[2], row[3])                             # type: ignore
+            BondgraphJunction(self, row[0], row[1], row[2], row[3], row[4])             # pyright: ignore[reportArgumentType]
                 for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
         self.__bonds = []
         for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', uri)):
