@@ -698,9 +698,9 @@ class BondgraphModel(Labelled):
                 print(' ', pretty_uri(element.uri))
                 if (cr := element.constitutive_relation) is not None:
                     for eq in cr.equations:
-                        print('   ', eq)
+                        print('   CR:', eq)
                 for eq in element.equations:
-                    print('   ', eq)
+                    print('   EQ:', eq)
             print('Junctions:')
             for junction in self.__junctions:
                 print(' ', pretty_uri(junction.uri))
