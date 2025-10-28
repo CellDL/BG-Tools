@@ -285,6 +285,10 @@ class BondgraphElement(ModelElement):
         return self.__equations
 
     @property
+    def implied_junction(self) -> Optional[URIRef]:
+        return self.__implied_junction
+
+    @property
     def power_ports(self) -> dict[URIRef, PowerPort]:
         return self.__power_ports
 
@@ -490,26 +494,37 @@ class BondgraphJunction(ModelElement):
             domains.append(domain)
             neighbours = list(graph.neighbors(port_uri))
             power_port = None
+            flow_name = f'{TRANSFORM_FLOW_NAME}_{self.symbol}_{port_id}'
+            flow_var_name = f'{TRANSFORM_FLOW_NAME}_{port_id}'
+            potential_name = f'{TRANSFORM_POTENTIAL_NAME}_{self.symbol}_{port_id}'
+            potential_var_name = f'{TRANSFORM_POTENTIAL_NAME}_{port_id}'
             if len(neighbours):
                 neighbour = graph.nodes[neighbours[0]]
-                if 'power_port' in neighbour:
-                    port = cast(PowerPort, neighbour['power_port'])
-                    power_port = PowerPort(port_uri, port.flow, port.potential)
+                junction_type = None
+                variable = None
+                if 'element' in neighbour:
+                    # Should be a composite element
+                    bond_element: BondgraphElement = neighbour['element']
+                    junction_type = bond_element.implied_junction
+                    if junction_type == ONENODE_JUNCTION:
+                        variable = bond_element.flow
+                    elif junction_type == ZERONODE_JUNCTION:
+                        variable = bond_element.potential
                 elif 'junction' in neighbour:
                     junction: BondgraphJunction = neighbour['junction']
+                    junction_type = junction.type
                     variable = junction.variables['']
-                    flow_name = f'{TRANSFORM_FLOW_NAME}_{self.symbol}_{port_id}'
-                    potential_name = f'{TRANSFORM_POTENTIAL_NAME}_{self.symbol}_{port_id}'
-                    if junction.type == ONENODE_JUNCTION:
-                        self.__variables[f'{TRANSFORM_FLOW_NAME}_{port_id}'] = variable
+                if variable is not None:
+                    if junction_type == ONENODE_JUNCTION:
+                        self.__variables[flow_var_name] = variable
                         potential = Variable(self.uri, potential_name, units=domain.potential.units)
-                        self.__variables[f'{TRANSFORM_POTENTIAL_NAME}_{port_id}'] = potential
+                        self.__variables[potential_var_name] = potential
                         power_port = PowerPort(port_uri, NamedPortVariable(flow_name, variable),
                                                          NamedPortVariable(potential_name, potential))
-                    elif junction.type == ZERONODE_JUNCTION:
+                    elif junction_type == ZERONODE_JUNCTION:
                         flow = Variable(self.uri, flow_name, units=domain.flow.units)
-                        self.__variables[f'{TRANSFORM_FLOW_NAME}_{port_id}'] = flow
-                        self.__variables[f'{TRANSFORM_POTENTIAL_NAME}_{port_id}'] = variable
+                        self.__variables[flow_var_name] = flow
+                        self.__variables[potential_var_name] = variable
                         power_port = PowerPort(port_uri, NamedPortVariable(flow_name, flow),
                                                          NamedPortVariable(potential_name, variable))
             if power_port is not None:
