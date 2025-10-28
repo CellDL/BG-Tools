@@ -355,8 +355,6 @@ class BondgraphElement(ModelElement):
     def build_expressions(self, bond_graph: nx.DiGraph):
     #===================================================
         for port_id, port in self.__power_ports.items():
-            flow_expr = None
-            potential_expr = None
             if self.__implied_junction == ONENODE_JUNCTION:
                 # Sum of potentials connected to junction is 0
                 inputs = [expr for node in bond_graph.predecessors(port_id)
@@ -393,12 +391,6 @@ class BondgraphElement(ModelElement):
                     for node in bond_graph.successors(port_id):
                         if (symbol := flow_symbol(bond_graph.nodes[node])) is not None:
                             self.__equations.append(Equation(flow, symbol))
-            if self.__constitutive_relation is not None:
-                for eqn in self.__constitutive_relation.equations:
-                    if eqn.rhs == self.__flow_variable and flow_expr:
-                        eqn.rhs = flow_expr
-                    elif eqn.lhs == self.__potential_variable and potential_expr:
-                        eqn.rhs = potential_expr
 
 #===============================================================================
 #===============================================================================
