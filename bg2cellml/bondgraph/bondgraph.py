@@ -138,7 +138,7 @@ class BondgraphElement(ModelElement):
     def __init__(self,  model: 'BondgraphModel', uri: URIRef, template: BondgraphElementTemplate,
                         parameter_values: Optional[dict[str, VariableValue]]=None,
                         variable_values: Optional[dict[str, VariableValue]]=None,
-                        domain_uri: Optional[URIRef]=None, intrinsic_value: Optional[Value]=None,
+                        domain_uri: Optional[URIRef]=None, value: Optional[Value|MathML]=None,
                         symbol: Optional[str]=None, label: Optional[str]=None):
         super().__init__(model, uri, symbol, label)
         element_type = pretty_uri(template.uri)
@@ -153,16 +153,19 @@ class BondgraphElement(ModelElement):
         elif domain_uri is not None and element_template.domain.uri != domain_uri:
             raise ValueError(f'Domain mismatch for element {uri} with template {element_type}/{domain_uri}')
 
+        self.__domain = element_template.domain
         self.__element_class = element_template.element_class
+        self.__type = element_template.uri
+
         if self.__element_class in [FLOW_SOURCE, POTENTIAL_SOURCE]:
-            self.__constitutive_relation = None
+            if isinstance(value, MathML):
+                self.__constitutive_relation = value
+            else:
+                self.__constitutive_relation = None
         else:
             if element_template.constitutive_relation is None:
                 raise ValueError(f'Template {element_template.uri} for element {uri} has no constitutive relation')
             self.__constitutive_relation = element_template.constitutive_relation.copy()
-
-        self.__domain = element_template.domain
-        self.__type = element_template.uri
 
         self.__power_ports: dict[URIRef, PowerPort] = {}
         for port_id, port in element_template.power_ports.items():
@@ -230,8 +233,8 @@ class BondgraphElement(ModelElement):
             elif self.__element_class == POTENTIAL_SOURCE:
                 port_var = self.__power_ports[self.uri].potential
                 port_var.variable = self.__intrinsic_variable
-            if intrinsic_value is not None:
-                self.__intrinsic_variable.set_value(intrinsic_value)
+            if value is not None and isinstance(value, Value):
+                self.__intrinsic_variable.set_value(value)
         else:
             self.__intrinsic_variable = None
 
@@ -252,13 +255,17 @@ class BondgraphElement(ModelElement):
         variable_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # pyright: ignore[reportAssignmentType]
             for row in model.sparql_query(ELEMENT_VARIABLE_VALUES.replace('%ELEMENT%', uri))
         }
-        intrinsic_value: Optional[Value] = None
+        value: Optional[Value|MathML] = None
         for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT%', uri)):
-            intrinsic_value = Value.from_literal(row[0])                            # pyright: ignore[reportArgumentType]
-            break
+            if isinstance(row[0], Literal):
+                if row[0].datatype == BGF.mathml:
+                    value = MathML.from_string(str(row[0]))
+                else:
+                    value = Value.from_literal(row[0])
+                break
         return cls(model, uri, template, domain_uri=domain_uri,
                     parameter_values=parameter_values, variable_values=variable_values,
-                    intrinsic_value=intrinsic_value, symbol=symbol, label=label)
+                    value=value, symbol=symbol, label=label)
 
     @property
     def constitutive_relation(self) -> Optional[MathML]:
