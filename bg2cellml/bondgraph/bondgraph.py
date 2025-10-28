@@ -168,8 +168,10 @@ class BondgraphElement(ModelElement):
         for port_id, port in element_template.power_ports.items():
             self.__power_ports[make_element_port_uri(self.uri, port_id)] = port.copy(suffix=self.symbol, domain=self.__domain)
 
-        self.__flow_variable = None
-        self.__potential_variable = None
+        self.__flow: Optional[Variable] = None
+        self.__potential: Optional[Variable] = None
+        self.__flow_symbol = None
+        self.__potential_symbol = None
         self.__flow_expression = None
         self.__potential_expression = None
         self.__equations = []
@@ -187,7 +189,7 @@ class BondgraphElement(ModelElement):
         elif self.__element_class == FLOW_SOURCE:
             self.__implied_junction = ONENODE_JUNCTION
 
-        self.__variables = {}
+        self.__variables: dict[str, Variable] = {}
         self.__port_variable_names = set()
         for port in self.__power_ports.values():
             # A port, by definition, always has flow and potential??
@@ -233,6 +235,13 @@ class BondgraphElement(ModelElement):
         else:
             self.__intrinsic_variable = None
 
+        if (variable := self.__variables.get(self.__domain.flow.symbol)) is not None:
+            self.__flow = variable
+            self.__flow_symbol = sympy.Symbol(variable.symbol)
+        if (variable := self.__variables.get(self.__domain.potential.symbol)) is not None:
+            self.__potential = variable
+            self.__potential_symbol = sympy.Symbol(variable.symbol)
+
     @classmethod
     def for_model(cls, model: 'BondgraphModel', uri: URIRef, template: BondgraphElementTemplate,
     #===========================================================================================
@@ -264,6 +273,10 @@ class BondgraphElement(ModelElement):
         return self.__element_class
 
     @property
+    def flow(self) -> Optional[Variable]:
+        return self.__flow
+
+    @property
     def flow_expression(self) -> Optional[sympy.Basic]:
         return self.__flow_expression
 
@@ -274,6 +287,10 @@ class BondgraphElement(ModelElement):
     @property
     def power_ports(self) -> dict[URIRef, PowerPort]:
         return self.__power_ports
+
+    @property
+    def potential(self) -> Optional[Variable]:
+        return self.__potential
 
     @property
     def potential_expression(self) -> Optional[sympy.Basic]:
@@ -325,18 +342,14 @@ class BondgraphElement(ModelElement):
                 else:
                     self.__variables[var_name] = element.__intrinsic_variable
 
-        if (variable := self.__variables.get(self.__domain.flow.symbol)) is not None:
-            self.__flow_variable = sympy.Symbol(variable.symbol)
-        if (variable := self.__variables.get(self.__domain.potential.symbol)) is not None:
-            self.__potential_variable = sympy.Symbol(variable.symbol)
         if self.__constitutive_relation is not None:
             for name, variable in self.__variables.items():
                 self.__constitutive_relation.substitute(name, variable.symbol,
                                                         missing_ok=(name in self.__port_variable_names))
             for eqn in self.__constitutive_relation.equations:
-                if eqn.lhs == self.__flow_variable:
+                if eqn.lhs == self.__flow_symbol:
                     self.__flow_expression = eqn.rhs
-                elif eqn.lhs == self.__potential_variable:
+                elif eqn.lhs == self.__potential_symbol:
                     self.__potential_expression = eqn.rhs
 
     def build_expressions(self, bond_graph: nx.DiGraph):
@@ -351,8 +364,8 @@ class BondgraphElement(ModelElement):
                 outputs = [expr for node in bond_graph.successors(port_id)
                             if (expr := potential_expression(bond_graph.nodes[node])) is not None]
                 potential_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))
-                if self.__potential_variable is not None:
-                    self.__equations.append(Equation(self.__potential_variable, potential_expr))
+                if self.__potential_symbol is not None:
+                    self.__equations.append(Equation(self.__potential_symbol, potential_expr))
                 if len(self.__power_ports) > 1 and self.__element_class == DISSIPATOR:
                     # Reaction...
                     potential = sympy.Symbol(port.potential.variable.symbol)
@@ -368,9 +381,9 @@ class BondgraphElement(ModelElement):
                             if (expr := flow_expression(bond_graph.nodes[node])) is not None]
                 outputs = [expr for node in bond_graph.successors(port_id)
                             if (expr := flow_expression(bond_graph.nodes[node])) is not None]
-                flow_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))   ## flow_expression
-                if self.__flow_variable is not None:
-                    self.__equations.append(Equation(self.__flow_variable, flow_expr))
+                flow_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))
+                if self.__flow_symbol is not None:
+                    self.__equations.append(Equation(self.__flow_symbol, flow_expr))
                 if len(self.__power_ports) > 1 and self.__element_class == QUANTITY_STORE:
                     # Two port capacitor...
                     flow = sympy.Symbol(port.flow.variable.symbol)
