@@ -49,6 +49,8 @@ def sympy_from_mathml(node: etree.Element) -> sympy.Expr:
         return sympy.Symbol(node.text)
     elif node.tag == MATHML_NS.cn:
         return sympy.Float(float(node.text))
+    elif node.tag == MATHML_NS.pi:
+        return sympy.pi
     elif node.tag != MATHML_NS.apply:
         raise ValueError(f'Expected MathML `apply`, got `{node.tag}`')
     children = node.getchildren()
@@ -78,6 +80,10 @@ def sympy_from_mathml(node: etree.Element) -> sympy.Expr:
         return sympy.Pow(sympy_from_mathml(children[1]), sympy_from_mathml(children[2]))
     elif operator == MATHML_NS.diff:
         return sympy.Derivative(sympy_from_mathml(children[2]), sympy_from_mathml(children[1]), evaluate=False)
+    elif operator == MATHML_NS.cos:
+        return sympy.cos(sympy_from_mathml(children[1]))
+    elif operator == MATHML_NS.sin:
+        return sympy.sin(sympy_from_mathml(children[1]))
     else:
         raise ValueError(f'Unsupported MathML operator: {operator}')
 
