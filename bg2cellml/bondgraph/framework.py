@@ -127,7 +127,7 @@ TRANSFORMER_EQUATIONS = MathML.from_string(f"""
 
 def optional_integer(value: ResultType, default: Optional[int]=None) -> Optional[int]:
 #=====================================================================================
-    if value is not None and isinstance(value, Literal) and value.datatype == XSD.integer:
+    if isinstance(value, Literal) and value.datatype == XSD.integer:
         return int(value)
     return default
 
