@@ -35,7 +35,7 @@ from ..units import Value
 from ..utils import bright, log, pretty_log, pretty_uri
 
 from .framework import BondgraphFramework as FRAMEWORK, BondgraphElementTemplate, CompositeTemplate
-from .framework import Domain, NamedPortVariable, PowerPort, Variable
+from .framework import Domain, NamedPortVariable, optional_integer, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
 from .framework import FLOW_SOURCE, POTENTIAL_SOURCE
 from .framework import DISSIPATOR, FLOW_STORE, QUANTITY_STORE
@@ -421,10 +421,17 @@ MODEL_BOND_PORTS = """
 class BondgraphBond(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: URIRef,
                         source: URIRef|BNode, target: URIRef|BNode,
-                        label: Optional[str]=None):
+                        label: Optional[str]=None,
+                        count: Optional[int]=None):
         super().__init__(model, uri, None, label)
         self.__source_id = self.__get_port_uri(source, BGF.hasSource)
         self.__target_id = self.__get_port_uri(target, BGF.hasTarget)
+        ## Check source and target units match...
+        self.__bond_count = count if count is not None else 1
+
+    @property
+    def bond_count(self) -> int:
+        return self.__bond_count
 
     @property
     def source_id(self) -> Optional[URIRef]:
@@ -555,36 +562,36 @@ class BondgraphJunction(ModelElement):
             inputs = []
             outputs = []
             equal_value: list[str] = []
-            if self.__type == ONENODE_JUNCTION:
-                # Sum of potentials connected to junction is 0
-                inputs = [symbol for node in bond_graph.predecessors(self.uri)
-                            if (symbol := potential_symbol(bond_graph.nodes[node])) is not None]
-                outputs = [symbol for node in bond_graph.successors(self.uri)
-                            if (symbol := potential_symbol(bond_graph.nodes[node])) is not None]
-                equal_value.extend([node_dict['power_port'].flow.variable.symbol
-                                for node in bond_graph.predecessors(self.uri)
-                                    if 'power_port' in (node_dict := bond_graph.nodes[node])
-                                        and node_dict['port_type'] != POTENTIAL_SOURCE])
-                equal_value.extend([node_dict['power_port'].flow.variable.symbol
-                                for node in bond_graph.successors(self.uri)
-                                    if 'power_port' in (node_dict := bond_graph.nodes[node])
-                                        and node_dict['port_type'] != POTENTIAL_SOURCE])
-            elif self.__type == ZERONODE_JUNCTION:
-                # Sum of flows connected to junction is 0
-                inputs = [symbol for node in bond_graph.predecessors(self.uri)
-                            if (symbol := flow_symbol(bond_graph.nodes[node])) is not None]
-                outputs = [symbol for node in bond_graph.successors(self.uri)
-                            if (symbol := flow_symbol(bond_graph.nodes[node])) is not None]
-                equal_value.extend([node_dict['power_port'].potential.variable.symbol
-                                for node in bond_graph.predecessors(self.uri)
-                                    if 'power_port' in (node_dict := bond_graph.nodes[node])
-                                        and node_dict['port_type'] != FLOW_SOURCE])
-                equal_value.extend([node_dict['power_port'].potential.variable.symbol
-                                for node in bond_graph.successors(self.uri)
-                                    if 'power_port' in (node_dict := bond_graph.nodes[node])
-                                        and node_dict['port_type'] != FLOW_SOURCE])
-            else:
-                raise ValueError(f'Unexpected bond graph node for {self.uri}: {self.__type}')
+
+            def update_symbols(node, input):
+                node_dict = bond_graph.nodes[node]
+                edge = (node, self.uri) if input else (self.uri, node)
+                bond_count = bond_graph.edges[edge].get('bond_count', 1)
+                if self.__type == ONENODE_JUNCTION:
+                    if (symbol := potential_symbol(bond_graph.nodes[node])) is not None:
+                        if bond_count != 1:
+                            symbol = sympy.Mul(bond_count, symbol)
+                        if input:
+                            inputs.append(symbol)
+                        else:
+                            outputs.append(symbol)
+                    if 'power_port' in node_dict and node_dict['port_type'] != POTENTIAL_SOURCE:
+                        equal_value.append(node_dict['power_port'].flow.variable.symbol)
+                elif self.__type == ZERONODE_JUNCTION:
+                    if (symbol := flow_symbol(bond_graph.nodes[node])) is not None:
+                        if bond_count != 1:
+                            symbol = sympy.Mul(bond_count, symbol)
+                        if input:
+                            inputs.append(symbol)
+                        else:
+                            outputs.append(symbol)
+                    if 'power_port' in node_dict and node_dict['port_type'] != FLOW_SOURCE:
+                        equal_value.append(node_dict['power_port'].potential.variable.symbol)
+
+            for node in bond_graph.predecessors(self.uri):
+                update_symbols(node, True)
+            for node in bond_graph.successors(self.uri):
+                update_symbols(node, False)
             if len(equal_value):
                 # The first junction variable represents the flow/potential of the node itself
                 junction_symbol = sympy.Symbol(self.__variables[''].symbol)
@@ -628,12 +635,13 @@ MODEL_JUNCTIONS = """
     }"""
 
 MODEL_BONDS = """
-    SELECT DISTINCT ?powerBond ?source ?target ?label
+    SELECT DISTINCT ?powerBond ?source ?target ?label ?bondCount
     WHERE {
         <%MODEL%> bgf:hasPowerBond ?powerBond .
         OPTIONAL { ?powerBond bgf:hasSource ?source }
         OPTIONAL { ?powerBond bgf:hasTarget ?target }
         OPTIONAL { ?powerBond rdfs:label ?label }
+        OPTIONAL { ?powerBond bgf:bondCount ?bondCount }
     }"""
 
 #===============================================================================
@@ -676,7 +684,7 @@ class BondgraphModel(Labelled):
                 log.error(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
                 continue
             self.__bonds.append(
-                BondgraphBond(self, bond_uri, row[1], row[2], row[3]))                  # pyright: ignore[reportArgumentType]
+                BondgraphBond(self, bond_uri, row[1], row[2], row[3], optional_integer(row[4])))    # pyright: ignore[reportArgumentType]
 
         self.__graph = nx.DiGraph()
         self.__make_bond_network()
@@ -798,8 +806,8 @@ class BondgraphModel(Labelled):
             elif target not in self.__graph:
                 log.error(f'No element or junction for target {pretty_uri(target)} of bond {pretty_uri(bond.uri)}')
                 continue
-            self.__graph.add_edge(source, target)
 
+            self.__graph.add_edge(source, target, bond_count=bond.bond_count)
     def sparql_query(self, query: str) -> list[ResultRow]:
     #=====================================================
         return self.__rdf_graph.query(query)
