@@ -561,9 +561,10 @@ class BondgraphJunction(ModelElement):
             # we are connected to several nodes
             inputs = []
             outputs = []
+            equation_lhs = []   # Use a list to pass value from `update_state_equalities` function
             equal_value: list[str] = []
 
-            def update_symbols(node, input):
+            def update_state_equalities(node, input):
                 node_dict = bond_graph.nodes[node]
                 edge = (node, self.uri) if input else (self.uri, node)
                 bond_count = bond_graph.edges[edge].get('bond_count', 1)
@@ -583,11 +584,44 @@ class BondgraphJunction(ModelElement):
                         else: outputs.append(symbol)
                     if 'power_port' in node_dict and node_dict['port_type'] != FLOW_SOURCE:
                         equal_value.append(node_dict['power_port'].potential.variable.symbol)
+                if len(equation_lhs) == 0 and (port := node_dict.get('power_port')) is not None:
+                    if self.__type == ONENODE_JUNCTION:
+                        if node_dict.get('port_type') == DISSIPATOR:
+                            equation_lhs.append(sympy.Symbol(port.potential.variable.symbol))
 
             for node in bond_graph.predecessors(self.uri):
-                update_symbols(node, True)
+                update_state_equalities(node, True)
             for node in bond_graph.successors(self.uri):
-                update_symbols(node, False)
+                update_state_equalities(node, False)
+
+            if len(inputs) or len(outputs):
+                lhs = equation_lhs[0] if len(equation_lhs) else None
+                if len(outputs):
+                    if lhs in inputs:
+                        assert lhs is not None
+                        inputs.remove(lhs)
+                        if len(inputs):
+                            self.__equations.append(Equation(lhs, sympy.Add(*outputs, sympy.Mul(-1, sympy.Add(*inputs)))))
+                        else:
+                            self.__equations.append(Equation(lhs, sympy.Add(*outputs)))
+                    else:
+                        if lhs in outputs:
+                            assert lhs is not None
+                            outputs.remove(lhs)
+                        else:
+                            lhs = outputs.pop()
+                        if len(outputs):
+                            self.__equations.append(Equation(lhs, sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))))
+                        else:
+                            self.__equations.append(Equation(lhs, sympy.Add(*inputs)))
+                elif len(inputs) > 1:
+                    if lhs in inputs:
+                        assert lhs is not None
+                        inputs.remove(lhs)
+                    else:
+                        lhs = inputs.pop()
+                    self.__equations.append(Equation(lhs, sympy.Mul(-1, sympy.Add(*inputs))))
+
             if len(equal_value):
                 # The first junction variable represents the flow/potential of the node itself
                 junction_symbol = sympy.Symbol(self.__variables[''].symbol)
@@ -595,16 +629,7 @@ class BondgraphJunction(ModelElement):
                     # Filter out known equality between an implied junction and an element's port
                     if (symbol := sympy.Symbol(value)) != junction_symbol:
                         self.__equations.append(Equation(junction_symbol, sympy.Symbol(value)))
-            if len(inputs) or len(outputs):
-                if len(outputs):
-                    lhs = outputs.pop()
-                    if len(outputs):
-                        self.__equations.append(Equation(lhs, sympy.Add(sympy.Mul(-1, sympy.Add(*outputs)), *inputs)))
-                    else:
-                        self.__equations.append(Equation(lhs, sympy.Add(*inputs)))
-                elif len(inputs) > 1:
-                    lhs = inputs.pop()
-                    self.__equations.append(Equation(lhs, sympy.Mul(-1, sympy.Add(*inputs))))
+
         return self.__equations
 
 #===============================================================================
