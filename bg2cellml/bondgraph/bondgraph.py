@@ -366,42 +366,71 @@ class BondgraphElement(ModelElement):
     def build_expressions(self, bond_graph: nx.DiGraph):
     #===================================================
         for port_id, port in self.__power_ports.items():
+            bond_inputs = []
+            bond_outputs = []
+            port_inputs = []
+            port_outputs = []
+
+            def update_state_equalities(node, input) -> Optional[sympy.Symbol]:
+                node_dict = bond_graph.nodes[node]
+                edge = (node, port_id) if input else (port_id, node)
+                bond_count = bond_graph.edges[edge].get('bond_count', 1)
+                forward_dirn = (input and port.direction == BGF.InwardPort
+                         or not input and port.direction == BGF.OutwardPort)
+                if self.__implied_junction == ONENODE_JUNCTION:
+                    if (expr := potential_expression(node_dict)) is not None:
+                        if bond_count != 1:
+                            expr = sympy.Mul(bond_count, expr)
+                        if input: bond_inputs.append(expr)
+                        else: bond_outputs.append(expr)
+                    if len(self.__power_ports) > 1 and self.__element_class == DISSIPATOR:
+                        if (symbol := potential_symbol(node_dict)) is not None:
+                            if bond_count != 1:
+                                symbol = sympy.Mul(bond_count, symbol)
+                            if forward_dirn: port_inputs.append(symbol)
+                            else: port_outputs.append(symbol)
+
+                elif self.__implied_junction == ZERONODE_JUNCTION:
+                    if (expr := flow_expression(bond_graph.nodes[node])) is not None:
+                        if bond_count != 1:
+                            expr = sympy.Mul(bond_count, expr)
+                        if input: bond_inputs.append(expr)
+                        else: bond_outputs.append(expr)
+                    if len(self.__power_ports) > 1 and self.__element_class == QUANTITY_STORE:
+                        if (symbol := flow_symbol(node_dict)) is not None:
+                            if bond_count != 1:
+                                symbol = sympy.Mul(bond_count, symbol)
+                            if forward_dirn: port_inputs.append(symbol)
+                            else: port_outputs.append(symbol)
+
+            for node in bond_graph.predecessors(port_id):
+                update_state_equalities(node, True)
+            for node in bond_graph.successors(port_id):
+                update_state_equalities(node, False)
+
+            bond_expr = sympy.Add(*bond_inputs, sympy.Mul(-1, sympy.Add(*bond_outputs)))
+            port_expr = None
+            if len(port_inputs) or len(port_outputs):
+                if len(port_outputs):
+                    if len(port_inputs):
+                        port_expr = sympy.Add(*port_inputs, sympy.Mul(-1, sympy.Add(*port_outputs)))
+                    else:
+                        port_expr = sympy.Mul(-1, sympy.Add(*port_inputs))
+                elif len(port_inputs):
+                    port_expr = sympy.Add(*port_inputs)
+
             if self.__implied_junction == ONENODE_JUNCTION:
-                # Sum of potentials connected to junction is 0
-                inputs = [expr for node in bond_graph.predecessors(port_id)
-                            if (expr := potential_expression(bond_graph.nodes[node])) is not None]
-                outputs = [expr for node in bond_graph.successors(port_id)
-                            if (expr := potential_expression(bond_graph.nodes[node])) is not None]
-                potential_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))
                 if self.__potential_symbol is not None:
-                    self.__equations.append(Equation(self.__potential_symbol, potential_expr))
-                if len(self.__power_ports) > 1 and self.__element_class == DISSIPATOR:
-                    # Reaction...
+                    self.__equations.append(Equation(self.__potential_symbol, bond_expr))
+                if port_expr is not None:
                     potential = sympy.Symbol(port.potential.variable.symbol)
-                    for node in bond_graph.predecessors(port_id):
-                        if (symbol := potential_symbol(bond_graph.nodes[node])) is not None:
-                            self.__equations.append(Equation(potential, symbol))
-                    for node in bond_graph.successors(port_id):
-                        if (symbol := potential_symbol(bond_graph.nodes[node])) is not None:
-                            self.__equations.append(Equation(potential, symbol))
+                    self.__equations.append(Equation(potential, port_expr))
             elif self.__implied_junction == ZERONODE_JUNCTION:
-                # Sum of flows connected to junction is 0
-                inputs = [expr for node in bond_graph.predecessors(port_id)
-                            if (expr := flow_expression(bond_graph.nodes[node])) is not None]
-                outputs = [expr for node in bond_graph.successors(port_id)
-                            if (expr := flow_expression(bond_graph.nodes[node])) is not None]
-                flow_expr = sympy.Add(*inputs, sympy.Mul(-1, sympy.Add(*outputs)))
                 if self.__flow_symbol is not None:
-                    self.__equations.append(Equation(self.__flow_symbol, flow_expr))
-                if len(self.__power_ports) > 1 and self.__element_class == QUANTITY_STORE:
-                    # Two port capacitor...
+                    self.__equations.append(Equation(self.__flow_symbol, bond_expr))
+                if port_expr is not None:
                     flow = sympy.Symbol(port.flow.variable.symbol)
-                    for node in bond_graph.predecessors(port_id):
-                        if (symbol := flow_symbol(bond_graph.nodes[node])) is not None:
-                            self.__equations.append(Equation(flow, symbol))
-                    for node in bond_graph.successors(port_id):
-                        if (symbol := flow_symbol(bond_graph.nodes[node])) is not None:
-                            self.__equations.append(Equation(flow, symbol))
+                    self.__equations.append(Equation(flow, port_expr))
 
 #===============================================================================
 #===============================================================================
