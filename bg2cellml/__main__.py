@@ -18,59 +18,12 @@
 #
 #===============================================================================
 
-from collections import defaultdict
 from pathlib import Path
 
 #===============================================================================
 
 from bg2cellml.bondgraph import BondgraphModel, BondgraphModelSource
 from bg2cellml.cellml import CellMLModel
-#===============================================================================
-
-BGF_STYLESHEET = """
-    .celldl-Component {
-        stroke: none;
-    }
-    rect.celldl-Component {
-        stroke-width: 2px;
-    }
-
-    text {
-        font-size: 30px;
-    }
-
-    .bgf-HydraulicStorage rect.celldl-Component,
-    .bgf-ElasticVessel rect.celldl-Component {
-        fill: #DBEDD0;
-        stroke: #FB0006;
-    }
-    .bgf-HydraulicStorage text,
-    .bgf-ElasticVessel text,
-    .bgf-OneNode text {
-        fill: #15A43F;
-    }
-
-    .bgf-HydraulicResistor rect.celldl-Component {
-        fill: #FED254 ;
-        stroke: #15A43F;
-    }
-    .bgf-HydraulicResistor text {
-        fill: #000;
-    }
-
-    .bgf-ZeroNode rect.celldl-Component {
-        fill: #F8DECC;
-        stroke: #FB0006;
-    }
-    .bgf-ZeroNode text {
-        fill: #FB0006;
-    }
-
-    .bgf-OneNode rect.celldl-Component {
-        fill: #DBEDD0;
-        stroke: #15A43F;
-    }
-"""
 from bg2cellml.utils import log, pretty_log, string_to_list, valid_cellml
 from bg2cellml.version import __version__
 
