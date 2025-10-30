@@ -32,6 +32,9 @@ dev = [
 [tool.uv.sources]
 libopencor = { git = "https://github.com/opencor/libopencor.git" }
 
+[project.scripts]
+bg2cellml = 'bg2cellml.__main__:main'
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
