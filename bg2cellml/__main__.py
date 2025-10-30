@@ -23,19 +23,8 @@ from pathlib import Path
 
 #===============================================================================
 
-import libopencor as loc
-
-#===============================================================================
-
-from bg2cellml.version import __version__
-
-#===============================================================================
-
 from bg2cellml.bondgraph import BondgraphModel, BondgraphModelSource
 from bg2cellml.cellml import CellMLModel
-from bg2cellml.utils import log, pretty_log
-
-#===============================================================================
 #===============================================================================
 
 BGF_STYLESHEET = """
@@ -82,43 +71,15 @@ BGF_STYLESHEET = """
         stroke: #15A43F;
     }
 """
+from bg2cellml.utils import log, pretty_log, string_to_list, valid_cellml
+from bg2cellml.version import __version__
 
 #===============================================================================
-
-def string_to_list(string: str) -> list[int]:
-#============================================
-    return [ord(x) for x in string]
 
 def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_errors: bool=False):
 #======================================================================================
     cellml = CellMLModel(model).to_xml()
-    file = loc.File(str(cellml_file), False)
-    file.contents = string_to_list(cellml)
-    has_issues = False
-    if file.has_issues:
-        for issue in file.issues:
-            log.warning(issue.description)
-        log.warning(f'{file.issue_count} CellML validation issues...')
-        has_issues = True
-    else:
-        simulation = loc.SedDocument(file)
-        if simulation.has_issues:
-            for issue in simulation.issues:
-                log.warning(issue.description)
-            log.warning(f'{simulation.issue_count} issues creating simulation from CellML...')
-            has_issues = True
-        else:
-            simulation.simulations[0].output_end_time = 0.1
-            simulation.simulations[0].number_of_steps = 10
-
-            instance = simulation.instantiate()
-            instance.run()
-            if instance.has_issues:
-                for issue in instance.issues:
-                    log.warning(issue.description)
-                log.warning(f'{instance.issue_count} issues running simulation created from CellML...')
-                has_issues = True
-
+    has_issues = not valid_cellml(cellml)
     if has_issues and not save_if_errors:
         log.warning('No CellML generated')
     else:
