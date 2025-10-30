@@ -5,9 +5,18 @@
 
 ## Installation
 
+### As a package
+
+```sh
+uv add https://github.com/CellDL/BG-Tools/releases/download/v0.7.1/bg2cellml-0.7.1-py3-none-any.whl
+```
+
+### Development
+
 ```sh
 $ git https://github.com/CellDL/BG-Tools
 $ cd BG-Tools
+$ git submodule update --init --recursive
 $ uv sync
 ```
 
