@@ -312,13 +312,19 @@ class NamedPortVariable:
 #===============================================================================
 
 class PowerPort:
-    def __init__(self, uri: URIRef, flow: NamedPortVariable, potential: NamedPortVariable):
+    def __init__(self, uri: URIRef, flow: NamedPortVariable, potential: NamedPortVariable,
+                        direction: Optional[URIRef]=None):
         self.__uri = uri
         self.__flow = flow
         self.__potential = potential
+        self.__direction = direction
 
     def __str__(self):
         return f'{self.__uri.fragment}, potential: {self.__potential}, flow: {self.__flow}'
+
+    @property
+    def direction(self) -> Optional[URIRef]:
+        return self.__direction
 
     @property
     def flow(self) -> NamedPortVariable:
@@ -332,7 +338,8 @@ class PowerPort:
     #========================================================================================
         return PowerPort(self.__uri,
             NamedPortVariable(name=self.__flow.name, variable=self.__flow.variable.copy(suffix=suffix, domain=domain)),
-            NamedPortVariable(name=self.__potential.name, variable=self.__potential.variable.copy(suffix=suffix, domain=domain))
+            NamedPortVariable(name=self.__potential.name, variable=self.__potential.variable.copy(suffix=suffix, domain=domain)),
+            direction = self.__direction
         )
 
 #===============================================================================
@@ -359,7 +366,7 @@ ELEMENT_VARIABLES = """
 #===============================================================================
 
 ELEMENT_PORT_BONDS = """
-    SELECT DISTINCT ?portId ?bondCount
+    SELECT DISTINCT ?portId ?bondCount ?direction
     WHERE {
         {
             { <%ELEMENT_URI%> bgf:hasPort ?portId .
@@ -368,6 +375,7 @@ ELEMENT_PORT_BONDS = """
             <%ELEMENT_URI%> bgf:hasPort ?port .
             ?port bgf:portId ?portId ;
             OPTIONAL { ?port bgf:bondCount ?bondCount }
+            OPTIONAL { ?port bgf:direction ?direction }
             }
         }
     } ORDER BY ?portId"""
@@ -440,10 +448,12 @@ class ElementTemplate(Labelled):
     def __add_ports(self, graph: RDFGraph):
     #======================================
         port_bonds: dict[str, int|None] = {}
+        directions: dict[str, URIRef|None] = {}
         for row in graph.query(
                         ELEMENT_PORT_BONDS.replace('%ELEMENT_URI%', self.uri)):
             if isinstance(row[0], Literal):
                 port_bonds[str(row[0])] = optional_integer(row[1], 1)
+                directions[str(row[0])] = row[2]
         if len(port_bonds):
             flow_suffixed = (len(port_bonds) == 2) and (self.__element_class != DISSIPATOR)
             self.__power_ports = {}
@@ -451,7 +461,7 @@ class ElementTemplate(Labelled):
                 suffix = f'_{id}'
                 flow_var = self.__port_name_variable(self.domain.flow, suffix if flow_suffixed else '')
                 potential_var = self.__port_name_variable(self.domain.potential, suffix)
-                self.__power_ports[id] = PowerPort(self.uri + suffix, flow_var, potential_var)
+                self.__power_ports[id] = PowerPort(self.uri + suffix, flow_var, potential_var, direction=directions[id])
         else:
             self.__power_ports = {'': PowerPort(self.uri,
                                     self.__port_name_variable(self.domain.flow),
