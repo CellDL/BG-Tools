@@ -36,3 +36,10 @@ for model in BondgraphModelSource(bondgraph_rdf_source).models:
 
 * [An RC electrical circuit](https://github.com/CellDL/BG-RDF/blob/main/examples/example_RC.ttl) 
 * [A simple biochemical reaction](https://github.com/CellDL/BG-RDF/blob/main/examples/example_B1.ttl)
+
+### Examples in a Jupyter notebook:
+
+1. Clone the repository and its sub-modules as above.
+2. Install with `uv sync --group notebook`
+3. Start JupyterLab with `uv run jupyter lab`
+4. Open `./notebooks/bg2cellml.ipynb`
