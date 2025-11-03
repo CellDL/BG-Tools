@@ -8,7 +8,7 @@
 ### As a package
 
 ```sh
-uv add https://github.com/CellDL/BG-Tools/releases/download/v0.7.2/bg2cellml-0.7.2-py3-none-any.whl
+uv add https://github.com/CellDL/BG-Tools/releases/download/v0.7.3/bg2cellml-0.7.3-py3-none-any.whl
 ```
 
 ### Development
