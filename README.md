@@ -36,6 +36,7 @@ for model in BondgraphModelSource(bondgraph_rdf_source).models:
 
 * [An RC electrical circuit](https://github.com/CellDL/BG-RDF/blob/main/examples/example_RC.ttl) 
 * [A simple biochemical reaction](https://github.com/CellDL/BG-RDF/blob/main/examples/example_B1.ttl)
+* [All examples](https://github.com/CellDL/BG-RDF/blob/main/examples)
 
 ### Examples in a Jupyter notebook:
 
