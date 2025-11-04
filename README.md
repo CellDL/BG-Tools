@@ -43,4 +43,4 @@ for model in BondgraphModelSource(bondgraph_rdf_source).models:
 1. Clone the repository and its sub-modules as above.
 2. Install with `uv sync --group notebook`
 3. Start JupyterLab with `uv run jupyter lab`
-4. Open `./notebooks/bg2cellml.ipynb` in JupyterLab.
+4. Open `./notebooks/bg2cellml.ipynb` in Jupyter.
