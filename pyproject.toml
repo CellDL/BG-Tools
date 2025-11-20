@@ -7,7 +7,6 @@ authors = [
 ]
 requires-python = "==3.13.*"
 dependencies = [
-    "libopencor",
     "lxml>=5.4.0",
     "networkx>=3.5",
     "numpy>=2.3.0",
@@ -32,6 +31,9 @@ notebook = [
     "ipympl>=0.9.8",
     "jupyterlab>=4.4.10",
     "matplotlib>=3.10.7",
+]
+standalone = [
+    "libopencor",
 ]
 
 [tool.uv.sources]
