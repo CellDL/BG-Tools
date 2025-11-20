@@ -5,7 +5,7 @@ version = "0.7.3"
 authors = [
     { name = "David Brooks", email = "d.brooks@auckland.ac.nz"}
 ]
-requires-python = "==3.12.*"
+requires-python = "==3.13.*"
 dependencies = [
     "libopencor",
     "lxml>=5.4.0",
