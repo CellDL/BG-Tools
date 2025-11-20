@@ -22,6 +22,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pip>=25.3",
+    "pyodide-build>=0.30.9",
     "pytest>=8.4.0",
     "rdflib-endpoint[cli]>=0.5.3",
 ]
