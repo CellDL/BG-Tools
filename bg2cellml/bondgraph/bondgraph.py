@@ -258,12 +258,12 @@ class BondgraphElement(ModelElement):
             for row in model.sparql_query(ELEMENT_VARIABLE_VALUES.replace('%ELEMENT%', str(uri)))
         }
         value: Optional[Value|MathML] = None
-                if row[0].datatype == BGF.mathml:
         for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT%', str(uri))):
             if isLiteral(row[0]):
+                if row[0].datatype == BGF.mathml:               # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
                     value = MathML.from_string(str(row[0]))
                 else:
-                    value = Value.from_literal(row[0])
+                    value = Value.from_literal(row[0])          # pyright: ignore[reportArgumentType]
                 break
         return cls(model, uri, template, domain_uri=domain_uri,
                     parameter_values=parameter_values, variable_values=variable_values,
@@ -476,12 +476,12 @@ class BondgraphBond(ModelElement):
     #==============================================================================================
         if isBlankNode(port_uri):
             for row in self.model.sparql_query(
-                return make_element_port_uri(row[0], str(row[1]))    # pyright: ignore[reportArgumentType]
                 MODEL_BOND_PORTS.replace('%MODEL%', str(self.model.uri))
                                 .replace('%BOND%', str(self.uri))
                                 .replace('%BOND_RELN%', str(reln))):
+                return make_element_port_uri(row[0], str(row[1]))   # pyright: ignore[reportArgumentType]
         else:
-            return port_uri
+            return port_uri                                         # pyright: ignore[reportReturnType]
 
 #===============================================================================
 #===============================================================================
@@ -710,7 +710,7 @@ class BondgraphModel(Labelled):
                 if last_element_uri is not None and element is None:
                     log.error(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF class')
                 element = None
-                last_element_uri = row[0]
+                last_element_uri = row[0]                                               # pyright: ignore[reportAssignmentType]
             template = FRAMEWORK.element_template(row[1], row[2])   # pyright: ignore[reportArgumentType]
             if template is not None:
                 if element is None:
@@ -721,7 +721,7 @@ class BondgraphModel(Labelled):
                     except ValueError as e:
                         log.error(str(e))
                 else:
-                    log.error(f'BondElement {pretty_uri(row[0])} has more than one BG-RDF class')
+                    log.error(f'BondElement {pretty_uri(row[0])} has more than one BG-RDF class')   # pyright: ignore[reportArgumentType]
         if last_element_uri is not None and element is None:
             log.error(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF class')
         if len(self.__elements) == 0:
@@ -938,7 +938,7 @@ BONDGRAPH_MODEL_TEMPLATES = """
 #===============================================================================
 
 class BondgraphModelSource:
-    def __init__(self, source: str, output_rdf: Optional[Path]=None, debug=False):
+    def __init__(self, source: Path|str, output_rdf: Optional[Path]=None, debug=False):
         self.__rdf_graph = RDFGraph(NAMESPACES)
         self.__source_path = Path(source).resolve()
         source_url = self.__source_path.as_uri()
@@ -1000,8 +1000,8 @@ class BondgraphModelSource:
               or (None, BGF.hasJunctionStructure, target) in self.__rdf_graph)):
                 self.__rdf_graph.add((model_uri, BGF.hasPowerBond, row[0]))
 
-    def __load_blocks(self, model_uri: NamedNode, base_path: str):
-    #==========================================================
+    def __load_blocks(self, model_uri: NamedNode):
+    #=============================================
         ## need to make sure blocks are only loaded once. c.f templates
         for row in self.__rdf_graph.query(BONDGRAPH_MODEL_BLOCKS.replace('%MODEL%', str(model_uri))):
             self.__load_rdf(urldefrag(str(row[0])).url)
@@ -1015,7 +1015,7 @@ class BondgraphModelSource:
             for row in graph.query(BONDGRAPH_MODELS):
                 if isNamedNode(row[0]):
                     #FRAMEWORK.resolve_composites(row[0], graph)
-                    self.__load_blocks(row[0], source_path)
+                    self.__load_blocks(row[0])      # pyright: ignore[reportArgumentType]
             self.__rdf_graph.merge(graph)
 
 #===============================================================================
