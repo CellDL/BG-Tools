@@ -28,8 +28,6 @@ import lxml.etree as etree
 import structlog
 from structlog.dev import BRIGHT, GREEN, RESET_ALL
 
-import libopencor as loc
-
 #===============================================================================
 
 if TYPE_CHECKING:
@@ -114,40 +112,6 @@ def etree_from_string(xml: str) -> etree.Element:
 def string_to_list(string: str) -> list[int]:
 #============================================
     return [ord(x) for x in string]
-
-#===============================================================================
-
-def valid_cellml(cellml: str) -> bool:
-#=====================================
-    has_issues = False
-    with tempfile.TemporaryDirectory() as tmp:
-        cellml_file = os.path.join(tmp, 'test.cellml')
-        file = loc.File(cellml_file, False)
-        file.contents = string_to_list(cellml)
-        if file.has_issues:
-            for issue in file.issues:
-                log.warning(issue.description)
-            log.warning(f'{file.issue_count} CellML validation issues...')
-            has_issues = True
-        else:
-            simulation = loc.SedDocument(file)
-            if simulation.has_issues:
-                for issue in simulation.issues:
-                    log.warning(issue.description)
-                log.warning(f'{simulation.issue_count} issues creating simulation from CellML...')
-                has_issues = True
-            else:
-                simulation.simulations[0].output_end_time = 0.1
-                simulation.simulations[0].number_of_steps = 10
-
-                instance = simulation.instantiate()
-                instance.run()
-                if instance.has_issues:
-                    for issue in instance.issues:
-                        log.warning(issue.description)
-                    log.warning(f'{instance.issue_count} issues running simulation created from CellML...')
-                    has_issues = True
-    return not has_issues
 
 #===============================================================================
 #===============================================================================
