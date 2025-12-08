@@ -9,7 +9,6 @@ requires-python = "==3.13.*"
 dependencies = [
     "lxml>=5.4.0",
     "networkx>=3.5",
-    "numpy>=2.3.0",
     "pint>=0.24.4",
     "sympy>=1.14.0",
     "pyoxigraph>=0.5.2",
