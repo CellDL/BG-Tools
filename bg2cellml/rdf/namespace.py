@@ -18,21 +18,26 @@
 #
 #===============================================================================
 
-from ..rdf.namespace import Namespace
+from . import NamedNode, namedNode
 
 #===============================================================================
 
-BGF = Namespace('https://bg-rdf.org/ontologies/bondgraph-framework#')
-CDT = Namespace('https://w3id.org/cdt/')
+"""
+Generate NamedNodes.
+"""
+class Namespace:
+    def __init__(self, ns: str):
+        self.__ns = ns
 
-#===============================================================================
+    def __str__(self):
+        return self.__ns
 
-NAMESPACES = {
-    'bgf': 'https://bg-rdf.org/ontologies/bondgraph-framework#',
-    'cdt': 'https://w3id.org/cdt/',
-    'owl': 'http://www.w3.org/2002/07/owl#',
-    'rdfs': 'http://www.w3.org/2000/01/rdf-schema#',
-    'xsd': 'http://www.w3.org/2001/XMLSchema#',
-}
+    def __getattr__(self, attr: str='') -> NamedNode:
+        return namedNode(f'{self.__ns}{attr}')
+
+
+RDF = Namespace('rdf#')
+XSD = Namespace('xsd#')
+
 
 #===============================================================================

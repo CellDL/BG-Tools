@@ -23,12 +23,12 @@ from typing import Optional, Self
 #===============================================================================
 
 import pint
-from rdflib import Literal, URIRef
 from ucumvert import PintUcumRegistry
 
 #===============================================================================
 
 from ..bondgraph.namespaces import CDT
+from ..rdf import isLiteral, Literal, NamedNode
 
 #===============================================================================
 
@@ -59,10 +59,10 @@ class Units:
 
     @classmethod
     def from_ucum(cls, ucum_units: Literal|str) -> Self:
-        if (isinstance(ucum_units, Literal)
-         and ucum_units.datatype != CDT.ucumunit
-         and ucum_units.datatype is not None):
-            raise TypeError(f'Units value has unexpected datatype: {ucum_units.datatype}')
+        if (isLiteral(ucum_units)
+         and ucum_units.datatype != CDT.ucumunit    # pyright: ignore[reportAttributeAccessIssue]
+         and ucum_units.datatype is not None):      # pyright: ignore[reportAttributeAccessIssue]
+            raise TypeError(f'Units value has unexpected datatype: {ucum_units.datatype}')  # pyright: ignore[reportAttributeAccessIssue]
         return cls(ucum_registry.from_ucum(str(ucum_units)).u)
 
     @staticmethod
@@ -113,7 +113,7 @@ class Value:
             value = float(parts[0])
             units = Units.from_ucum(parts[1])
         elif literal_value.datatype is None:
-            value = float(literal_value)
+            value = float(literal_value.value)
             units = None
         else:
             raise TypeError(f'Literal value has unexpected datatype: {literal_value.datatype}')
@@ -148,7 +148,7 @@ class Value:
 #===============================================================================
 
 class Quantity:
-    def __init__(self, uri: URIRef, units: Literal, label: Optional[Literal]=None, variable: Optional[Literal]=None):
+    def __init__(self, uri: NamedNode, units: Literal, label: Optional[Literal]=None, variable: Optional[Literal]=None):
         self.__uri = uri
         self.__units = Units.from_ucum(units)
         self.__label = str(label) if label is not None else str(uri)

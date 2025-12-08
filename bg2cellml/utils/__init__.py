@@ -33,7 +33,7 @@ import libopencor as loc
 #===============================================================================
 
 if TYPE_CHECKING:
-    from ..rdf import URIRef
+    from ..rdf import NamedNode
 
 #===============================================================================
 
@@ -65,8 +65,8 @@ def pretty_log(s: Any) -> str:
 #=============================
     return f'{RESET_ALL}{GREEN}{str(s)}{RESET_ALL}{BRIGHT}'
 
-def pretty_uri(uri: Optional['str|URIRef']) -> str:
-#==================================================
+def pretty_uri(uri: Optional['str|NamedNode']) -> str:
+#=====================================================
     if uri is not None:
         uri = str(uri)
         if uri.startswith(LOCAL_MODEL_BASE):

@@ -23,8 +23,10 @@ from typing import Optional, Self
 
 #===============================================================================
 
-import rdflib
-from rdflib import BNode, Literal, URIRef
+from ..rdfstore import RdfStore
+from ..rdfstore import BlankNode, Literal, NamedNode
+from ..rdfstore import blankNode, literal, namedNode
+from ..rdfstore import isBlankNode, isLiteral, isNamedNode
 
 #===============================================================================
 
@@ -32,29 +34,14 @@ from ..utils import log, pretty_log
 
 #===============================================================================
 
-type ResultType = BNode | Literal | URIRef | None
+type ResultType = BlankNode | Literal | NamedNode | None
 type ResultRow = list[ResultType]
-
-#===============================================================================
-
-"""
-Generate URIRefs for rdflib.
-"""
-class Namespace:
-    def __init__(self, ns: str):
-        self.__ns = ns
-
-    def __str__(self):
-        return self.__ns
-
-    def __getattr__(self, attr: str='') -> URIRef:
-        return URIRef(f'{self.__ns}{attr}')
 
 #===============================================================================
 
 class RDFGraph:
     def __init__(self, namespaces: Optional[dict[str, str]]=None):
-        self.__graph = rdflib.Graph(bind_namespaces='none', store='Oxigraph')
+        self.__graph = RdfStore(bind_namespaces='none', store='Oxigraph')
         if namespaces is not None:
             for prefix, namespace in namespaces.items():
                 self.__graph.bind(prefix, namespace)
@@ -72,8 +59,8 @@ class RDFGraph:
         self.__graph.add(triple)
         return self
 
-    def curie(self, uri: URIRef) -> str:
-    #===================================
+    def curie(self, uri: NamedNode) -> str:
+    #======================================
         return uri.n3(self.__graph.namespace_manager)
 
     def merge(self, graph: 'RDFGraph'):

@@ -29,7 +29,9 @@ import sympy
 
 #===============================================================================
 
-from ..rdf import BNode, Literal, ResultRow, ResultType, RDFGraph, URIRef
+from ..rdf import BlankNode, Literal, ResultRow, ResultType, RDFGraph, NamedNode
+from ..rdf import isBlankNode, isLiteral, isNamedNode
+from ..rdf import literal, namedNode
 from ..mathml import Equation, MathML
 from ..units import Value
 from ..utils import bright, log, pretty_log, pretty_uri
@@ -46,9 +48,9 @@ from .utils import Labelled
 
 #===============================================================================
 
-def make_element_port_uri(element_uri: URIRef, port_id: str) -> URIRef:
-#======================================================================
-    return element_uri if port_id in [None, ''] else element_uri + f'_{port_id}'
+def make_element_port_uri(element_uri: NamedNode, port_id: str) -> NamedNode:
+#=============================================================================
+    return element_uri if port_id in [None, ''] else namedNode(f'{element_uri}_{port_id}')
 
 def flow_expression(node_dict: dict) -> Optional[sympy.Expr]:
 #============================================================
@@ -91,7 +93,7 @@ def potential_symbol(node_dict: dict) -> Optional[sympy.Symbol]:
 #===============================================================================
 
 class ModelElement(Labelled):
-    def __init__(self,  model: 'BondgraphModel', uri: URIRef, symbol: Optional[str], label: Optional[str]):
+    def __init__(self,  model: 'BondgraphModel', uri: NamedNode, symbol: Optional[str], label: Optional[str]):
         super().__init__(uri, symbol, label)
         self.__model = model
 
@@ -130,15 +132,15 @@ ELEMENT_VARIABLE_VALUES = """
 
 #===============================================================================
 
-type VariableValue = tuple[Literal|URIRef, Optional[str]]
+type VariableValue = tuple[Literal|NamedNode, Optional[str]]
 
 #===============================================================================
 
 class BondgraphElement(ModelElement):
-    def __init__(self,  model: 'BondgraphModel', uri: URIRef, template: BondgraphElementTemplate,
+    def __init__(self,  model: 'BondgraphModel', uri: NamedNode, template: BondgraphElementTemplate,
                         parameter_values: Optional[dict[str, VariableValue]]=None,
                         variable_values: Optional[dict[str, VariableValue]]=None,
-                        domain_uri: Optional[URIRef]=None, value: Optional[Value|MathML]=None,
+                        domain_uri: Optional[NamedNode]=None, value: Optional[Value|MathML]=None,
                         symbol: Optional[str]=None, label: Optional[str]=None):
         super().__init__(model, uri, symbol, label)
         element_type = pretty_uri(template.uri)
@@ -167,7 +169,7 @@ class BondgraphElement(ModelElement):
                 raise ValueError(f'Template {element_template.uri} for element {uri} has no constitutive relation')
             self.__constitutive_relation = element_template.constitutive_relation.copy()
 
-        self.__power_ports: dict[URIRef, PowerPort] = {}
+        self.__power_ports: dict[NamedNode, PowerPort] = {}
         for port_id, port in element_template.power_ports.items():
             self.__power_ports[make_element_port_uri(self.uri, port_id)] = port.copy(suffix=self.symbol, domain=self.__domain)
 
@@ -246,19 +248,19 @@ class BondgraphElement(ModelElement):
             self.__potential_symbol = sympy.Symbol(variable.symbol)
 
     @classmethod
-    def for_model(cls, model: 'BondgraphModel', uri: URIRef, template: BondgraphElementTemplate,
+    def for_model(cls, model: 'BondgraphModel', uri: NamedNode, template: BondgraphElementTemplate,
     #===========================================================================================
-                                    domain_uri: Optional[URIRef], symbol: Optional[str], label: Optional[str]):
+                                    domain_uri: Optional[NamedNode], symbol: Optional[str], label: Optional[str]):
         parameter_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # pyright: ignore[reportAssignmentType]
-            for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT%', uri))
+            for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT%', str(uri)))
         }
         variable_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # pyright: ignore[reportAssignmentType]
-            for row in model.sparql_query(ELEMENT_VARIABLE_VALUES.replace('%ELEMENT%', uri))
+            for row in model.sparql_query(ELEMENT_VARIABLE_VALUES.replace('%ELEMENT%', str(uri)))
         }
         value: Optional[Value|MathML] = None
-        for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT%', uri)):
-            if isinstance(row[0], Literal):
                 if row[0].datatype == BGF.mathml:
+        for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT%', str(uri))):
+            if isLiteral(row[0]):
                     value = MathML.from_string(str(row[0]))
                 else:
                     value = Value.from_literal(row[0])
@@ -276,7 +278,7 @@ class BondgraphElement(ModelElement):
         return self.__domain
 
     @property
-    def element_class(self) -> URIRef:
+    def element_class(self) -> NamedNode:
         return self.__element_class
 
     @property
@@ -292,11 +294,11 @@ class BondgraphElement(ModelElement):
         return self.__equations
 
     @property
-    def implied_junction(self) -> Optional[URIRef]:
+    def implied_junction(self) -> Optional[NamedNode]:
         return self.__implied_junction
 
     @property
-    def power_ports(self) -> dict[URIRef, PowerPort]:
+    def power_ports(self) -> dict[NamedNode, PowerPort]:
         return self.__power_ports
 
     @property
@@ -308,7 +310,7 @@ class BondgraphElement(ModelElement):
         return self.__potential_expression
 
     @property
-    def type(self) -> URIRef:
+    def type(self) -> NamedNode:
         return self.__type
 
     @property
@@ -335,9 +337,9 @@ class BondgraphElement(ModelElement):
                 continue
             if value[1] is not None:
                 variable.set_symbol(value[1])
-            if isinstance(value[0], Literal):
+            if isLiteral(value[0]):
                 variable.set_value(Value.from_literal(value[0]))
-            elif isinstance(value[0], URIRef):
+            elif isNamedNode(value[0]):
                 if value[0] not in bond_graph:
                     log.error(f'Value for {pretty_uri(self.uri)} refers to unknown element: {value[0]}')
                     continue
@@ -448,8 +450,8 @@ MODEL_BOND_PORTS = """
 #===============================================================================
 
 class BondgraphBond(ModelElement):
-    def __init__(self, model: 'BondgraphModel', uri: URIRef,
-                        source: URIRef|BNode, target: URIRef|BNode,
+    def __init__(self, model: 'BondgraphModel', uri: NamedNode,
+                        source: NamedNode|BlankNode, target: NamedNode|BlankNode,
                         label: Optional[str]=None,
                         count: Optional[int]=None):
         super().__init__(model, uri, None, label)
@@ -463,21 +465,21 @@ class BondgraphBond(ModelElement):
         return self.__bond_count
 
     @property
-    def source_id(self) -> Optional[URIRef]:
+    def source_id(self) -> Optional[NamedNode]:
         return self.__source_id
 
     @property
-    def target_id(self) -> Optional[URIRef]:
+    def target_id(self) -> Optional[NamedNode]:
         return self.__target_id
 
-    def __get_port_uri(self, port_uri: URIRef|BNode, reln: URIRef) -> Optional[URIRef]:
-    #==================================================================================
-        if isinstance(port_uri, BNode):
+    def __get_port_uri(self, port_uri: NamedNode|BlankNode, reln: NamedNode) -> Optional[NamedNode]:
+    #==============================================================================================
+        if isBlankNode(port_uri):
             for row in self.model.sparql_query(
-                MODEL_BOND_PORTS.replace('%MODEL%', self.model.uri)
-                                .replace('%BOND%', self.uri)
-                                .replace('%BOND_RELN%', reln)):
                 return make_element_port_uri(row[0], str(row[1]))    # pyright: ignore[reportArgumentType]
+                MODEL_BOND_PORTS.replace('%MODEL%', str(self.model.uri))
+                                .replace('%BOND%', str(self.uri))
+                                .replace('%BOND_RELN%', str(reln))):
         else:
             return port_uri
 
@@ -485,9 +487,9 @@ class BondgraphBond(ModelElement):
 #===============================================================================
 
 class BondgraphJunction(ModelElement):
-    def __init__(self, model: 'BondgraphModel', uri: URIRef, type: URIRef,
+    def __init__(self, model: 'BondgraphModel', uri: NamedNode, type: NamedNode,
             label: Optional[str], value: Optional[Literal], symbol: Optional[Literal]):
-        super().__init__(model, uri, symbol, label)
+        super().__init__(model, uri, str(symbol) if symbol else None, label)
         self.__type = type
         self.__junction = FRAMEWORK.junction(type)
         if self.__junction is None:
@@ -502,7 +504,7 @@ class BondgraphJunction(ModelElement):
         return self.__equations
 
     @property
-    def type(self) -> URIRef:
+    def type(self) -> NamedNode:
         return self.__type
 
     @property
@@ -697,13 +699,13 @@ MODEL_BONDS = """
 #===============================================================================
 
 class BondgraphModel(Labelled):
-    def __init__(self, rdf_graph: RDFGraph, uri: URIRef, label: Optional[str]=None, debug=False):
+    def __init__(self, rdf_graph: RDFGraph, uri: NamedNode, label: Optional[str]=None, debug=False):
         super().__init__(uri, label)
         self.__rdf_graph = rdf_graph
         self.__elements = []
-        last_element_uri = None
+        last_element_uri: Optional[NamedNode] = None
         element = None
-        for row in rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', uri)):
+        for row in rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', str(uri))):
             if row[0] != last_element_uri:
                 if last_element_uri is not None and element is None:
                     log.error(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF class')
@@ -726,10 +728,10 @@ class BondgraphModel(Labelled):
             log.error(f'Model {(pretty_uri(uri))} has no elements...')
         self.__junctions = [
             BondgraphJunction(self, row[0], row[1], row[2], row[3], row[4])             # pyright: ignore[reportArgumentType]
-                for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', uri))]
+                for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', str(uri)))]
         self.__bonds = []
-        for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', uri)):
-            bond_uri: URIRef = row[0]                                                   # pyright: ignore[reportAssignmentType]
+        for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', str(uri))):
+            bond_uri: NamedNode = row[0]                                                # pyright: ignore[reportAssignmentType]
             if row[1] is None or row[2] is None:
                 log.error(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
                 continue
@@ -788,6 +790,10 @@ class BondgraphModel(Labelled):
     @property
     def network_graph(self) -> nx.DiGraph:
         return self.__graph.copy()
+
+    @property
+    def rdf_graph(self) -> RDFGraph:
+        return self.__rdf_graph
 
     def __assign_element_variables_and_equations(self):
     #==================================================
@@ -940,7 +946,7 @@ class BondgraphModelSource:
         self.__load_rdf(source_url)
         base_models = []
         for row in self.__rdf_graph.query(BONDGRAPH_MODELS):
-            uri = cast(URIRef, row[0])
+            uri = cast(NamedNode, row[0])
             base_models.append((uri, row[1]))
             self.__load_blocks(uri, source_url)
             self.__generate_bonds(uri)
@@ -953,7 +959,7 @@ class BondgraphModelSource:
                 fp.write(self.__rdf_graph.serialise(source_url=source_url))
             log.info(f'Expanded model saved as {pretty_log(output_rdf)}')
 
-        self.__models: dict[URIRef, BondgraphModel] = {}
+        self.__models: dict[NamedNode, BondgraphModel] = {}
         for (uri, label) in base_models:
             for row in self.__rdf_graph.query(BONDGRAPH_MODEL_TEMPLATES.replace('%MODEL%', uri)):
                 self.__add_template(row[0])
@@ -965,26 +971,26 @@ class BondgraphModelSource:
 
     def __add_template(self, path: ResultType):
     #==========================================
-        if isinstance(path, URIRef):
-            FRAMEWORK.add_template(path)
-        elif isinstance(path, Literal):
+        if isNamedNode(path):
+            FRAMEWORK.add_template(path)    # pyright: ignore[reportArgumentType]
+        elif isLiteral(path):
             FRAMEWORK.add_template(self.__source_path
                                         .parent
                                         .joinpath(str(path))
                                         .resolve())
 
-    def __generate_bonds(self, model_uri: URIRef):
+    def __generate_bonds(self, model_uri: NamedNode):
     #=============================================
         for row in self.__rdf_graph.query(BONDGRAPH_BONDS):
-            if isinstance(row[1], URIRef):
+            if isNamedNode(row[1]):
                 source = row[1]
-            elif isinstance(row[1], BNode) and isinstance(row[3], URIRef):
+            elif isBlankNode(row[1]) and isNamedNode(row[3]):
                 source = row[3]
             else:
                 source = None
-            if isinstance(row[2], URIRef):
+            if isNamedNode(row[2]):
                 target = row[2]
-            elif isinstance(row[2], BNode) and isinstance(row[4], URIRef):
+            elif isBlankNode(row[2]) and isNamedNode(row[4]):
                 target = row[4]
             else:
                 target = None
@@ -994,7 +1000,7 @@ class BondgraphModelSource:
               or (None, BGF.hasJunctionStructure, target) in self.__rdf_graph)):
                 self.__rdf_graph.add((model_uri, BGF.hasPowerBond, row[0]))
 
-    def __load_blocks(self, model_uri: URIRef, base_path: str):
+    def __load_blocks(self, model_uri: NamedNode, base_path: str):
     #==========================================================
         ## need to make sure blocks are only loaded once. c.f templates
         for row in self.__rdf_graph.query(BONDGRAPH_MODEL_BLOCKS.replace('%MODEL%', str(model_uri))):
@@ -1007,7 +1013,7 @@ class BondgraphModelSource:
             graph = RDFGraph(NAMESPACES)
             graph.parse(source_path)
             for row in graph.query(BONDGRAPH_MODELS):
-                if isinstance(row[0], URIRef):
+                if isNamedNode(row[0]):
                     #FRAMEWORK.resolve_composites(row[0], graph)
                     self.__load_blocks(row[0], source_path)
             self.__rdf_graph.merge(graph)

@@ -22,12 +22,12 @@ from typing import Optional
 
 #===============================================================================
 
-from ..rdf import URIRef
+from ..rdf import NamedNode
 
 #===============================================================================
 
 class Labelled:
-    def __init__(self, uri: URIRef, symbol: Optional[str]=None, label: Optional[str]=None):
+    def __init__(self, uri: NamedNode, symbol: Optional[str]=None, label: Optional[str]=None):
         self.__uri = uri
         if symbol is not None:
             self.__symbol = symbol
@@ -35,9 +35,9 @@ class Labelled:
             self.__symbol = self.__uri.fragment
         self.__label = label
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.__label is not None:
-            f'{str(self.__uri)} ({self.__label})'
+            return f'{str(self.__uri)} ({self.__label})'
         return str(self.__uri)
 
     @property
