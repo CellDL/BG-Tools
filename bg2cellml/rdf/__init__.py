@@ -30,7 +30,7 @@ from ..rdfstore import isBlankNode, isLiteral, isNamedNode
 
 #===============================================================================
 
-from ..utils import log, pretty_log
+from ..utils import log
 
 #===============================================================================
 

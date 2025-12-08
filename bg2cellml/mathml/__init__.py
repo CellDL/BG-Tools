@@ -26,7 +26,6 @@ from typing import Optional
 #===============================================================================
 
 import lxml.etree as etree
-import numpy as np
 import sympy
 from sympy.printing.mathml import MathMLContentPrinter
 
