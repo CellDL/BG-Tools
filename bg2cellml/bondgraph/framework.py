@@ -43,6 +43,13 @@ BGF_ONTOLOGY = BGF_FRAMEWORK_PATH / 'schema/ontology.ttl'
 BGF_TEMPLATE_PATH = BGF_FRAMEWORK_PATH / 'templates'
 BGF_TEMPLATE_PREFIX = 'https://bg-rdf.org/templates/'
 
+STANDARD_BGF_TEMPLATES = [
+    'https://bg-rdf.org/templates/chemical.ttl',
+    'https://bg-rdf.org/templates/electrical.ttl',
+    'https://bg-rdf.org/templates/hydraulic.ttl',
+    'https://bg-rdf.org/templates/mechanical.ttl'
+]
+
 #===============================================================================
 
 # Variable of integration
@@ -763,7 +770,7 @@ class _BondgraphFramework:
 #===============================================================================
 #===============================================================================
 
-BondgraphFramework = _BondgraphFramework(BGF_ONTOLOGY)
+BondgraphFramework = _BondgraphFramework(BGF_ONTOLOGY, STANDARD_BGF_TEMPLATES)
 
 #===============================================================================
 #===============================================================================
