@@ -59,11 +59,12 @@ class Units:
 
     @classmethod
     def from_ucum(cls, ucum_units: Literal|str) -> Self:
-        if (isLiteral(ucum_units)
-         and ucum_units.datatype != CDT.ucumunit    # pyright: ignore[reportAttributeAccessIssue]
-         and ucum_units.datatype is not None):      # pyright: ignore[reportAttributeAccessIssue]
-            raise TypeError(f'Units value has unexpected datatype: {ucum_units.datatype}')  # pyright: ignore[reportAttributeAccessIssue]
-        return cls(ucum_registry.from_ucum(str(ucum_units)).u)
+        if isLiteral(ucum_units):
+            if (ucum_units.datatype != CDT.ucumunit    # pyright: ignore[reportAttributeAccessIssue]
+            and ucum_units.datatype is not None):      # pyright: ignore[reportAttributeAccessIssue]
+                raise TypeError(f'Units value has unexpected datatype: {ucum_units.datatype}')  # pyright: ignore[reportAttributeAccessIssue]
+            return cls(ucum_registry.from_ucum(ucum_units.value).u)     # pyright: ignore[reportAttributeAccessIssue]
+        return cls(ucum_registry.from_ucum(ucum_units).u)
 
     @staticmethod
     def normalise_name(name: str) -> str:

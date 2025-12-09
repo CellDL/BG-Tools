@@ -30,8 +30,7 @@ import sympy
 #===============================================================================
 
 from ..rdf import BlankNode, Literal, ResultRow, ResultType, RDFGraph, NamedNode
-from ..rdf import isBlankNode, isLiteral, isNamedNode
-from ..rdf import literal, namedNode
+from ..rdf import isBlankNode, isLiteral, isNamedNode, namedNode, Triple
 from ..mathml import Equation, MathML
 from ..units import Value
 from ..utils import bright, log, pretty_log, pretty_uri
@@ -994,17 +993,17 @@ class BondgraphModelSource:
                 target = row[4]
             else:
                 target = None
-            if (((None, BGF.hasBondElement, source) in self.__rdf_graph
-              or (None, BGF.hasJunctionStructure, source) in self.__rdf_graph)
-            and ((None, BGF.hasBondElement, target) in self.__rdf_graph
-              or (None, BGF.hasJunctionStructure, target) in self.__rdf_graph)):
-                self.__rdf_graph.add((model_uri, BGF.hasPowerBond, row[0]))
+            if ((Triple(None, BGF.hasBondElement, source) in self.__rdf_graph
+              or Triple(None, BGF.hasJunctionStructure, source) in self.__rdf_graph)
+            and (Triple(None, BGF.hasBondElement, target) in self.__rdf_graph
+              or Triple(None, BGF.hasJunctionStructure, target) in self.__rdf_graph)):
+                self.__rdf_graph.add(Triple(model_uri, BGF.hasPowerBond, row[0]))
 
     def __load_blocks(self, model_uri: NamedNode):
     #=============================================
         ## need to make sure blocks are only loaded once. c.f templates
-        for row in self.__rdf_graph.query(BONDGRAPH_MODEL_BLOCKS.replace('%MODEL%', str(model_uri))):
             self.__load_rdf(urldefrag(str(row[0])).url)
+        for row in self.__rdf_graph.query(BONDGRAPH_MODEL_BLOCKS.replace('%MODEL%', model_uri.value)):
 
     def __load_rdf(self, source_path: str):
     #======================================

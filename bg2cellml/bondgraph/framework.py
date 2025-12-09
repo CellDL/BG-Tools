@@ -24,6 +24,7 @@ from typing import cast, Optional, Self, Sequence
 
 #===============================================================================
 
+from ..rdf import uri_fragment
 from ..rdf.namespace import XSD
 
 #===============================================================================
@@ -147,7 +148,7 @@ def clean_name(name: str) -> str:
 #===============================================================================
 
 class Variable:
-    def __init__(self, element_uri: NamedNode, name: str,
+    def __init__(self, element_uri: Optional[NamedNode], name: str,
                         units: Optional[Literal|Units]=None,
                         value: Optional[Literal]=None):
         self.__element_uri = element_uri
@@ -228,7 +229,7 @@ class Variable:
 
 #===============================================================================
 
-VOI_VARIABLE = Variable(namedNode(''), VOI_SYMBOL, units=VOI_UCUMUNIT)
+VOI_VARIABLE = Variable(None, VOI_SYMBOL, units=VOI_UCUMUNIT)
 
 #===============================================================================
 #===============================================================================
@@ -329,7 +330,7 @@ class PowerPort:
         self.__direction = direction
 
     def __str__(self):
-        return f'{self.__uri.fragment}, potential: {self.__potential}, flow: {self.__flow}'
+        return f'{uri_fragment(self.__uri)}, potential: {self.__potential}, flow: {self.__flow}'
 
     @property
     def direction(self) -> Optional[NamedNode]:

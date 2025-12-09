@@ -27,6 +27,7 @@ from ..bondgraph import BondgraphElement, BondgraphJunction, BondgraphModel
 from ..bondgraph import VOI_VARIABLE
 from ..bondgraph.framework import clean_name, Variable
 from ..mathml import Equation, MATHML_NS
+from ..rdf import uri_fragment
 from ..units import Units
 from ..utils import XMLNamespace
 
@@ -96,7 +97,7 @@ class CellMLVariable:
 
 class CellMLModel:
     def __init__(self, model: 'BondgraphModel'):
-        self.__name = f'BG_{clean_name(model.uri.fragment)}'
+        self.__name = f'BG_{clean_name(uri_fragment(model.uri))}'
         self.__cellml = cellml_element('model', name=self.__name,
                                         nsmap={None: str(CELLML_NS), 'cellml': str(CELLML_NS)})
         self.__main = cellml_subelement(self.__cellml, 'component', name='main')

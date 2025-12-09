@@ -22,7 +22,7 @@ from typing import Optional
 
 #===============================================================================
 
-from ..rdf import NamedNode
+from ..rdf import NamedNode, uri_fragment
 
 #===============================================================================
 
@@ -32,7 +32,7 @@ class Labelled:
         if symbol is not None:
             self.__symbol = symbol
         else:
-            self.__symbol = self.__uri.fragment
+            self.__symbol = uri_fragment(self.__uri)
         self.__label = label
 
     def __str__(self) -> str:
@@ -42,7 +42,7 @@ class Labelled:
 
     @property
     def curie(self):
-        return f':{self.__uri.fragment}'
+        return f':{uri_fragment(self.__uri)}'
 
     @property
     def label(self):
