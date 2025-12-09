@@ -940,14 +940,13 @@ class BondgraphModelSource:
     def __init__(self, source: Path|str, output_rdf: Optional[Path]=None, debug=False):
         self.__rdf_graph = RDFGraph(NAMESPACES)
         self.__source_path = Path(source).resolve()
-        source_url = self.__source_path.as_uri()
-        self.__loaded_sources: set[str] = set()
-        self.__load_rdf(source_url)
+        self.__loaded_sources: set[Path] = set()
+        self.__load_rdf(self.__source_path)
         base_models = []
         for row in self.__rdf_graph.query(BONDGRAPH_MODELS):
             uri = cast(NamedNode, row[0])
             base_models.append((uri, row[1]))
-            self.__load_blocks(uri, source_url)
+            self.__load_blocks(uri)
             self.__generate_bonds(uri)
 
         if len(base_models) < 1:
@@ -955,7 +954,7 @@ class BondgraphModelSource:
 
         if output_rdf is not None:
             with open(output_rdf, 'w') as fp:
-                fp.write(self.__rdf_graph.serialise(source_url=source_url))
+                fp.write(self.__rdf_graph.serialise(source_url=self.__source_path.as_uri()))
             log.info(f'Expanded model saved as {pretty_log(output_rdf)}')
 
         self.__models: dict[NamedNode, BondgraphModel] = {}
@@ -1002,11 +1001,11 @@ class BondgraphModelSource:
     def __load_blocks(self, model_uri: NamedNode):
     #=============================================
         ## need to make sure blocks are only loaded once. c.f templates
-            self.__load_rdf(urldefrag(str(row[0])).url)
         for row in self.__rdf_graph.query(BONDGRAPH_MODEL_BLOCKS.replace('%MODEL%', model_uri.value)):
+            self.__load_rdf(Path.from_uri(urldefrag(str(row[0])).url))
 
-    def __load_rdf(self, source_path: str):
-    #======================================
+    def __load_rdf(self, source_path: Path):
+    #=======================================
         if source_path not in self.__loaded_sources:
             self.__loaded_sources.add(source_path)
             graph = RDFGraph(NAMESPACES)

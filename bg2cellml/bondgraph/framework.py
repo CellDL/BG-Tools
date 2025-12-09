@@ -708,7 +708,7 @@ class _BondgraphFramework:
         self.__element_domains: dict[tuple[NamedNode, NamedNode], ElementTemplate] = {}
         self.__junctions: dict[NamedNode, JunctionStructure] = {}
         self.__composite_elements: dict[NamedNode, CompositeTemplate] = {}
-        self.__loaded_templates = set()
+        self.__loaded_templates: set[Path] = set()
         if bgf_templates is not None:
             for bgf_template in bgf_templates:
                 self.add_template(bgf_template)
@@ -716,16 +716,16 @@ class _BondgraphFramework:
     def add_template(self, bgf_template: str|Path|NamedNode):
     #=======================================================
         if isinstance(bgf_template, Path):
-            template_uri = bgf_template.resolve().as_uri()
+            template_path = bgf_template.resolve()
         elif str(bgf_template).startswith(BGF_TEMPLATE_PREFIX):
-            template_uri = (BGF_TEMPLATE_PATH / str(bgf_template)[len(BGF_TEMPLATE_PREFIX):]).as_uri()
+            template_path = BGF_TEMPLATE_PATH / str(bgf_template)[len(BGF_TEMPLATE_PREFIX):]
         else:
-            template_uri = str(bgf_template)
-        if template_uri not in self.__loaded_templates:
-            self.__loaded_templates.add(template_uri)
+            template_path = Path(bgf_template)
+        if template_path not in self.__loaded_templates:
+            self.__loaded_templates.add(template_path)
             graph = RDFGraph(NAMESPACES)
             graph.merge(self.__ontology)
-            if not graph.parse(template_uri):
+            if not graph.parse(template_path):
                 return
             self.__domains.update({cast(NamedNode, row[0]): Domain.from_rdfgraph(
                                         graph, row[0], row[1],                          # pyright: ignore[reportArgumentType]
