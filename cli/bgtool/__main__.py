@@ -24,8 +24,12 @@ from pathlib import Path
 
 from bg2cellml.bondgraph import BondgraphModel, BondgraphModelSource
 from bg2cellml.cellml import CellMLModel
-from bg2cellml.utils import log, pretty_log, valid_cellml
-from bg2cellml.version import __version__
+from bg2cellml import __version__
+
+#===============================================================================
+
+from bgtool.cellml import valid_cellml
+from bgtool.utils import log, pretty_log
 
 #===============================================================================
 
