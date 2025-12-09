@@ -35,9 +35,10 @@ class Namespace:
     def __getattr__(self, attr: str='') -> NamedNode:
         return namedNode(f'{self.__ns}{attr}')
 
+#===============================================================================
 
-RDF = Namespace('rdf#')
-XSD = Namespace('xsd#')
-
+RDF = Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#')
+RDFS = Namespace('http://www.w3.org/2000/01/rdf-schema#')
+XSD = Namespace('http://www.w3.org/2001/XMLSchema#')
 
 #===============================================================================
