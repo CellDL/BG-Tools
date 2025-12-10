@@ -77,6 +77,9 @@ class RDFGraph:
     def __init__(self, namespaces: Optional[dict[str, str]]=None):
         self.__graph = oxigraph.Store()
         self.__namespaces = namespaces or {}
+        self.__sparql_prefixes = '\n'.join([
+            f'PREFIX {prefix}: <{ns_uri}>' for prefix, ns_uri in self.__namespaces.items()
+        ])
 
     @property
     def graph(self):
@@ -119,6 +122,7 @@ class RDFGraph:
 
     def query(self, query: str) -> list[ResultRow]:
     #==============================================
+        query = f'{self.__sparql_prefixes}\n{query}'
         try:
             return self.__graph.query(query)    # type: ignore
         except Exception as e:
