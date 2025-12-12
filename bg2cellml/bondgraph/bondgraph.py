@@ -35,7 +35,7 @@ from ..mathml import Equation, MathML
 from ..units import Value
 from ..utils import Issue, make_issue
 
-from .framework import BondgraphFramework as FRAMEWORK, BondgraphElementTemplate, CompositeTemplate
+from .framework import BondgraphFramework, BondgraphElementTemplate, CompositeTemplate
 from .framework import Domain, NamedPortVariable, optional_integer, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
 from .framework import FLOW_SOURCE, POTENTIAL_SOURCE
@@ -733,10 +733,10 @@ BONDGRAPH_BONDS = """
 
 #===============================================================================
 
-class BondgraphModel(Labelled):
-    def __init__(self, rdf_graph: RDFGraph, uri: NamedNode, label: Optional[str]=None, debug=False):
-        super().__init__(uri, label)
-        self.__rdf_graph = rdf_graph
+class BondgraphModel(Labelled):   ## Component ??
+    def __init__(self, framework: BondgraphFramework, rdf_source: str,
+                 model_uri: Optional[str]=None, base_iri: Optional[str]=None, debug=False):
+        self.__framework = framework
         self.__issues: list[Issue] = []
         self.__elements = []
         last_element_uri: Optional[NamedNode] = None

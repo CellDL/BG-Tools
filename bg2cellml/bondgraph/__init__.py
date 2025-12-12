@@ -19,7 +19,7 @@
 #===============================================================================
 
 from .bondgraph import BondgraphElement, BondgraphJunction
-from .bondgraph import BondgraphModel, BondgraphModelSource
-from .framework import VOI_VARIABLE
+from .bondgraph import BondgraphModel
+from .framework import BondgraphFramework, VOI_VARIABLE
 
 #===============================================================================

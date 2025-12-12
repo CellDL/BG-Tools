@@ -697,40 +697,37 @@ ELEMENT_IS_TARGET_PORT = """
 
 #===============================================================================
 
-class _BondgraphFramework:
+class BondgraphFramework:
     _instance = None
 
-    def __new__(cls, *args, **kwargs):
-    #=================================
+    def __new__(cls):
+    #================
         if cls._instance is None:
-            cls._instance = super(_BondgraphFramework, cls).__new__(cls)
+            cls._instance = super(BondgraphFramework, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, bgf_ontology: str|Path, bgf_templates: Optional[Sequence[str|Path|NamedNode]]=None):
-    #======================================================================================================
+    def __init__(self):
+    #==================
         self.__ontology = RDFGraph(NAMESPACES)
-        self.__ontology.parse(bgf_ontology)
         self.__element_templates: dict[NamedNode, ElementTemplate] = {}
         self.__domains: dict[NamedNode, Domain] = {}
         self.__element_domains: dict[tuple[NamedNode, NamedNode], ElementTemplate] = {}
         self.__junctions: dict[NamedNode, JunctionStructure] = {}
         self.__composite_elements: dict[NamedNode, CompositeTemplate] = {}
         self.__loaded_templates: set[Path] = set()
-        if bgf_templates is not None:
-            for bgf_template in bgf_templates:
-                self.add_template(bgf_template)
-
-    def add_template(self, bgf_template: str|Path|NamedNode):
-    #=======================================================
-        if isinstance(bgf_template, Path):
-            template_path = bgf_template.resolve()
-        elif str(bgf_template).startswith(BGF_TEMPLATE_PREFIX):
-            template_path = BGF_TEMPLATE_PATH / str(bgf_template)[len(BGF_TEMPLATE_PREFIX):]
-        else:
-            template_path = Path(bgf_template)
-        if template_path not in self.__loaded_templates:
-            self.__loaded_templates.add(template_path)
         self.__issues: list[Issue] = []
+        self.__load_rdf(BGF_ONTOLOGY, STANDARD_BGF_TEMPLATES)
+
+    def __load_rdf(self, bgf_ontology: str|Path, bgf_templates: Optional[Sequence[str|Path|NamedNode]]=None):
+    #========================================================================================================
+        try:
+            self.__ontology.parse(location=Path(bgf_ontology))
+            if bgf_templates is not None:
+                for bgf_template in bgf_templates:
+                    self.__add_template(bgf_template, None)
+        except Exception as e:
+            self.__issues.append(make_issue(e))
+
     @property
     def has_issues(self) -> bool:
     #============================
@@ -741,6 +738,34 @@ class _BondgraphFramework:
     #===============================
         return self.__issues
 
+    def add_template(self, template_path: Optional[str|Path|NamedNode]=None, template_rdf: Optional[str]=None) -> bool:
+    #==================================================================================================================
+        try:
+            self.__add_template(template_path, template_rdf)
+            return True
+        except Exception as e:
+            self.__issues.append(make_issue(e))
+        return False
+
+    def __add_template(self, template_path: Optional[str|Path|NamedNode], template_rdf: Optional[str]):
+    #==================================================================================================
+        if isinstance(template_path, NamedNode):
+            template_path = str(template_path)
+        if isinstance(template_path, Path):
+            template_path = template_path.resolve()
+        elif template_path is not None:
+            if template_path.startswith('http:') or template_path.startswith('https:'):
+                if template_path.startswith(BGF_TEMPLATE_PREFIX):
+                    template_path = BGF_TEMPLATE_PATH / template_path[len(BGF_TEMPLATE_PREFIX):]
+                else:
+                    raise Issue(f'Templates cannot (yet) be remote: {template_path}')
+            else:
+                template_path = Path(template_path).resolve()
+        elif template_rdf is None:
+            raise Issue('Either the path of a template specification or its RDF source is required')
+        if template_path is None or template_path not in self.__loaded_templates:
+            if template_path is not None:
+                self.__loaded_templates.add(template_path)
             graph = RDFGraph(NAMESPACES)
             graph.merge(self.__ontology)
             graph.parse(location=template_path, source=template_rdf)
@@ -786,11 +811,6 @@ class _BondgraphFramework:
     def junction(self, uri: NamedNode) -> Optional[JunctionStructure]:
     #=================================================================
         return self.__junctions.get(uri)
-
-#===============================================================================
-#===============================================================================
-
-BondgraphFramework = _BondgraphFramework(BGF_ONTOLOGY, STANDARD_BGF_TEMPLATES)
 
 #===============================================================================
 #===============================================================================
