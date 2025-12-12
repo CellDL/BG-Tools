@@ -840,8 +840,8 @@ class BondgraphModel(Labelled):   ## Component ??
             for eq in equations:
                 eq.provenance = 'js'
 
-        if debug:
-            print(f'{bright()}Elements:')
+        if self.__debug:
+            print('Elements:')
             for element in self.__elements:
                 print(' ', pretty_uri(element.uri))
                 if (cr := element.constitutive_relation) is not None:

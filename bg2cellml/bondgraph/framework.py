@@ -25,11 +25,9 @@ from typing import cast, Optional, Self, Sequence
 #===============================================================================
 
 from ..rdf.namespace import XSD
-
-#===============================================================================
-
 from ..rdf import literal_as_string, uri_fragment
 from ..rdf import isLiteral, Literal, literal, NamedNode, namedNode, RDFGraph, ResultType
+
 from ..units import Units, Value
 from ..utils import Issue, make_issue
 
@@ -310,7 +308,7 @@ class Domain(Labelled):
         self.__constants.extend([Variable(self.uri, row['name'].value, value=row['value'])  # type: ignore
                                 for row in graph.query(
                                     # ?name ?value
-                                        DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', str(self.uri)))])
+                                    DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri.value))])
 
 #===============================================================================
 #===============================================================================
