@@ -39,7 +39,7 @@ from .framework import BondgraphFramework as FRAMEWORK, BondgraphElementTemplate
 from .framework import Domain, NamedPortVariable, optional_integer, PowerPort, Variable
 from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
 from .framework import FLOW_SOURCE, POTENTIAL_SOURCE
-from .framework import DISSIPATOR, FLOW_STORE, QUANTITY_STORE
+from .framework import DISSIPATOR, FLOW_STORE, QUANTITY_STORE, REACTION
 from .framework import GYRATOR_EQUATIONS, TRANSFORMER_EQUATIONS
 from .framework import TRANSFORM_FLOW_NAME, TRANSFORM_PORT_IDS, TRANSFORM_POTENTIAL_NAME, TRANSFORM_RATIO_NAME
 from .namespaces import BGF, NAMESPACES
@@ -186,7 +186,7 @@ class BondgraphElement(ModelElement):
                 self.__implied_junction = ZERONODE_JUNCTION
             elif self.__element_class == FLOW_STORE:
                 self.__implied_junction = ZERONODE_JUNCTION
-            elif self.__element_class == DISSIPATOR:
+            elif self.__element_class in [DISSIPATOR, REACTION]:
                 self.__implied_junction = ONENODE_JUNCTION
         elif self.__element_class == POTENTIAL_SOURCE:
             self.__implied_junction = ZERONODE_JUNCTION
@@ -324,7 +324,7 @@ class BondgraphElement(ModelElement):
         for port_uri, port in self.__power_ports.items():
             if bond_graph.degree(port_uri) == 0:     # pyright: ignore[reportCallIssue]
                 unused_ports.append(port_uri)
-                if self.__element_class == DISSIPATOR:
+                if self.__element_class in [DISSIPATOR, REACTION]:
                     del self.__variables[port.potential.name]
                     self.__port_variable_names.remove(port.potential.name)
         for port_uri in unused_ports:
@@ -384,7 +384,7 @@ class BondgraphElement(ModelElement):
                             expr = sympy.Mul(bond_count, expr)
                         if input: bond_inputs.append(expr)
                         else: bond_outputs.append(expr)
-                    if len(self.__power_ports) > 1 and self.__element_class == DISSIPATOR:
+                    if len(self.__power_ports) > 1 and self.__element_class == REACTION:
                         if (symbol := potential_symbol(node_dict)) is not None:
                             if bond_count != 1:
                                 symbol = sympy.Mul(bond_count, symbol)
@@ -616,7 +616,7 @@ class BondgraphJunction(ModelElement):
                         equal_value.append(node_dict['power_port'].potential.variable.symbol)
                 if len(equation_lhs) == 0 and (port := node_dict.get('power_port')) is not None:
                     if self.__type == ONENODE_JUNCTION:
-                        if node_dict.get('port_type') == DISSIPATOR:
+                        if node_dict.get('port_type') in [DISSIPATOR, REACTION]:
                             equation_lhs.append(sympy.Symbol(port.potential.variable.symbol))
 
             for node in bond_graph.predecessors(self.uri):

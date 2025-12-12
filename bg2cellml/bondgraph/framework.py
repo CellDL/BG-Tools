@@ -65,6 +65,7 @@ FLOW_SOURCE        = BGF.FlowSource
 FLOW_STORE         = BGF.FlowStore
 POTENTIAL_SOURCE   = BGF.PotentialSource
 QUANTITY_STORE     = BGF.QuantityStore
+REACTION           = BGF.Reaction
 
 ONENODE_JUNCTION   = BGF.OneNode
 TRANSFORM_JUNCTION = BGF.TransformNode  # Can act as a transformer of gyrator
