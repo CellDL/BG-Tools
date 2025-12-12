@@ -19,10 +19,12 @@
 #===============================================================================
 
 from pathlib import Path
+import sys
+import traceback
 
 #===============================================================================
 
-from bg2cellml.bondgraph import BondgraphModel, BondgraphModelSource
+from bg2cellml.bondgraph import BondgraphFramework, BondgraphModel
 from bg2cellml.cellml import CellMLModel
 from bg2cellml import __version__
 
@@ -44,14 +46,29 @@ def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_errors: bool=
             fp.write(cellml)
             log.info(f'Generated {pretty_log(cellml_file)}')
 
-def bg2cellml(bondgraph_rdf_source: str, output_path: Path, save_rdf: bool=False, save_if_errors: bool=False, debug: bool=False):
-#================================================================================================================================
-    source = Path(bondgraph_rdf_source)
-    if not source.exists():
-        raise IOError(f'Missing BG-RDF source file: {bondgraph_rdf_source}')
-    output_rdf = (output_path / f'{source.stem}.ttl') if save_rdf else None
-    for model in BondgraphModelSource(bondgraph_rdf_source, output_rdf=output_rdf, debug=debug).models:
-        model2cellml(model, output_path / f'{source.stem}.cellml', save_if_errors)
+def bg2cellml(bondgraph_source: str, output_path: Path, save_if_errors: bool=False, debug: bool=False):
+#======================================================================================================
+    framework = BondgraphFramework()
+    if framework.has_issues:
+        for issue in framework.issues:
+            traceback.print_exception(issue)
+        sys.exit('Issues loading BG-RDF framework')
+
+    source_path = Path(bondgraph_source).resolve()
+    if not source_path.exists():
+        raise IOError(f'Missing BG-RDF source file: {bondgraph_source}')
+
+    with open(source_path) as fp:
+        model_source = fp.read()
+
+    model = BondgraphModel(framework, model_source, model_uri=None,
+                           base_iri=source_path.as_uri(), debug=debug)
+    if model.has_issues:
+        for issue in model.issues:
+            traceback.print_exception(issue)
+        sys.exit('Issues loading Bondgraph Model')
+
+    model2cellml(model, output_path / f'{source_path.stem}.cellml', save_if_errors)
 
 #===============================================================================
 
@@ -61,13 +78,12 @@ def main():
     parser.add_argument('-v', '--version', action='version', version=__version__)
     parser.add_argument('--debug', action='store_true', help='Show generated equations for model')
     parser.add_argument('--save-errors', action='store_true', help='Output CellML even if it has errors')
-    parser.add_argument('--save-rdf', action='store_true', help='Optionally save intermediate RDF graph')
     parser.add_argument('--output', metavar='OUTPUT_DIR', required=True, help='Directory where generated files are saved')
     parser.add_argument('bg_rdf', metavar='BG-RDF', help='Input BG-RDF source file')
 
     args = parser.parse_args()
 
-    bg2cellml(args.bg_rdf, Path(args.output), save_rdf=args.save_rdf, save_if_errors=args.save_errors, debug=args.debug)
+    bg2cellml(args.bg_rdf, Path(args.output), save_if_errors=args.save_errors, debug=args.debug)
 
 #===============================================================================
 
