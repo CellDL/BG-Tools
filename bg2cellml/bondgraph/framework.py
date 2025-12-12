@@ -24,11 +24,11 @@ from typing import cast, Optional, Self, Sequence
 
 #===============================================================================
 
-from ..rdf import uri_fragment
 from ..rdf.namespace import XSD
 
 #===============================================================================
 
+from ..rdf import literal_as_string, uri_fragment
 from ..rdf import isLiteral, Literal, literal, NamedNode, namedNode, RDFGraph, ResultType
 from ..units import Units, Value
 from ..utils import Issue, make_issue
@@ -216,9 +216,9 @@ class Variable:
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy
 
-    def set_symbol(self, symbol: str):
-    #=================================
-        self.__symbol = symbol
+    def set_symbol(self, symbol: Literal):
+    #=====================================
+        self.__symbol = symbol.value
 
     def set_value(self, value: Value):
     #=================================
@@ -267,13 +267,14 @@ class Domain(Labelled):
 
     @classmethod
     def from_rdfgraph(cls, graph: RDFGraph,
-                    uri: NamedNode, label: Optional[str],
-                    flow_name: str, flow_units: Literal,
-                    potential_name: str, potential_units: Literal,
-                    quantity_name: str, quantity_units: Literal) -> Self:
-        self = cls(uri, label, flow_name, flow_units,
-                                potential_name, potential_units,
-                                quantity_name, quantity_units)
+                    uri: NamedNode, label: Optional[Literal],
+                    flow_name: Literal, flow_units: Literal,
+                    potential_name: Literal, potential_units: Literal,
+                    quantity_name: Literal, quantity_units: Literal) -> Self:
+        self = cls(uri, literal_as_string(label),
+                        flow_name.value, flow_units,
+                        potential_name.value, potential_units,
+                        quantity_name.value, quantity_units)
         self.__add_constants(graph)
         return self
 
@@ -407,7 +408,7 @@ class ElementTemplate(Labelled):
             mathml = None
             if isLiteral(relation):
                 if relation.datatype == BGF.mathml:     # pyright: ignore[reportAttributeAccessIssue]
-                    mathml = str(relation)
+                    mathml = relation.value             # pyright: ignore[reportAttributeAccessIssue]
                 else:
                     # Do we insist on datatyping? Default to MathML ??
                     mathml = relation
@@ -426,8 +427,8 @@ class ElementTemplate(Labelled):
 
     @classmethod
     def from_rdfgraph(cls, graph: RDFGraph, uri: NamedNode, element_class: NamedNode,
-                        label: Optional[str], domain: Domain, relation: str|Literal) -> Self:
-        self = cls(uri, element_class, label, domain, relation)
+                        label: Optional[Literal], domain: Domain, relation: Literal) -> Self:
+        self = cls(uri, element_class, literal_as_string(label), domain, relation)
         self.__add_ports(graph)
         self.__add_variables(graph)
         self.__check_names()
@@ -466,7 +467,7 @@ class ElementTemplate(Labelled):
         port_bonds: dict[str, int|None] = {}
         directions: dict[str, NamedNode|None] = {}
         for row in graph.query(
-                        ELEMENT_PORT_BONDS.replace('%ELEMENT_URI%', str(self.uri))):
+                        ELEMENT_PORT_BONDS.replace('%ELEMENT_URI%', self.uri.value)):
             # ?portId ?bondCount ?direction
             if isLiteral(row['portId']):
                 port_bonds[row['portId'].value] = optional_integer(row['bondCount'], 1)  # pyright: ignore[reportOptionalMemberAccess]
@@ -478,7 +479,7 @@ class ElementTemplate(Labelled):
                 suffix = f'_{id}'
                 flow_var = self.__port_name_variable(self.domain.flow, suffix if flow_suffixed else '')
                 potential_var = self.__port_name_variable(self.domain.potential, suffix)
-                self.__power_ports[id] = PowerPort(namedNode(f'{self.uri}{suffix}'),
+                self.__power_ports[id] = PowerPort(namedNode(f'{self.uri.value}{suffix}'),
                                                     flow_var, potential_var, direction=directions[id])
         else:
             self.__power_ports = {'': PowerPort(self.uri,
@@ -494,13 +495,13 @@ class ElementTemplate(Labelled):
 
     def __add_variables(self, graph: RDFGraph):
     #==========================================
-        for row in graph.query(ELEMENT_PARAMETERS.replace('%ELEMENT_URI%', str(self.uri), True)):
+        for row in graph.query(ELEMENT_PARAMETERS.replace('%ELEMENT_URI%', self.uri.value, True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
                 raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri.value}')
             self.__parameters[var_name] = Variable(self.uri, row['name'].value, units=row['units'], value=row['value'])   # type: ignore
-        for row in graph.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', str(self.uri), True)):
+        for row in graph.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri.value, True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:

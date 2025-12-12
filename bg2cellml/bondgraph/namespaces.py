@@ -18,6 +18,7 @@
 #
 #===============================================================================
 
+from ..rdf import NamedNode
 from ..rdf.namespace import Namespace
 
 #===============================================================================
@@ -34,5 +35,13 @@ NAMESPACES = {
     'rdfs': 'http://www.w3.org/2000/01/rdf-schema#',
     'xsd': 'http://www.w3.org/2001/XMLSchema#',
 }
+
+def get_curie(uri: NamedNode) -> str:
+#====================================
+    full_uri = uri.value
+    for prefix, ns_uri in NAMESPACES.items():
+        if full_uri.startswith(ns_uri):
+            return f'{prefix}:{full_uri[len(ns_uri):]}'
+    return full_uri
 
 #===============================================================================
