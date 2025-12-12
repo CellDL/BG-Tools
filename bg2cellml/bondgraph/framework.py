@@ -305,8 +305,9 @@ class Domain(Labelled):
 
     def __add_constants(self, graph: RDFGraph):
     #==========================================
-        self.__constants.extend([Variable(self.uri, str(row[0]), value=row[1])  # type: ignore
+        self.__constants.extend([Variable(self.uri, row['name'].value, value=row['value'])  # type: ignore
                                 for row in graph.query(
+                                    # ?name ?value
                                         DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', str(self.uri)))])
 
 #===============================================================================
@@ -465,9 +466,10 @@ class ElementTemplate(Labelled):
         directions: dict[str, NamedNode|None] = {}
         for row in graph.query(
                         ELEMENT_PORT_BONDS.replace('%ELEMENT_URI%', str(self.uri))):
-            if isLiteral(row[0]):
-                port_bonds[str(row[0])] = optional_integer(row[1], 1)
-                directions[str(row[0])] = row[2]    # pyright: ignore[reportArgumentType]
+            # ?portId ?bondCount ?direction
+            if isLiteral(row['portId']):
+                port_bonds[row['portId'].value] = optional_integer(row['bondCount'], 1)  # pyright: ignore[reportOptionalMemberAccess]
+                directions[row['portId'].value] = row['direction']    # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
         if len(port_bonds):
             flow_suffixed = (len(port_bonds) == 2) and (self.__element_class != DISSIPATOR)
             self.__power_ports = {}
@@ -492,15 +494,17 @@ class ElementTemplate(Labelled):
     def __add_variables(self, graph: RDFGraph):
     #==========================================
         for row in graph.query(ELEMENT_PARAMETERS.replace('%ELEMENT_URI%', str(self.uri), True)):
-            var_name = str(row[0])
+            # ?name ?units ?value
+            var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
                 raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
-            self.__parameters[var_name] = Variable(self.uri, str(row[0]), units=row[1], value=row[2])   # type: ignore
+            self.__parameters[var_name] = Variable(self.uri, row['name'].value, units=row['units'], value=row['value'])   # type: ignore
         for row in graph.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', str(self.uri), True)):
-            var_name = str(row[0])
+            # ?name ?units ?value
+            var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
                 raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
-            self.__variables[var_name] = Variable(self.uri, str(row[0]), units=row[1], value=row[2])   # type: ignore
+            self.__variables[var_name] = Variable(self.uri, row['name'].value, units=row['units'], value=row['value'])   # type: ignore
         # A variable that is intrinsic to the element's class
         # Values of intrinsic variables are set by bgf:hasValue
         if self.__element_class == QUANTITY_STORE:
@@ -728,28 +732,34 @@ class _BondgraphFramework:
             graph.merge(self.__ontology)
             if not graph.parse(template_path):
                 return
-            self.__domains.update({cast(NamedNode, row[0]): Domain.from_rdfgraph(
-                                        graph, row[0], row[1],                          # pyright: ignore[reportArgumentType]
-                                        row[2], row[3], row[4], row[5], row[6], row[7]) # pyright: ignore[reportArgumentType]
+            self.__domains.update({cast(NamedNode, row['domain']): Domain.from_rdfgraph(
+                                        graph, row['domain'], row['label'],             # pyright: ignore[reportArgumentType]
+                                        row['flowName'], row['flowUnits'],              # pyright: ignore[reportArgumentType]
+                                        row['potentialName'], row['potentialUnits'],    # pyright: ignore[reportArgumentType]
+                                        row['quantityName'], row['quantityUnits'])      # pyright: ignore[reportArgumentType]
+# ?domain ?label ?flowName ?flowUnits ?potentialName ?potentialUnits ?quantityName ?quantityUnits
                                     for row in graph.query(DOMAIN_QUERY)})
             for row in graph.query(ELEMENT_TEMPLATE_DEFINITIONS):
-                if (domain := self.__domains.get(cast(NamedNode, row[3]))) is None:
-                    raise ValueError(f'Unknown domain {row[3]} for {row[0]} element')
-                self.__element_templates[cast(NamedNode, row[0])] = ElementTemplate.from_rdfgraph(
-                                                graph, row[0], row[1], row[2],          # pyright: ignore[reportArgumentType]
-                                                domain, row[4])                         # pyright: ignore[reportArgumentType]
+                # ?uri ?element_class ?label ?domain ?relation
+                if (domain := self.__domains.get(cast(NamedNode, row['domain']))) is None:
+                    raise ValueError(f'Unknown domain {row['domain']} for {row['uri']} element')
+                self.__element_templates[cast(NamedNode, row['uri'])] = ElementTemplate.from_rdfgraph(
+                                                graph, row['uri'], row['element_class'], # pyright: ignore[reportArgumentType]
+                                                row['label'], domain, row['relation'])   # pyright: ignore[reportArgumentType]
             self.__element_domains.update({
                 (element.element_class, element.domain.uri): element
                     for element in self.__element_templates.values() if element.domain is not None
             })
-            self.__junctions.update({cast(NamedNode, row[0]): JunctionStructure(row[0], row[1])    # pyright: ignore[reportArgumentType]
+            self.__junctions.update({cast(NamedNode, row['junction']): JunctionStructure(row['junction'], row['label'])    # pyright: ignore[reportArgumentType]
+                # ?junction ?label
                 for row in graph.query(JUNCTION_STRUCTURES)})
             for row in graph.query(COMPOSITE_ELEMENT_DEFINITIONS):
-                if (element := self.__element_templates.get(cast(NamedNode, row[1]))) is None:
-                    raise ValueError(f'Unknown BondElement {row[1]} for composite {row[0]}')
-                #if (junction := self.__junctions.get(row[2])) is None:          # type: ignore
-                #    raise ValueError(f'Unknown JunctionStructure {row[2]} for composite {row[0]}')
-                self.__composite_elements[row[0]] = CompositeTemplate(row[0], element, row[2]) # pyright: ignore[reportArgumentType]
+                # ?uri ?template ?label
+                if (element := self.__element_templates.get(cast(NamedNode, row['template']))) is None:
+                    raise ValueError(f'Unknown BondElement {row['template']} for composite {row['uri']}')
+                #if (junction := self.__junctions.get(row['label'])) is None:          # type: ignore
+                #    raise ValueError(f'Unknown JunctionStructure {row['label']} for composite {row['uri']}')
+                self.__composite_elements[row['uri']] = CompositeTemplate(row['uri'], element, row['label']) # pyright: ignore[reportArgumentType]
 
     def element_template(self, element_type: NamedNode, domain_uri: Optional[NamedNode]) -> Optional[BondgraphElementTemplate]:
     #==========================================================================================================================

@@ -250,19 +250,22 @@ class BondgraphElement(ModelElement):
     def for_model(cls, model: 'BondgraphModel', uri: NamedNode, template: BondgraphElementTemplate,
     #===========================================================================================
                                     domain_uri: Optional[NamedNode], symbol: Optional[str], label: Optional[str]):
-        parameter_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # pyright: ignore[reportAssignmentType]
+        parameter_values: dict[str, VariableValue] = {row['name'].value: (row['value'], row['symbol'])  # pyright: ignore[reportAssignmentType, reportOptionalMemberAccess]
             for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT%', str(uri)))
+            # ?name ?value ?symbol
         }
-        variable_values: dict[str, VariableValue] = {str(row[0]): (row[1], row[2])  # pyright: ignore[reportAssignmentType]
+        variable_values: dict[str, VariableValue] = {row['name'].value: (row['value'], row['symbol'])  # pyright: ignore[reportAssignmentType, reportOptionalMemberAccess]
             for row in model.sparql_query(ELEMENT_VARIABLE_VALUES.replace('%ELEMENT%', str(uri)))
+            # ?name ?value ?symbol
         }
         value: Optional[Value|MathML] = None
         for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT%', str(uri))):
-            if isLiteral(row[0]):
-                if row[0].datatype == BGF.mathml:               # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
-                    value = MathML.from_string(str(row[0]))
+            # ?value
+            if isLiteral(row['value']):
+                if row['value'].datatype == BGF.mathml:               # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+                    value = MathML.from_string(row['value'].value)    # pyright: ignore[reportOptionalMemberAccess]
                 else:
-                    value = Value.from_literal(row[0])          # pyright: ignore[reportArgumentType]
+                    value = Value.from_literal(row['value'])          # pyright: ignore[reportArgumentType]
                 break
         return cls(model, uri, template, domain_uri=domain_uri,
                     parameter_values=parameter_values, variable_values=variable_values,
@@ -478,7 +481,8 @@ class BondgraphBond(ModelElement):
                 MODEL_BOND_PORTS.replace('%MODEL%', str(self.model.uri))
                                 .replace('%BOND%', str(self.uri))
                                 .replace('%BOND_RELN%', str(reln))):
-                return make_element_port_uri(row[0], str(row[1]))   # pyright: ignore[reportArgumentType]
+                # ?element ?port
+                return make_element_port_uri(row['element'], row['port'].value)  # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
         else:
             return port_uri                                         # pyright: ignore[reportReturnType]
 
@@ -697,6 +701,43 @@ MODEL_BONDS = """
 
 #===============================================================================
 
+BONDGRAPH_BONDS = """
+    SELECT DISTINCT ?bond ?source ?target ?sourceElement ?targetElement
+    WHERE {
+        {
+            { ?bond
+                bgf:hasSource ?source ;
+                bgf:hasTarget ?target .
+            }
+      UNION { ?bond
+                bgf:hasSource ?source ;
+                bgf:hasTarget ?target .
+                ?target
+                    bgf:element ?targetElement ;
+                    bgf:port ?targetPort .
+            }
+      UNION { ?bond
+                bgf:hasTarget ?target ;
+                bgf:hasSource ?source .
+                ?source
+                    bgf:element ?sourceElement ;
+                    bgf:port ?sourcePort .
+            }
+      UNION { ?bond
+                bgf:hasSource ?source ;
+                bgf:hasTarget ?target .
+                ?source
+                    bgf:element ?sourceElement ;
+                    bgf:port ?sourcePort .
+               ?target
+                    bgf:element ?targetElement ;
+                    bgf:port ?targetPort .
+            }
+       }
+    }"""
+
+#===============================================================================
+
 class BondgraphModel(Labelled):
     def __init__(self, rdf_graph: RDFGraph, uri: NamedNode, label: Optional[str]=None, debug=False):
         super().__init__(uri, label)
@@ -705,7 +746,8 @@ class BondgraphModel(Labelled):
         last_element_uri: Optional[NamedNode] = None
         element = None
         for row in rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', str(uri))):
-            if row[0] != last_element_uri:
+            # ?uri ?type ?domain ?symbol ?label ORDER BY ?uri ?type
+            if row['uri'].value != last_element_uri:                                        # pyright: ignore[reportOptionalMemberAccess]
                 if last_element_uri is not None and element is None:
                     log.error(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF class')
                 element = None
@@ -726,16 +768,18 @@ class BondgraphModel(Labelled):
         if len(self.__elements) == 0:
             log.error(f'Model {(pretty_uri(uri))} has no elements...')
         self.__junctions = [
-            BondgraphJunction(self, row[0], row[1], row[2], row[3], row[4])             # pyright: ignore[reportArgumentType]
                 for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', str(uri)))]
+            BondgraphJunction(self, row['uri'], row['type'], row['label'], row['value'], row['symbol']) # pyright: ignore[reportArgumentType]
+                # ?uri ?type ?label ?value ?symbol
         self.__bonds = []
         for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', str(uri))):
-            bond_uri: NamedNode = row[0]                                                # pyright: ignore[reportAssignmentType]
-            if row[1] is None or row[2] is None:
                 log.error(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
+            # ?powerBond ?source ?target ?label ?bondCount
+            bond_uri: NamedNode = row['powerBond']                                                # pyright: ignore[reportAssignmentType]
+            if row['source'] is None or row['target'] is None:
                 continue
             self.__bonds.append(
-                BondgraphBond(self, bond_uri, row[1], row[2], row[3], optional_integer(row[4])))    # pyright: ignore[reportArgumentType]
+                BondgraphBond(self, bond_uri, row['source'], row['target'], row['label'], optional_integer(row['bondCount'])))    # pyright: ignore[reportArgumentType]
 
         self.__graph = nx.DiGraph()
         self.__make_bond_network()
@@ -773,6 +817,28 @@ class BondgraphModel(Labelled):
                 equations = junction.equations
                 for eq in equations:
                     print('   ', eq)
+
+    def __generate_bonds(self):
+    #==========================
+        for row in self.__rdf_graph.query(BONDGRAPH_BONDS):
+            # ?bond ?source ?target ?sourceElement ?targetElement
+            if isNamedNode(row['source']):
+                source = row['source']
+            elif isBlankNode(row['source']) and isNamedNode(row['sourceElement']):
+                source = row['sourceElement']
+            else:
+                source = None
+            if isNamedNode(row['target']):
+                target = row['target']
+            elif isBlankNode(row['target']) and isNamedNode(row['targetElement']):
+                target = row['targetElement']
+            else:
+                target = None
+            if ((Triple(None, BGF.hasBondElement, source) in self.__rdf_graph
+              or Triple(None, BGF.hasJunctionStructure, source) in self.__rdf_graph)
+            and (Triple(None, BGF.hasBondElement, target) in self.__rdf_graph
+              or Triple(None, BGF.hasJunctionStructure, target) in self.__rdf_graph)):
+                self.__rdf_graph.add(Triple(self.uri, BGF.hasPowerBond, row['bond']))
 
     @property
     def elements(self):
@@ -889,40 +955,6 @@ BONDGRAPH_MODEL_BLOCKS = """
 
 #===============================================================================
 
-BONDGRAPH_BONDS = """
-    SELECT DISTINCT ?bond ?source ?target ?sourceElement ?targetElement
-    WHERE {
-        {
-            { ?bond
-                bgf:hasSource ?source ;
-                bgf:hasTarget ?target .
-            }
-      UNION { ?bond
-                bgf:hasSource ?source ;
-                bgf:hasTarget ?target .
-                ?target
-                    bgf:element ?targetElement ;
-                    bgf:port ?targetPort .
-            }
-      UNION { ?bond
-                bgf:hasTarget ?target ;
-                bgf:hasSource ?source .
-                ?source
-                    bgf:element ?sourceElement ;
-                    bgf:port ?sourcePort .
-            }
-      UNION { ?bond
-                bgf:hasSource ?source ;
-                bgf:hasTarget ?target .
-                ?source
-                    bgf:element ?sourceElement ;
-                    bgf:port ?sourcePort .
-               ?target
-                    bgf:element ?targetElement ;
-                    bgf:port ?targetPort .
-            }
-       }
-    }"""
 
 #===============================================================================
 
@@ -976,27 +1008,6 @@ class BondgraphModelSource:
                                         .parent
                                         .joinpath(str(path))
                                         .resolve())
-
-    def __generate_bonds(self, model_uri: NamedNode):
-    #=============================================
-        for row in self.__rdf_graph.query(BONDGRAPH_BONDS):
-            if isNamedNode(row[1]):
-                source = row[1]
-            elif isBlankNode(row[1]) and isNamedNode(row[3]):
-                source = row[3]
-            else:
-                source = None
-            if isNamedNode(row[2]):
-                target = row[2]
-            elif isBlankNode(row[2]) and isNamedNode(row[4]):
-                target = row[4]
-            else:
-                target = None
-            if ((Triple(None, BGF.hasBondElement, source) in self.__rdf_graph
-              or Triple(None, BGF.hasJunctionStructure, source) in self.__rdf_graph)
-            and (Triple(None, BGF.hasBondElement, target) in self.__rdf_graph
-              or Triple(None, BGF.hasJunctionStructure, target) in self.__rdf_graph)):
-                self.__rdf_graph.add(Triple(model_uri, BGF.hasPowerBond, row[0]))
 
     def __load_blocks(self, model_uri: NamedNode):
     #=============================================

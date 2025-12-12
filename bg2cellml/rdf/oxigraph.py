@@ -61,7 +61,7 @@ def isNamedNode(node: Any) -> bool:
 #===============================================================================
 
 type ResultType = BlankNode | Literal | NamedNode | None
-type ResultRow = list[ResultType]
+type ResultRow = dict[str, ResultType]
 
 Triple = namedtuple('Triple', 'subject, predicate, object')
 
