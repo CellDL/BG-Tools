@@ -18,37 +18,48 @@
 #
 #===============================================================================
 
+import os.path
+import tempfile
+
 import libopencor as loc
 
 #===============================================================================
 
-def valid_cellml(cellml_file: str) -> bool:
-#==========================================
-    file = loc.File(str(cellml_file), True)
+def string_to_list(string: str) -> list[int]:
+#============================================
+    return [ord(x) for x in string]
+
+#===============================================================================
+
+def valid_cellml(cellml: str) -> bool:
+#=====================================
     no_issues = True
-    if file.has_issues:
-        for issue in file.issues:
-            print(issue.description)
-        print(f'{file.issue_count} CellML validation issues...')
-        no_issues = False
-    else:
-        simulation = loc.SedDocument(file)
-        if simulation.has_issues:
-            for issue in simulation.issues:
+    with tempfile.TemporaryDirectory() as tmp:
+        cellml_file = os.path.join(tmp, 'test.cellml')
+        file = loc.File(cellml_file, False)
+        file.contents = string_to_list(cellml)
+        if file.has_issues:
+            for issue in file.issues:
                 print(issue.description)
-            print(f'{simulation.issue_count} issues creating simulation from CellML...')
+            print(f'{file.issue_count} CellML validation issues...')
             no_issues = False
         else:
-            simulation.simulations[0].output_end_time = 0.1
-            simulation.simulations[0].number_of_steps = 10
-
-            instance = simulation.instantiate(True)
-            instance.run()
-            if instance.has_issues:
-                for issue in instance.issues:
+            simulation = loc.SedDocument(file)
+            if simulation.has_issues:
+                for issue in simulation.issues:
                     print(issue.description)
-                print(f'{instance.issue_count} issues running simulation created from CellML...')
+                print(f'{simulation.issue_count} issues creating simulation from CellML...')
                 no_issues = False
+            else:
+                simulation.simulations[0].output_end_time = 0.1
+                simulation.simulations[0].number_of_steps = 10
+                instance = simulation.instantiate()
+                instance.run()
+                if instance.has_issues:
+                    for issue in instance.issues:
+                        print(issue.description)
+                    print(f'{instance.issue_count} issues running simulation created from CellML...')
+                    no_issues = False
     if no_issues:
         print('CellML is valid')
     return no_issues
@@ -57,7 +68,8 @@ def valid_cellml(cellml_file: str) -> bool:
 
 if __name__ == '__main__':
     import sys
-    validate_cellml(sys.argv[1])
+    with open(sys.argv[1]) as fp:
+        valid_cellml(fp.read())
 
 #===============================================================================
 #===============================================================================
