@@ -110,7 +110,7 @@ class Value:
     @classmethod
     def from_literal(cls, literal_value: Literal) -> Self:
         if literal_value.datatype == CDT.ucum:
-            parts = str(literal_value).split()
+            parts = str(literal_value.value).split()
             value = float(parts[0])
             units = Units.from_ucum(parts[1])
         elif literal_value.datatype is None:
