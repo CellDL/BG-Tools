@@ -33,7 +33,7 @@ from ..rdf import BlankNode, Literal, ResultRow, ResultType, RDFGraph, NamedNode
 from ..rdf import isBlankNode, isLiteral, isNamedNode, namedNode, Triple
 from ..mathml import Equation, MathML
 from ..units import Value
-from ..utils import bright, log, pretty_log, pretty_uri
+from ..utils import Issue, make_issue
 
 from .framework import BondgraphFramework as FRAMEWORK, BondgraphElementTemplate, CompositeTemplate
 from .framework import Domain, NamedPortVariable, optional_integer, PowerPort, Variable
@@ -43,7 +43,7 @@ from .framework import DISSIPATOR, FLOW_STORE, QUANTITY_STORE, REACTION
 from .framework import GYRATOR_EQUATIONS, TRANSFORMER_EQUATIONS
 from .framework import TRANSFORM_FLOW_NAME, TRANSFORM_PORT_IDS, TRANSFORM_POTENTIAL_NAME, TRANSFORM_RATIO_NAME
 from .namespaces import BGF, NAMESPACES
-from .utils import Labelled
+from .utils import Labelled, pretty_uri
 
 #===============================================================================
 
@@ -67,8 +67,8 @@ def flow_symbol(node_dict: dict) -> Optional[sympy.Symbol]:
         if junction.type == ONENODE_JUNCTION:
             return sympy.Symbol(junction.variables[''].symbol)
         elif junction.type == ZERONODE_JUNCTION:
-            log.error(f'Adjacent Zero Nodes to junction {junction.uri} must be merged')
-    log.error(f'Unexpected bond graph node, cannot get flow: {node_dict}')
+            raise Issue(f'Adjacent Zero Nodes to junction {junction.uri} must be merged')
+    raise Issue(f'Unexpected bond graph node, cannot get flow: {node_dict}')
 
 def potential_expression(node_dict: dict) -> Optional[sympy.Expr]:
 #=================================================================
@@ -86,8 +86,8 @@ def potential_symbol(node_dict: dict) -> Optional[sympy.Symbol]:
         if junction.type == ZERONODE_JUNCTION:
             return sympy.Symbol(junction.variables[''].symbol)
         elif junction.type == ONENODE_JUNCTION:
-            log.error(f'Adjacent One Nodes to junction {junction.uri} must be merged')
-    log.error(f'Unexpected bond graph node, cannot get potential: {node_dict}')
+            raise Issue(f'Adjacent One Nodes to junction {junction.uri} must be merged')
+    raise Issue(f'Unexpected bond graph node, cannot get potential: {node_dict}')
 
 #===============================================================================
 
@@ -150,9 +150,9 @@ class BondgraphElement(ModelElement):
             element_template = template
             composite = False
         if element_template.domain is None:
-            raise ValueError(f'No modelling domain for element {uri} with template {element_type}/{domain_uri}')
+            raise Issue(f'No modelling domain for element {uri} with template {element_type}/{domain_uri}')
         elif domain_uri is not None and element_template.domain.uri != domain_uri:
-            raise ValueError(f'Domain mismatch for element {uri} with template {element_type}/{domain_uri}')
+            raise Issue(f'Domain mismatch for element {uri} with template {element_type}/{domain_uri}')
 
         self.__domain = element_template.domain
         self.__element_class = element_template.element_class
@@ -165,7 +165,7 @@ class BondgraphElement(ModelElement):
                 self.__constitutive_relation = None
         else:
             if element_template.constitutive_relation is None:
-                raise ValueError(f'Template {element_template.uri} for element {uri} has no constitutive relation')
+                raise Issue(f'Template {element_template.uri} for element {uri} has no constitutive relation')
             self.__constitutive_relation = element_template.constitutive_relation.copy()
 
         self.__power_ports: dict[NamedNode, PowerPort] = {}
@@ -213,16 +213,16 @@ class BondgraphElement(ModelElement):
         self.__variable_values = {}
         if parameter_values is None:
             if len(element_template.parameters):
-                log.error(f'No parameters given for element {pretty_uri(uri)}')
+                raise Issue(f'No parameters given for element {pretty_uri(uri)}')
         else:
             for name in element_template.parameters.keys():
                 if name not in parameter_values:
-                    log.error(f'Missing value for parameter {name} of element {pretty_uri(uri)}')
+                    raise Issue(f'Missing value for parameter {name} of element {pretty_uri(uri)}')
             self.__variable_values.update(parameter_values)
         if variable_values is not None:
             for name in variable_values.keys():
                 if name not in name not in self.__variables:
-                    log.error(f'Unknown variable {name} for element {pretty_uri(uri)}')
+                    raise Issue(f'Unknown variable {name} for element {pretty_uri(uri)}')
             self.__variable_values.update(variable_values)
 
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
@@ -335,25 +335,20 @@ class BondgraphElement(ModelElement):
 
         for var_name, value in self.__variable_values.items():
             if (variable := self.__variables.get(var_name)) is None:
-                log.error(f'Element {pretty_uri(self.uri)} has unknown name {var_name} for {self.__type}')
-                continue
+                raise Issue(f'Element {pretty_uri(self.uri)} has unknown name {var_name} for {self.__type}')
             if value[1] is not None:
                 variable.set_symbol(value[1])
             if isLiteral(value[0]):
                 variable.set_value(Value.from_literal(value[0]))
             elif isNamedNode(value[0]):
                 if value[0] not in bond_graph:
-                    log.error(f'Value for {pretty_uri(self.uri)} refers to unknown element: {value[0]}')
-                    continue
+                    raise Issue(f'Value for {pretty_uri(self.uri)} refers to unknown element: {value[0]}')
                 elif (element := bond_graph.nodes[value[0]].get('element')) is None:
-                    log.error(f'Value for {pretty_uri(self.uri)} is not a bond element: {value[0]}')
-                    continue
+                    raise Issue(f'Value for {pretty_uri(self.uri)} is not a bond element: {value[0]}')
                 elif element.__intrinsic_variable is None:
-                    log.error(f'Value for {pretty_uri(self.uri)} is an element with no intrinsic variable: {value[0]}')
-                    continue
+                    raise Issue(f'Value for {pretty_uri(self.uri)} is an element with no intrinsic variable: {value[0]}')
                 elif variable.units != element.__intrinsic_variable.units:
-                    log.error(f'Units incompatible for {pretty_uri(self.uri)} value: {value[0]}')
-                    continue
+                    raise Issue(f'Units incompatible for {pretty_uri(self.uri)} value: {value[0]}')
                 else:
                     self.__variables[var_name] = element.__intrinsic_variable
 
@@ -496,7 +491,7 @@ class BondgraphJunction(ModelElement):
         self.__type = type
         self.__junction = FRAMEWORK.junction(type)
         if self.__junction is None:
-            raise ValueError(f'Unknown Junction {type} for node {uri}')
+            raise Issue(f'Unknown Junction {type} for node {uri}')
         self.__transform_relation: Optional[MathML] = None
         self.__value = value
         self.__variables: dict[str, Variable] = {}
@@ -517,7 +512,7 @@ class BondgraphJunction(ModelElement):
     def __get_domain(self, attributes: dict) -> Optional[Domain]:
     #============================================================
         if (domain := attributes.get('domain')) is None:
-            log.error(f'Cannot find domain for junction {pretty_uri(self.uri)}. Are there bonds to it?')
+            raise Issue(f'Cannot find domain for junction {pretty_uri(self.uri)}. Are there bonds to it?')
         return domain
 
     def assign_node_variables(self, bond_graph: nx.DiGraph):
@@ -742,6 +737,7 @@ class BondgraphModel(Labelled):
     def __init__(self, rdf_graph: RDFGraph, uri: NamedNode, label: Optional[str]=None, debug=False):
         super().__init__(uri, label)
         self.__rdf_graph = rdf_graph
+        self.__issues: list[Issue] = []
         self.__elements = []
         last_element_uri: Optional[NamedNode] = None
         element = None
@@ -749,7 +745,7 @@ class BondgraphModel(Labelled):
             # ?uri ?type ?domain ?symbol ?label ORDER BY ?uri ?type
             if row['uri'].value != last_element_uri:                                        # pyright: ignore[reportOptionalMemberAccess]
                 if last_element_uri is not None and element is None:
-                    log.error(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF class')
+                    raise Issue(f'BondElement `{pretty_uri(last_element_uri)}` has no BG-RDF template')
                 element = None
                 last_element_uri = row[0]                                               # pyright: ignore[reportAssignmentType]
             template = FRAMEWORK.element_template(row[1], row[2])   # pyright: ignore[reportArgumentType]
@@ -761,23 +757,22 @@ class BondgraphModel(Labelled):
                         self.__elements.append(element)
                     except ValueError as e:
                         log.error(str(e))
+                    raise Issue(f'BondElement {pretty_uri(last_element_uri)} has an unknown BG-RDF template: {get_curie(row['type'])}')
                 else:
-                    log.error(f'BondElement {pretty_uri(row[0])} has more than one BG-RDF class')   # pyright: ignore[reportArgumentType]
         if last_element_uri is not None and element is None:
-            log.error(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF class')
+            raise Issue(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF template')
         if len(self.__elements) == 0:
-            log.error(f'Model {(pretty_uri(uri))} has no elements...')
+            raise Issue(f'Model {(pretty_uri(self.uri))} has no elements...')
         self.__junctions = [
                 for row in rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', str(uri)))]
             BondgraphJunction(self, row['uri'], row['type'], row['label'], row['value'], row['symbol']) # pyright: ignore[reportArgumentType]
                 # ?uri ?type ?label ?value ?symbol
         self.__bonds = []
         for row in rdf_graph.query(MODEL_BONDS.replace('%MODEL%', str(uri))):
-                log.error(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
             # ?powerBond ?source ?target ?label ?bondCount
             bond_uri: NamedNode = row['powerBond']                                                # pyright: ignore[reportAssignmentType]
             if row['source'] is None or row['target'] is None:
-                continue
+                raise Issue(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
             self.__bonds.append(
                 BondgraphBond(self, bond_uri, row['source'], row['target'], row['label'], optional_integer(row['bondCount'])))    # pyright: ignore[reportArgumentType]
 
@@ -845,6 +840,20 @@ class BondgraphModel(Labelled):
         return self.__elements
 
     @property
+    def framework(self) -> BondgraphFramework:
+        return self.__framework
+
+    @property
+    def has_issues(self) -> bool:
+    #============================
+        return len(self.__issues) > 0
+
+    @property
+    def issues(self) -> list[Issue]:
+    #===============================
+        return self.__issues
+
+    @property
     def junctions(self):
         return self.__junctions
 
@@ -890,7 +899,7 @@ class BondgraphModel(Labelled):
                     for neighbour in undirected_graph.neighbors(node):
                         check_node(neighbour, domain)
                 elif domain != (node_domain := self.__graph.nodes[node]['domain']):
-                    log.error(f'Node {node} with domain {node_domain} incompatible with {domain}')
+                    raise Issue(f'Node {node} with domain {node_domain} incompatible with {domain}')
 
         for element in self.__elements:
             for port_uri in element.power_ports.keys():
@@ -919,14 +928,11 @@ class BondgraphModel(Labelled):
             source = bond.source_id
             target = bond.target_id
             if source not in self.__graph and target not in self.__graph:
-                log.error(f'No element or junction for source {pretty_uri(source)} and target {pretty_uri(target)} of bond {pretty_uri(bond.uri)}')
-                continue
+                raise Issue(f'No element or junction for source {pretty_uri(source)} and target {pretty_uri(target)} of bond {pretty_uri(bond.uri)}')
             elif source not in self.__graph:
-                log.error(f'No element or junction for source {pretty_uri(source)} of bond {pretty_uri(bond.uri)}')
-                continue
+                raise Issue(f'No element or junction for source {pretty_uri(source)} of bond {pretty_uri(bond.uri)}')
             elif target not in self.__graph:
-                log.error(f'No element or junction for target {pretty_uri(target)} of bond {pretty_uri(bond.uri)}')
-                continue
+                raise Issue(f'No element or junction for target {pretty_uri(target)} of bond {pretty_uri(bond.uri)}')
 
             self.__graph.add_edge(source, target, bond_count=bond.bond_count)
     def sparql_query(self, query: str) -> list[ResultRow]:

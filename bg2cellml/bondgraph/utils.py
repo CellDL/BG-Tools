@@ -26,6 +26,29 @@ from ..rdf import NamedNode, uri_fragment
 
 #===============================================================================
 
+LOCAL_MODEL_BASE = 'https://bg-rdf.org/models/local/'
+
+#===============================================================================
+
+def pretty_uri(uri: Optional[str|NamedNode]) -> str:
+#=====================================================
+    if uri is not None:
+        if isinstance(uri, NamedNode):
+            uri = uri.value
+        if uri.startswith(LOCAL_MODEL_BASE):
+            pretty = uri[len(LOCAL_MODEL_BASE):]
+        else:
+            parts = uri.split('#', 1)
+            if len(parts) > 1:
+                pretty = '#' + parts[1]
+            else:
+                pretty = uri
+    else:
+        pretty = 'None'
+    return pretty
+
+#===============================================================================
+
 class Labelled:
     def __init__(self, uri: NamedNode, symbol: Optional[str]=None, label: Optional[str]=None):
         self.__uri = uri

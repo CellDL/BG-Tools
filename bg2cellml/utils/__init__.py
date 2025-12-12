@@ -18,7 +18,6 @@
 #
 #===============================================================================
 
-import logging
 from typing import Any, Optional, TYPE_CHECKING
 
 #===============================================================================
@@ -26,45 +25,24 @@ from typing import Any, Optional, TYPE_CHECKING
 import lxml.etree as etree
 
 #===============================================================================
-
-if TYPE_CHECKING:
-    from ..rdf import NamedNode
-
 #===============================================================================
 
-LOCAL_MODEL_BASE = 'https://bg-rdf.org/models/local/'
+class Issue(Exception):
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.__reason = reason
 
-#===============================================================================
-#===============================================================================
+    @property
+    def reason(self):
+        return self.__reason
 
-log = logging.getLogger()
-
-#===============================================================================
-#===============================================================================
-
-def bright() -> str:
-#===================
-    return ''
-
-def pretty_log(s: Any) -> str:
-#=============================
-    return s
-
-def pretty_uri(uri: Optional['str|NamedNode']) -> str:
-#=====================================================
-    if uri is not None:
-        uri = str(uri)
-        if uri.startswith(LOCAL_MODEL_BASE):
-            pretty = uri[len(LOCAL_MODEL_BASE):]
-        else:
-            parts = uri.split('#', 1)
-            if len(parts) > 1:
-                pretty = '#' + parts[1]
-            else:
-                pretty = uri
-    else:
-        pretty = 'None'
-    return pretty_log(pretty)
+def make_issue(e: Exception) -> Issue:
+#=====================================
+    if isinstance(e, Issue):
+        return e
+    issue = Issue(str(e))
+    issue.__traceback__ = e.__traceback__
+    return issue
 
 #===============================================================================
 #===============================================================================

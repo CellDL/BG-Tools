@@ -31,6 +31,7 @@ from ..rdf.namespace import XSD
 
 from ..rdf import isLiteral, Literal, literal, NamedNode, namedNode, RDFGraph, ResultType
 from ..units import Units, Value
+from ..utils import Issue, make_issue
 
 from ..mathml import MathML
 from .namespaces import BGF, CDT, NAMESPACES
@@ -166,12 +167,12 @@ class Variable:
         else:
             self.__value = None
         if self.__units is None:
-            raise ValueError(f'Variable {name} for {element_uri} has no Units specified')
+            raise Issue(f'Variable {name} for {element_uri} has no Units specified')
         if self.__value is not None:
             if self.__value.units is None:
                 self.__value.set_units(self.__units)
             elif not self.__units.is_compatible_with(self.__value.units):
-                raise ValueError(f'Value for variable {name} has incompatible units ({self.__value.units} != {self.__units})')
+                raise Issue(f'Value for variable {name} has incompatible units ({self.__value.units} != {self.__units})')
 
     def __str__(self):
         return f'{self.symbol} ({self.__value if self.__value is not None else self.__units})'
@@ -225,7 +226,7 @@ class Variable:
         if self.__value.units is None:
             self.__value.set_units(self.__units)                        # type: ignore
         elif not self.__units.is_compatible_with(self.__value.units):   # type: ignore
-            raise ValueError(
+            raise Issue(
                 f'Value for variable {self.__name} has incompatible units ({self.__units} != {self.__value.units})') # type: ignore
 
 #===============================================================================
@@ -411,13 +412,13 @@ class ElementTemplate(Labelled):
                     # Do we insist on datatyping? Default to MathML ??
                     mathml = relation
             if mathml is None:
-                raise ValueError(f'BondElement {uri} has no constitutive relation')
+                raise Issue(f'BondElement {uri} has no constitutive relation')
             elif isLiteral(mathml):
                 mathml = mathml.value                   # pyright: ignore[reportAttributeAccessIssue]
             try:
                 self.__relation = MathML.from_string(mathml)    # pyright: ignore[reportArgumentType]
             except ValueError as error:
-                raise ValueError(f'{self.uri}: {error}')
+                raise Issue(f'{self.uri}: {error}')
         self.__power_ports: dict[str, PowerPort] = {}
         self.__parameters: dict[str, Variable] = {}
         self.__variables: dict[str, Variable] = {}
@@ -497,13 +498,13 @@ class ElementTemplate(Labelled):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
-                raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
+                raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri.value}')
             self.__parameters[var_name] = Variable(self.uri, row['name'].value, units=row['units'], value=row['value'])   # type: ignore
         for row in graph.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', str(self.uri), True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
-                raise ValueError(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
+                raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri.value}')
             self.__variables[var_name] = Variable(self.uri, row['name'].value, units=row['units'], value=row['value'])   # type: ignore
         # A variable that is intrinsic to the element's class
         # Values of intrinsic variables are set by bgf:hasValue
@@ -523,14 +524,14 @@ class ElementTemplate(Labelled):
             if name not in names:
                 names.append(name)
             elif unique:
-                raise ValueError(f'Duplicate name `{name}` for {self.uri}')
+                raise Issue(f'Duplicate name `{name}` for {self.uri.value}')
         for name in self.__parameters.keys():
             add_name(name)
         for name in self.__variables.keys():
             add_name(name)
         eqn_names = self.__relation.variables if self.__relation is not None else []
         if len(names) > len(eqn_names):
-            raise ValueError(f"{self.uri} has variables that are not in it's constitutive relation")
+            raise Issue(f"{self.uri.value} has variables that are not in it's constitutive relation")
         for port in self.__power_ports.values():
             if port.flow is not None:
                 add_name(port.flow.name, False)
@@ -541,7 +542,7 @@ class ElementTemplate(Labelled):
         names.append(VOI_VARIABLE.name)
         for name in eqn_names:
             if name not in names:
-                raise ValueError(f'Constitutive relation of {self.uri} has undeclared name {name}')
+                raise Issue(f'Constitutive relation of {self.uri} has undeclared name {name}')
 
 #===============================================================================
 #===============================================================================
@@ -728,10 +729,20 @@ class _BondgraphFramework:
             template_path = Path(bgf_template)
         if template_path not in self.__loaded_templates:
             self.__loaded_templates.add(template_path)
+        self.__issues: list[Issue] = []
+    @property
+    def has_issues(self) -> bool:
+    #============================
+        return len(self.__issues) > 0
+
+    @property
+    def issues(self) -> list[Issue]:
+    #===============================
+        return self.__issues
+
             graph = RDFGraph(NAMESPACES)
             graph.merge(self.__ontology)
-            if not graph.parse(template_path):
-                return
+            graph.parse(location=template_path, source=template_rdf)
             self.__domains.update({cast(NamedNode, row['domain']): Domain.from_rdfgraph(
                                         graph, row['domain'], row['label'],             # pyright: ignore[reportArgumentType]
                                         row['flowName'], row['flowUnits'],              # pyright: ignore[reportArgumentType]
@@ -742,7 +753,7 @@ class _BondgraphFramework:
             for row in graph.query(ELEMENT_TEMPLATE_DEFINITIONS):
                 # ?uri ?element_class ?label ?domain ?relation
                 if (domain := self.__domains.get(cast(NamedNode, row['domain']))) is None:
-                    raise ValueError(f'Unknown domain {row['domain']} for {row['uri']} element')
+                    raise Issue(f'Unknown domain {row['domain']} for {row['uri']} element')
                 self.__element_templates[cast(NamedNode, row['uri'])] = ElementTemplate.from_rdfgraph(
                                                 graph, row['uri'], row['element_class'], # pyright: ignore[reportArgumentType]
                                                 row['label'], domain, row['relation'])   # pyright: ignore[reportArgumentType]
@@ -756,9 +767,9 @@ class _BondgraphFramework:
             for row in graph.query(COMPOSITE_ELEMENT_DEFINITIONS):
                 # ?uri ?template ?label
                 if (element := self.__element_templates.get(cast(NamedNode, row['template']))) is None:
-                    raise ValueError(f'Unknown BondElement {row['template']} for composite {row['uri']}')
+                    raise Issue(f'Unknown BondElement {row['template']} for composite {row['uri']}')
                 #if (junction := self.__junctions.get(row['label'])) is None:          # type: ignore
-                #    raise ValueError(f'Unknown JunctionStructure {row['label']} for composite {row['uri']}')
+                #    raise Issue(f'Unknown JunctionStructure {row['label']} for composite {row['uri']}')
                 self.__composite_elements[row['uri']] = CompositeTemplate(row['uri'], element, row['label']) # pyright: ignore[reportArgumentType]
 
     def element_template(self, element_type: NamedNode, domain_uri: Optional[NamedNode]) -> Optional[BondgraphElementTemplate]:
