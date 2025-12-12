@@ -695,6 +695,16 @@ MODEL_BONDS = """
     }"""
 
 #===============================================================================
+#===============================================================================
+
+BONDGRAPH_MODEL = """
+    SELECT DISTINCT ?uri ?label
+    WHERE {
+        ?uri a bgf:BondgraphModel .
+        OPTIONAL { ?uri rdfs:label ?label }
+    }"""
+
+#===============================================================================
 
 BONDGRAPH_BONDS = """
     SELECT DISTINCT ?bond ?source ?target ?sourceElement ?targetElement
@@ -732,14 +742,48 @@ BONDGRAPH_BONDS = """
     }"""
 
 #===============================================================================
+#===============================================================================
 
 class BondgraphModel(Labelled):   ## Component ??
     def __init__(self, framework: BondgraphFramework, rdf_source: str,
                  model_uri: Optional[str]=None, base_iri: Optional[str]=None, debug=False):
         self.__framework = framework
+        self.__rdf_graph = RDFGraph(NAMESPACES)
+        self.__debug = debug
         self.__issues: list[Issue] = []
         self.__elements = []
-        last_element_uri: Optional[NamedNode] = None
+        self.__junctions = []
+        self.__graph = nx.DiGraph()
+        try:
+            (model_uri, label) = self.__load_rdf(rdf_source, model_uri, base_iri)
+            super().__init__(namedNode(model_uri), label)
+            self.__initialise()
+        except Exception as e:
+            self.__issues.append(make_issue(e))
+
+    def __load_rdf(self, rdf_source: str, model_uri: Optional[str],
+                   base_iri: Optional[str]=None) -> tuple[str, Optional[str]]:
+    #=========================================================================
+        self.__rdf_graph.parse(source=rdf_source, base_iri=base_iri)
+        models: dict[str, Optional[str]] = {}
+        for row in self.__rdf_graph.query(BONDGRAPH_MODEL):
+            # ?uri ?label
+            models[row['uri'].value] = row['label'].value if row['label'] else None         # pyright: ignore[reportOptionalMemberAccess]
+        if len(models) == 0:
+            raise Issue('No BondgraphModels defined in RDF source')
+        elif model_uri is not None:
+            if model_uri in models:
+                return (model_uri, models[model_uri])
+            else:
+                raise Issue(f'{model_uri} is not a BondgraphModel')
+        elif len(models) > 1:
+            raise Issue('Multiple BondgraphModels defined in RDF source -- a URI must be specified')
+        return list(models.items())[0]
+
+    def __initialise(self):
+    #======================
+        self.__generate_bonds()
+        last_element_uri: Optional[str] = None
         element = None
         for row in self.__rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', self.uri.value)):
             # ?uri ?type ?domain ?symbol ?label ORDER BY ?uri ?type
@@ -747,18 +791,18 @@ class BondgraphModel(Labelled):   ## Component ??
                 if last_element_uri is not None and element is None:
                     raise Issue(f'BondElement `{pretty_uri(last_element_uri)}` has no BG-RDF template')
                 element = None
-                last_element_uri = row[0]                                               # pyright: ignore[reportAssignmentType]
-            template = FRAMEWORK.element_template(row[1], row[2])   # pyright: ignore[reportArgumentType]
-            if template is not None:
-                if element is None:
-                    try:
-                        element = BondgraphElement.for_model(self, row[0], template,    # pyright: ignore[reportArgumentType]
-                                                             row[2], row[3], row[4])    # pyright: ignore[reportArgumentType]
-                        self.__elements.append(element)
-                    except ValueError as e:
-                        log.error(str(e))
+                last_element_uri = row['uri'].value                                         # pyright: ignore[reportOptionalMemberAccess]
+            if row['type'].value.startswith(NAMESPACES['bgf']):                              # pyright: ignore[reportOptionalMemberAccess]
+                template = self.__framework.element_template(row['type'], row['domain'])            # pyright: ignore[reportArgumentType]
+                if template is None:
                     raise Issue(f'BondElement {pretty_uri(last_element_uri)} has an unknown BG-RDF template: {get_curie(row['type'])}')
                 else:
+                    if element is None:
+                        element = BondgraphElement.for_model(self, row['uri'], template,    # pyright: ignore[reportArgumentType]
+                                                             row['domain'], row['symbol'], row['label'])    # pyright: ignore[reportArgumentType]
+                        self.__elements.append(element)
+                    else:
+                        raise Issue(f'BondElement {last_element_uri} has multiple BG-RDF templates')   # pyright: ignore[reportArgumentType]
         if last_element_uri is not None and element is None:
             raise Issue(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF template')
         if len(self.__elements) == 0:
@@ -776,7 +820,6 @@ class BondgraphModel(Labelled):   ## Component ??
             self.__bonds.append(
                 BondgraphBond(self, bond_uri, row['source'], row['target'], row['label'], optional_integer(row['bondCount'])))    # pyright: ignore[reportArgumentType]
 
-        self.__graph = nx.DiGraph()
         self.__make_bond_network()
         self.__check_and_assign_domains_to_bond_network()
         self.__assign_junction_domain_and_variables()
@@ -938,100 +981,6 @@ class BondgraphModel(Labelled):   ## Component ??
     def sparql_query(self, query: str) -> list[ResultRow]:
     #=====================================================
         return self.__rdf_graph.query(query)
-
-#===============================================================================
-#===============================================================================
-
-BONDGRAPH_MODELS = """
-    SELECT DISTINCT ?uri ?label
-    WHERE {
-        ?uri a bgf:BondgraphModel .
-        OPTIONAL { ?uri rdfs:label ?label }
-    } ORDER BY ?uri"""
-
-#===============================================================================
-
-BONDGRAPH_MODEL_BLOCKS = """
-    SELECT DISTINCT ?blockUrl
-    WHERE {
-        <%MODEL%>
-            a bgf:BondgraphModel ;
-            bgf:hasBlock ?blockUrl .
-    }"""
-
-#===============================================================================
-
-
-#===============================================================================
-
-BONDGRAPH_MODEL_TEMPLATES = """
-    SELECT DISTINCT ?template
-    WHERE {
-        <%MODEL%>
-            a bgf:BondgraphModel ;
-            bgf:usesTemplate ?template .
-    }"""
-
-#===============================================================================
-
-class BondgraphModelSource:
-    def __init__(self, source: Path|str, output_rdf: Optional[Path]=None, debug=False):
-        self.__rdf_graph = RDFGraph(NAMESPACES)
-        self.__source_path = Path(source).resolve()
-        self.__loaded_sources: set[Path] = set()
-        self.__load_rdf(self.__source_path)
-        base_models = []
-        for row in self.__rdf_graph.query(BONDGRAPH_MODELS):
-            uri = cast(NamedNode, row[0])
-            base_models.append((uri, row[1]))
-            self.__load_blocks(uri)
-            self.__generate_bonds(uri)
-
-        if len(base_models) < 1:
-            log.error(f'No BondgraphModels in source {source}')
-
-        if output_rdf is not None:
-            with open(output_rdf, 'w') as fp:
-                fp.write(self.__rdf_graph.serialise(source_url=self.__source_path.as_uri()))
-            log.info(f'Expanded model saved as {pretty_log(output_rdf)}')
-
-        self.__models: dict[NamedNode, BondgraphModel] = {}
-        for (uri, label) in base_models:
-            for row in self.__rdf_graph.query(BONDGRAPH_MODEL_TEMPLATES.replace('%MODEL%', uri)):
-                self.__add_template(row[0])
-            self.__models[uri] = BondgraphModel(self.__rdf_graph, uri, label, debug=debug)
-
-    @property
-    def models(self):
-        return list(self.__models.values())
-
-    def __add_template(self, path: ResultType):
-    #==========================================
-        if isNamedNode(path):
-            FRAMEWORK.add_template(path)    # pyright: ignore[reportArgumentType]
-        elif isLiteral(path):
-            FRAMEWORK.add_template(self.__source_path
-                                        .parent
-                                        .joinpath(str(path))
-                                        .resolve())
-
-    def __load_blocks(self, model_uri: NamedNode):
-    #=============================================
-        ## need to make sure blocks are only loaded once. c.f templates
-        for row in self.__rdf_graph.query(BONDGRAPH_MODEL_BLOCKS.replace('%MODEL%', model_uri.value)):
-            self.__load_rdf(Path.from_uri(urldefrag(str(row[0])).url))
-
-    def __load_rdf(self, source_path: Path):
-    #=======================================
-        if source_path not in self.__loaded_sources:
-            self.__loaded_sources.add(source_path)
-            graph = RDFGraph(NAMESPACES)
-            graph.parse(source_path)
-            for row in graph.query(BONDGRAPH_MODELS):
-                if isNamedNode(row[0]):
-                    #FRAMEWORK.resolve_composites(row[0], graph)
-                    self.__load_blocks(row[0])      # pyright: ignore[reportArgumentType]
-            self.__rdf_graph.merge(graph)
 
 #===============================================================================
 #===============================================================================
