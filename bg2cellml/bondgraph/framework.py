@@ -471,7 +471,7 @@ class ElementTemplate(Labelled):
                 port_bonds[row['portId'].value] = optional_integer(row['bondCount'], 1)  # pyright: ignore[reportOptionalMemberAccess]
                 directions[row['portId'].value] = row['direction']    # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
         if len(port_bonds):
-            flow_suffixed = (len(port_bonds) == 2) and (self.__element_class != DISSIPATOR)
+            flow_suffixed = False ##(len(port_bonds) == 2)
             self.__power_ports = {}
             for id, _ in port_bonds.items():
                 suffix = f'_{id}'
