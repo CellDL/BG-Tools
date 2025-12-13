@@ -106,12 +106,4 @@ class RDFGraph:
         except Exception as e:
             raise Issue(f'{e}: {query}')
 
-    def serialise(self, source_url: Optional[str]=None) -> str:
-    #==========================================================
-        if source_url is not None:
-            self.__namespaces[''] =f'{source_url}#'
-        bytes = self.__graph.dump(format=oxigraph.RdfFormat.TURTLE,
-                                  prefixes=self.__namespaces)
-        return bytes.decode('utf-8')    # pyright: ignore[reportOptionalMemberAccess]
-
 #===============================================================================
