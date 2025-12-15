@@ -29,6 +29,8 @@ notebook = [
 ]
 standalone = [
     "libopencor",
+    "rich>=14.2.0",
+    "structlog>=25.5.0",
 ]
 
 [tool.uv]
