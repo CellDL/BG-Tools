@@ -31,6 +31,9 @@ standalone = [
     "libopencor",
 ]
 
+[tool.uv]
+package = true
+
 [tool.uv.sources]
 libopencor = { git = "https://github.com/opencor/libopencor.git" }
 
