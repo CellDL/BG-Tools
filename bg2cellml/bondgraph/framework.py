@@ -753,9 +753,9 @@ class BondgraphFramework:
     def __load_rdf(self):
     #====================
         try:
-            self.__ontology_graph.load(get_ontology(), base_iri=BGF_ONTOLOGY_URI)
             for uri, template in BGF_TEMPLATE_PATHS.items():
                 self.__add_template(uri, get_template_rdf(template))
+            self.__ontology_graph.load(BGF_ONTOLOGY_URI, ontology)
         except Exception as e:
             self.__issues.append(make_issue(e))
 
@@ -782,7 +782,7 @@ class BondgraphFramework:
     #=================================================
         graph = RdfGraph(NAMESPACES)
         graph.merge(self.__ontology_graph)
-        graph.load(template, base_iri=uri)
+        graph.load(uri, template)
         self.__domains.update({cast(NamedNode, row['domain']).value: Domain.from_rdf_graph(
                                     graph, row['domain'], row.get('label'),         # pyright: ignore[reportArgumentType]
                                     row['flowName'], row['flowUnits'],              # pyright: ignore[reportArgumentType]

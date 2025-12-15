@@ -757,8 +757,7 @@ BONDGRAPH_BONDS = """
 #===============================================================================
 
 class BondgraphModel(Labelled):   ## Component ??
-    def __init__(self, framework: BondgraphFramework, rdf_source: str,
-                 base_iri: Optional[str]=None, debug=False):
+    def __init__(self, framework: BondgraphFramework, base_iri: str, rdf_source: str, debug=False):
         self.__framework = framework
         self.__rdf_graph = RdfGraph(NAMESPACES)
         self.__debug = debug
@@ -767,15 +766,15 @@ class BondgraphModel(Labelled):   ## Component ??
         self.__junctions = []
         self.__graph = nx.DiGraph()
         try:
-            (model_uri, label) = self.__load_rdf(rdf_source, base_iri)
+            (model_uri, label) = self.__load_rdf(base_iri, rdf_source)
             super().__init__(namedNode(model_uri), label)   # pyright: ignore[reportArgumentType]
             self.__initialise()
         except Exception as e:
             self.__issues.append(make_issue(e))
 
-    def __load_rdf(self, rdf_source: str, base_iri: Optional[str]=None) -> tuple[str, Optional[str]]:
-    #================================================================================================
-        self.__rdf_graph.load(rdf_source, base_iri=base_iri)
+    def __load_rdf(self, base_iri: str, rdf_source: str) -> tuple[str, Optional[str]]:
+    #=================================================================================
+        self.__rdf_graph.load(base_iri, rdf_source)
         models: dict[str, Optional[str]] = {}
         for row in self.__rdf_graph.query(BONDGRAPH_MODEL):
             # ?uri ?label

@@ -92,9 +92,9 @@ class RdfGraph:
         for stmt in graph.__store.statements():
             self.__store.add(stmt.subject, stmt.predicate, stmt.object)
 
-    def load(self, source: str, base_iri: Optional[str]=None):
-    #=========================================================
-        self.__store.load(source, base_iri)
+    def load(self, base_iri: str, source: str):
+    #==========================================
+        self.__store.load(base_iri, source)
 
     def query(self, query: str) -> Sequence[ResultRow]:
     #==================================================

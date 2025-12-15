@@ -55,7 +55,7 @@ class RdfStore:
     def statements(self) -> Iterator[oxigraph.Quad]:
         return self.__graph.quads_for_pattern(None, None, None)
 
-    def load(self, rdf: str, base_iri: Optional[str]=None):
+    def load(self, base_iri: str, rdf: str):
         self.__graph.load(input=rdf, base_iri=base_iri, format=oxigraph.RdfFormat.TURTLE)
 
     def query(self, sparql: str) -> oxigraph.QuerySolutions:

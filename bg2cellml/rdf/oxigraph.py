@@ -92,8 +92,8 @@ class RdfGraph:
     #==================================
         self.__graph.extend(graph.__graph.quads_for_pattern(None, None, None))
 
-    def load(self, source: str, base_iri: Optional[str]=None):
-    #=========================================================
+    def load(self, base_iri: str, source: str):
+    #==========================================
         self.__graph.load(input=source, format=oxigraph.RdfFormat.TURTLE, base_iri=base_iri)
 
     def query(self, query: str) -> list[ResultRow]:
