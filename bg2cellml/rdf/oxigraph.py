@@ -92,11 +92,9 @@ class RdfGraph:
     #==================================
         self.__graph.extend(graph.__graph.quads_for_pattern(None, None, None))
 
-    def parse(self, location: Optional[Path]=None, source: Optional[str]=None, base_iri: Optional[str]=None):
-    #========================================================================================================
-        if location is not None and not location.exists():
-            raise Issue(f'Missing RDF source file: {location}')
-        self.__graph.load(input=source, path=location, format=oxigraph.RdfFormat.TURTLE, base_iri=base_iri)
+    def load(self, source: str, base_iri: Optional[str]=None):
+    #=========================================================
+        self.__graph.load(input=source, format=oxigraph.RdfFormat.TURTLE, base_iri=base_iri)
 
     def query(self, query: str) -> list[ResultRow]:
     #==============================================
