@@ -39,14 +39,14 @@ build-backend = "hatchling.build"
 packages = ["bg2cellml"]
 
 [tool.hatch.build.targets.sdist.force-include]
-"BG-RDF/examples" = "/BG-RDF/examples"
-"BG-RDF/templates" = "/BG-RDF/templates"
-"BG-RDF/schema/ontology.ttl" = "/BG-RDF/schema/ontology.ttl"
+"BG-RDF/examples" = "/bg2cellml/BG-RDF/examples"
+"BG-RDF/templates" = "/bg2cellml/BG-RDF/templates"
+"BG-RDF/schema/ontology.ttl" = "/bg2cellml/BG-RDF/schema/ontology.ttl"
 
 [tool.hatch.build.targets.wheel]
 packages = ["bg2cellml"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"BG-RDF/examples" = "/BG-RDF/examples"
-"BG-RDF/templates" = "/BG-RDF/templates"
-"BG-RDF/schema/ontology.ttl" = "/BG-RDF/schema/ontology.ttl"
+"BG-RDF/examples" = "/bg2cellml/BG-RDF/examples"
+"BG-RDF/templates" = "/bg2cellml/BG-RDF/templates"
+"BG-RDF/schema/ontology.ttl" = "/bg2cellml/BG-RDF/schema/ontology.ttl"
