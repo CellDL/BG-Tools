@@ -37,19 +37,53 @@ from .utils import Labelled
 
 #===============================================================================
 
-BGF_FRAMEWORK_PATH = (Path( __file__).parent / '../../BG-RDF/').resolve()
-BGF_ONTOLOGY = BGF_FRAMEWORK_PATH / 'schema/ontology.ttl'
+_package_installed = 'site-packages' in __file__
 
+if _package_installed:
+    BGF_FRAMEWORK_PATH = Path('BG-RDF')
+else:
+    BGF_FRAMEWORK_PATH = (Path(__file__).parent / '../../BG-RDF/').resolve()
 BGF_TEMPLATE_PATH = BGF_FRAMEWORK_PATH / 'templates'
-BGF_TEMPLATE_PREFIX = 'https://bg-rdf.org/templates/'
 
-STANDARD_BGF_TEMPLATES = [
-    'https://bg-rdf.org/templates/chemical.ttl',
-    'https://bg-rdf.org/templates/electrical.ttl',
-    'https://bg-rdf.org/templates/hydraulic.ttl',
-    'https://bg-rdf.org/templates/mechanical.ttl'
+BGF_ONTOLOGY_URI = 'https://bg-rdf.org/ontologies/bondgraph-framework'
+BGF_ONTOLOGY_PATH = BGF_FRAMEWORK_PATH / 'schema/ontology.ttl'
+
+_BGF_TEMPLATE_NAMES = [
+    'chemical.ttl',
+    'electrical.ttl',
+    'hydraulic.ttl',
+    'mechanical.ttl',
 ]
 
+BGF_TEMPLATE_URI_PREFIX = 'https://bg-rdf.org/templates/'
+
+BGF_TEMPLATE_PATHS: dict[str, Path] = {
+    (BGF_TEMPLATE_URI_PREFIX + name): BGF_TEMPLATE_PATH / name
+        for name in _BGF_TEMPLATE_NAMES
+}
+
+#===============================================================================
+
+if _package_installed:
+    import importlib.resources
+
+    def get_ontology() -> str:
+        return importlib.resources.read_text('bg2cellml', BGF_ONTOLOGY_PATH)
+
+    def get_template_rdf(template_path: Path) -> str:
+        return importlib.resources.read_text('bg2cellml', template_path)
+
+else:
+
+    def get_ontology() -> str:
+        with open(BGF_ONTOLOGY_PATH) as fp:
+            return fp.read()
+
+    def get_template_rdf(template_path: Path) -> str:
+        with open(template_path) as fp:
+            return fp.read()
+
+#===============================================================================
 #===============================================================================
 
 # Variable of integration
@@ -698,31 +732,30 @@ ELEMENT_IS_TARGET_PORT = """
 class BondgraphFramework:
     _instance = None
 
-    def __new__(cls):
-    #================
+    def __new__(cls, *args, **kwds):
+    #===============================
         if cls._instance is None:
             cls._instance = super(BondgraphFramework, cls).__new__(cls)
         return cls._instance
 
     def __init__(self):
     #==================
-        self.__ontology = RDFGraph(NAMESPACES)
-        self.__element_templates: dict[NamedNode, ElementTemplate] = {}
-        self.__domains: dict[NamedNode, Domain] = {}
-        self.__element_domains: dict[tuple[NamedNode, NamedNode], ElementTemplate] = {}
-        self.__junctions: dict[NamedNode, JunctionStructure] = {}
-        self.__composite_elements: dict[NamedNode, CompositeTemplate] = {}
+        self.__ontology_graph = RdfGraph(NAMESPACES)
+        self.__element_templates: dict[str, ElementTemplate] = {}
+        self.__domains: dict[str, Domain] = {}
+        self.__element_domains: dict[tuple[str, str], ElementTemplate] = {}
+        self.__junctions: dict[str, JunctionStructure] = {}
+        self.__composite_elements: dict[str, CompositeTemplate] = {}
         self.__loaded_templates: set[Path] = set()
         self.__issues: list[Issue] = []
-        self.__load_rdf(BGF_ONTOLOGY, STANDARD_BGF_TEMPLATES)
+        self.__load_rdf()
 
-    def __load_rdf(self, bgf_ontology: str|Path, bgf_templates: Optional[Sequence[str|Path|NamedNode]]=None):
-    #========================================================================================================
+    def __load_rdf(self):
+    #====================
         try:
-            self.__ontology.parse(location=Path(bgf_ontology))
-            if bgf_templates is not None:
-                for bgf_template in bgf_templates:
-                    self.__add_template(bgf_template, None)
+            self.__ontology_graph.load(get_ontology(), base_iri=BGF_ONTOLOGY_URI)
+            for uri, template in BGF_TEMPLATE_PATHS.items():
+                self.__add_template(uri, get_template_rdf(template))
         except Exception as e:
             self.__issues.append(make_issue(e))
 
@@ -736,65 +769,48 @@ class BondgraphFramework:
     #===============================
         return self.__issues
 
-    def add_template(self, template_path: Optional[str|Path|NamedNode]=None, template_rdf: Optional[str]=None) -> bool:
-    #==================================================================================================================
+    def add_template(self, uri: str, template: str) -> bool:
+    #=======================================================
         try:
-            self.__add_template(template_path, template_rdf)
+            self.__add_template(uri, template)
             return True
         except Exception as e:
             self.__issues.append(make_issue(e))
         return False
 
-    def __add_template(self, template_path: Optional[str|Path|NamedNode], template_rdf: Optional[str]):
-    #==================================================================================================
-        if isinstance(template_path, NamedNode):
-            template_path = str(template_path)
-        if isinstance(template_path, Path):
-            template_path = template_path.resolve()
-        elif template_path is not None:
-            if template_path.startswith('http:') or template_path.startswith('https:'):
-                if template_path.startswith(BGF_TEMPLATE_PREFIX):
-                    template_path = BGF_TEMPLATE_PATH / template_path[len(BGF_TEMPLATE_PREFIX):]
-                else:
-                    raise Issue(f'Templates cannot (yet) be remote: {template_path}')
-            else:
-                template_path = Path(template_path).resolve()
-        elif template_rdf is None:
-            raise Issue('Either the path of a template specification or its RDF source is required')
-        if template_path is None or template_path not in self.__loaded_templates:
-            if template_path is not None:
-                self.__loaded_templates.add(template_path)
-            graph = RDFGraph(NAMESPACES)
-            graph.merge(self.__ontology)
-            graph.parse(location=template_path, source=template_rdf)
-            self.__domains.update({cast(NamedNode, row['domain']): Domain.from_rdfgraph(
-                                        graph, row['domain'], row['label'],             # pyright: ignore[reportArgumentType]
-                                        row['flowName'], row['flowUnits'],              # pyright: ignore[reportArgumentType]
-                                        row['potentialName'], row['potentialUnits'],    # pyright: ignore[reportArgumentType]
-                                        row['quantityName'], row['quantityUnits'])      # pyright: ignore[reportArgumentType]
-# ?domain ?label ?flowName ?flowUnits ?potentialName ?potentialUnits ?quantityName ?quantityUnits
-                                    for row in graph.query(DOMAIN_QUERY)})
-            for row in graph.query(ELEMENT_TEMPLATE_DEFINITIONS):
-                # ?uri ?element_class ?label ?domain ?relation
-                if (domain := self.__domains.get(cast(NamedNode, row['domain']))) is None:
-                    raise Issue(f'Unknown domain {row['domain']} for {row['uri']} element')
-                self.__element_templates[cast(NamedNode, row['uri'])] = ElementTemplate.from_rdfgraph(
-                                                graph, row['uri'], row['element_class'], # pyright: ignore[reportArgumentType]
-                                                row['label'], domain, row['relation'])   # pyright: ignore[reportArgumentType]
-            self.__element_domains.update({
-                (element.element_class, element.domain.uri): element
-                    for element in self.__element_templates.values() if element.domain is not None
-            })
-            self.__junctions.update({cast(NamedNode, row['junction']): JunctionStructure(row['junction'], row['label'])    # pyright: ignore[reportArgumentType]
-                # ?junction ?label
-                for row in graph.query(JUNCTION_STRUCTURES)})
-            for row in graph.query(COMPOSITE_ELEMENT_DEFINITIONS):
-                # ?uri ?template ?label
-                if (element := self.__element_templates.get(cast(NamedNode, row['template']))) is None:
-                    raise Issue(f'Unknown BondElement {row['template']} for composite {row['uri']}')
-                #if (junction := self.__junctions.get(row['label'])) is None:          # type: ignore
-                #    raise Issue(f'Unknown JunctionStructure {row['label']} for composite {row['uri']}')
-                self.__composite_elements[row['uri']] = CompositeTemplate(row['uri'], element, row['label']) # pyright: ignore[reportArgumentType]
+    def __add_template(self, uri: str, template: str):
+    #=================================================
+        graph = RdfGraph(NAMESPACES)
+        graph.merge(self.__ontology_graph)
+        graph.load(template, base_iri=uri)
+        self.__domains.update({cast(NamedNode, row['domain']).value: Domain.from_rdf_graph(
+                                    graph, row['domain'], row.get('label'),         # pyright: ignore[reportArgumentType]
+                                    row['flowName'], row['flowUnits'],              # pyright: ignore[reportArgumentType]
+                                    row['potentialName'], row['potentialUnits'],    # pyright: ignore[reportArgumentType]
+                                    row['quantityName'], row['quantityUnits'])      # pyright: ignore[reportArgumentType]
+        # ?domain ?label ?flowName ?flowUnits ?potentialName ?potentialUnits ?quantityName ?quantityUnits
+                                for row in graph.query(DOMAIN_QUERY)})
+        for row in graph.query(ELEMENT_TEMPLATE_DEFINITIONS):
+            # ?uri ?element_class ?label ?domain ?relation
+            if (domain := self.__domains.get(cast(NamedNode, row['domain']).value)) is None:
+                raise Issue(f'Unknown domain {row['domain']} for {row['uri']} element')
+            self.__element_templates[cast(NamedNode, row['uri']).value] = ElementTemplate.from_rdf_graph(
+                                            graph, row['uri'], row['element_class'], # pyright: ignore[reportArgumentType]
+                                            row.get('label'), domain, row.get('relation'))   # pyright: ignore[reportArgumentType]
+        self.__element_domains.update({
+            (element.element_class, element.domain.uri): element
+                for element in self.__element_templates.values() if element.domain is not None
+        })
+        self.__junctions.update({cast(NamedNode, row['junction']).value: JunctionStructure(row['junction'], row.get('label'))    # pyright: ignore[reportArgumentType]
+            # ?junction ?label
+            for row in graph.query(JUNCTION_STRUCTURES)})
+        for row in graph.query(COMPOSITE_ELEMENT_DEFINITIONS):
+            # ?uri ?template ?label
+            if (element := self.__element_templates.get(cast(NamedNode, row['template']).value)) is None:
+                raise Issue(f'Unknown BondElement {row['template']} for composite {row['uri']}')
+            #if (junction := self.__junctions.get(row.get('label'))) is None:          # type: ignore
+            #    raise Issue(f'Unknown JunctionStructure {row.get('label')} for composite {row['uri']}')
+            self.__composite_elements[row['uri'].value] = CompositeTemplate(row['uri'], element, row.get('label')) # pyright: ignore[reportArgumentType]
 
     def element_template(self, element_type: NamedNode, domain_uri: Optional[NamedNode]) -> Optional[BondgraphElementTemplate]:
     #==========================================================================================================================
