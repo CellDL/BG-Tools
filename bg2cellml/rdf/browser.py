@@ -19,7 +19,6 @@
 #===============================================================================
 
 from collections import namedtuple
-from pathlib import Path
 import sys
 from typing import Any, Optional, Sequence, Self
 
