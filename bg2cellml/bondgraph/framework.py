@@ -18,8 +18,10 @@
 #
 #===============================================================================
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 from typing import cast, Optional, Self, Sequence
 
 #===============================================================================
@@ -37,16 +39,8 @@ from .utils import Labelled
 
 #===============================================================================
 
-_package_installed = 'site-packages' in __file__
-
-if _package_installed:
-    BGF_FRAMEWORK_PATH = Path('BG-RDF')
-else:
-    BGF_FRAMEWORK_PATH = (Path(__file__).parent / '../../BG-RDF/').resolve()
-BGF_TEMPLATE_PATH = BGF_FRAMEWORK_PATH / 'templates'
-
 BGF_ONTOLOGY_URI = 'https://bg-rdf.org/ontologies/bondgraph-framework'
-BGF_ONTOLOGY_PATH = BGF_FRAMEWORK_PATH / 'schema/ontology.ttl'
+BGF_TEMPLATE_URI_PREFIX = 'https://bg-rdf.org/templates/'
 
 _BGF_TEMPLATE_NAMES = [
     'chemical.ttl',
@@ -55,32 +49,59 @@ _BGF_TEMPLATE_NAMES = [
     'mechanical.ttl',
 ]
 
-BGF_TEMPLATE_URI_PREFIX = 'https://bg-rdf.org/templates/'
-
-BGF_TEMPLATE_PATHS: dict[str, Path] = {
-    (BGF_TEMPLATE_URI_PREFIX + name): BGF_TEMPLATE_PATH / name
+BGF_TEMPLATE_URIS: dict[str, str] = {
+    (BGF_TEMPLATE_URI_PREFIX + name): name
         for name in _BGF_TEMPLATE_NAMES
 }
 
 #===============================================================================
 
-if _package_installed:
+# Determine where we can get the bundle BG-RDF framework
+
+_browser = 'pyodide' in sys.modules
+_packaged = 'site-packages' in __file__
+
+#===============================================================================
+
+if _browser:
+    import pyodide.http         # pyright: ignore[reportMissingImports]
+
+    async def _get_bgrdf(path: str) -> str:
+        local_path = f'/bg-rdf/{path}'
+        response = await pyodide.http.pyfetch(local_path)
+        if response.ok:
+            rdf = await response.text()
+            return rdf
+        raise Issue('Cannot fetch RDF from {local_path}: {response.status_text}')
+
+    async def get_ontology() -> str:
+        rdf = await _get_bgrdf('ontology.ttl')
+        return rdf
+
+    async def get_template(template: str) -> str:
+        rdf = await _get_bgrdf(f'templates/{template}')
+        return rdf
+
+elif _packaged:
     import importlib.resources
 
-    def get_ontology() -> str:
-        return importlib.resources.read_text('bg2cellml', BGF_ONTOLOGY_PATH)
+    BGF_FRAMEWORK_PATH = Path('BG-RDF')
 
-    def get_template_rdf(template_path: Path) -> str:
-        return importlib.resources.read_text('bg2cellml', template_path)
+    async def get_ontology() -> str:
+        return importlib.resources.read_text('bg2cellml', BGF_FRAMEWORK_PATH / 'schema/ontology.ttl')
+
+    async def get_template(template: str) -> str:
+        return importlib.resources.read_text('bg2cellml', BGF_FRAMEWORK_PATH / 'templates' / template)
 
 else:
+    BGF_FRAMEWORK_PATH = (Path(__file__).parent / '../../BG-RDF/').resolve()
 
-    def get_ontology() -> str:
-        with open(BGF_ONTOLOGY_PATH) as fp:
+    async def get_ontology() -> str:
+        with open(BGF_FRAMEWORK_PATH / 'schema/ontology.ttl') as fp:
             return fp.read()
 
-    def get_template_rdf(template_path: Path) -> str:
-        with open(template_path) as fp:
+    async def get_template(template: str) -> str:
+        with open(BGF_FRAMEWORK_PATH / 'templates' / template) as fp:
             return fp.read()
 
 #===============================================================================
@@ -746,16 +767,27 @@ class BondgraphFramework:
         self.__element_domains: dict[tuple[str, str], ElementTemplate] = {}
         self.__junctions: dict[str, JunctionStructure] = {}
         self.__composite_elements: dict[str, CompositeTemplate] = {}
-        self.__loaded_templates: set[Path] = set()
         self.__issues: list[Issue] = []
-        self.__load_rdf()
+        self.__framework_loaded = -1
 
-    def __load_rdf(self):
-    #====================
+    @property
+    def framework_loaded(self):
+        return self.__framework_loaded > 0
+
+    async def load_framework(self):
+    #==============================
+        if self.__framework_loaded >= 0:
+            while self.__framework_loaded == 0:
+                await asyncio.sleep(0.01)
+            return
+        self.__framework_loaded = 0
         try:
-            for uri, template in BGF_TEMPLATE_PATHS.items():
-                self.__add_template(uri, get_template_rdf(template))
+            ontology = await get_ontology()
             self.__ontology_graph.load(BGF_ONTOLOGY_URI, ontology)
+            for uri, template_name in BGF_TEMPLATE_URIS.items():
+                template = await get_template(template_name)
+                self.__add_template(uri, template)
+            self.__framework_loaded = 1
         except Exception as e:
             self.__issues.append(make_issue(e))
 
@@ -825,6 +857,13 @@ class BondgraphFramework:
     def junction(self, uri: str) -> Optional[JunctionStructure]:
     #===========================================================
         return self.__junctions.get(uri)
+
+#===============================================================================
+
+async def get_framework() -> BondgraphFramework:
+    framework = BondgraphFramework()
+    await framework.load_framework()
+    return framework
 
 #===============================================================================
 #===============================================================================
