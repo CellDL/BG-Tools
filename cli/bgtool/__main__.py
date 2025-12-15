@@ -60,7 +60,7 @@ def bg2cellml(bondgraph_source: str, output_path: Path, save_if_errors: bool=Fal
     with open(source_path) as fp:
         model_source = fp.read()
 
-    model = BondgraphModel(framework, model_source, model_uri=None,
+    model = BondgraphModel(framework, model_source,
                            base_iri=source_path.as_uri(), debug=debug)
     if model.has_issues:
         for issue in model.issues:
