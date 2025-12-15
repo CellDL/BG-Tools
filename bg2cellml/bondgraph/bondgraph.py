@@ -961,7 +961,7 @@ class BondgraphModel(Labelled):   ## Component ??
             for port_uri, port in element.power_ports.items():
                 self.__graph.add_node(port_uri, uri=port_uri,
                     type=get_curie(element.type),
-                    power_port=port,  port_type=element.element_class,
+                    power_port=port, port_type=element.element_class,
                     element=element, label=element.symbol)
         for junction in self.__junctions:
             if junction.type == TRANSFORM_JUNCTION:
