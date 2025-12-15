@@ -18,8 +18,6 @@
 #
 #===============================================================================
 
-from pathlib import Path
-from urllib.parse import urldefrag
 from typing import Optional, Sequence
 
 #===============================================================================
@@ -784,11 +782,6 @@ class BondgraphModel(Labelled):   ## Component ??
             models[row['uri'].value] = label.value if (label := row.get('label')) is not None else None # pyright: ignore[reportOptionalMemberAccess]
         if len(models) == 0:
             raise Issue('No BondgraphModels defined in RDF source')
-        elif model_uri is not None:
-            if model_uri in models:
-                return (model_uri, models[model_uri])
-            else:
-                raise Issue(f'{model_uri} is not a BondgraphModel')
         elif len(models) > 1:
             raise Issue('Multiple BondgraphModels defined in RDF source -- a URI must be specified')
         return list(models.items())[0]
