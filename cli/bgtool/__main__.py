@@ -24,8 +24,7 @@ import traceback
 
 #===============================================================================
 
-from bg2cellml.bondgraph import BondgraphFramework, BondgraphModel
-from bg2cellml.cellml import CellMLModel
+from bg2cellml import BondgraphFramework, BondgraphModel, CellMLModel
 from bg2cellml import __version__
 
 #===============================================================================
