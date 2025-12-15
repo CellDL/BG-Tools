@@ -36,9 +36,9 @@ NAMESPACES = {
     'xsd': 'http://www.w3.org/2001/XMLSchema#',
 }
 
-def get_curie(uri: NamedNode) -> str:
-#====================================
-    full_uri = uri.value
+def get_curie(uri: str|NamedNode) -> str:
+#========================================
+    full_uri = uri if isinstance(uri, str) else uri.value
     for prefix, ns_uri in NAMESPACES.items():
         if full_uri.startswith(ns_uri):
             return f'{prefix}:{full_uri[len(ns_uri):]}'

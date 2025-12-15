@@ -55,20 +55,20 @@ STANDARD_BGF_TEMPLATES = [
 # Variable of integration
 
 VOI_SYMBOL = 't'
-VOI_UCUMUNIT = literal('s', datatype=CDT.ucumunit)
+VOI_UCUMUNIT = literal('s', datatype=CDT.ucumunit)      # pyright: ignore[reportArgumentType]
 
 #===============================================================================
 
-DISSIPATOR         = BGF.Dissipator
-FLOW_SOURCE        = BGF.FlowSource
-FLOW_STORE         = BGF.FlowStore
-POTENTIAL_SOURCE   = BGF.PotentialSource
-QUANTITY_STORE     = BGF.QuantityStore
-REACTION           = BGF.Reaction
+DISSIPATOR         = BGF.Dissipator.value
+FLOW_SOURCE        = BGF.FlowSource.value
+FLOW_STORE         = BGF.FlowStore.value
+POTENTIAL_SOURCE   = BGF.PotentialSource.value
+QUANTITY_STORE     = BGF.QuantityStore.value
+REACTION           = BGF.Reaction.value
 
-ONENODE_JUNCTION   = BGF.OneNode
-TRANSFORM_JUNCTION = BGF.TransformNode  # Can act as a transformer of gyrator
-ZERONODE_JUNCTION  = BGF.ZeroNode
+ONENODE_JUNCTION   = BGF.OneNode.value
+TRANSFORM_JUNCTION = BGF.TransformNode.value  # Can act as a transformer of gyrator
+ZERONODE_JUNCTION  = BGF.ZeroNode.value
 
 #===============================================================================
 #===============================================================================
@@ -148,7 +148,7 @@ def clean_name(name: str) -> str:
 #===============================================================================
 
 class Variable:
-    def __init__(self, element_uri: Optional[NamedNode], name: str,
+    def __init__(self, element_uri: Optional[str], name: str,
                         units: Optional[Literal|Units]=None,
                         value: Optional[Literal]=None):
         self.__element_uri = element_uri
@@ -214,9 +214,9 @@ class Variable:
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy
 
-    def set_symbol(self, symbol: Literal):
-    #=====================================
-        self.__symbol = symbol.value
+    def set_symbol(self, symbol: str):
+    #=================================
+        self.__symbol = symbol
 
     def set_value(self, value: Value):
     #=================================
@@ -305,10 +305,10 @@ class Domain(Labelled):
 
     def __add_constants(self, graph: RDFGraph):
     #==========================================
-        self.__constants.extend([Variable(self.uri, row['name'].value, value=row['value'])  # type: ignore
+        self.__constants.extend([Variable(self.uri, row['name'].value, value=row['value'])  # pyright: ignore[reportArgumentType]
                                 for row in graph.query(
                                     # ?name ?value
-                                    DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri.value))])
+                                    DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri))])
 
 #===============================================================================
 #===============================================================================
@@ -324,8 +324,8 @@ class NamedPortVariable:
 #===============================================================================
 
 class PowerPort:
-    def __init__(self, uri: NamedNode, flow: NamedPortVariable, potential: NamedPortVariable,
-                        direction: Optional[NamedNode]=None):
+    def __init__(self, uri: str, flow: NamedPortVariable, potential: NamedPortVariable,
+                       direction: Optional[NamedNode]=None):
         self.__uri = uri
         self.__flow = flow
         self.__potential = potential
@@ -398,22 +398,22 @@ class ElementTemplate(Labelled):
     def __init__(self, uri: NamedNode, element_class: NamedNode,
                     label: Optional[str], domain: Domain, relation: str|Literal):
         super().__init__(uri, label)
-        self.__element_class = element_class
+        self.__element_class = element_class.value
         self.__domain = domain
-        if element_class in [FLOW_SOURCE, POTENTIAL_SOURCE]:
+        if self.__element_class in [FLOW_SOURCE, POTENTIAL_SOURCE]:
             self.__relation = None
         else:
             mathml = None
             if isLiteral(relation):
-                if relation.datatype == BGF.mathml:     # pyright: ignore[reportAttributeAccessIssue]
-                    mathml = relation.value             # pyright: ignore[reportAttributeAccessIssue]
+                if relation.datatype.value == BGF.mathml.value: # pyright: ignore[reportAttributeAccessIssue]
+                    mathml = relation.value                     # pyright: ignore[reportAttributeAccessIssue]
                 else:
                     # Do we insist on datatyping? Default to MathML ??
                     mathml = relation
             if mathml is None:
                 raise Issue(f'BondElement {uri} has no constitutive relation')
             elif isLiteral(mathml):
-                mathml = mathml.value                   # pyright: ignore[reportAttributeAccessIssue]
+                mathml = mathml.value                           # pyright: ignore[reportAttributeAccessIssue]
             try:
                 self.__relation = MathML.from_string(mathml)    # pyright: ignore[reportArgumentType]
             except ValueError as error:
@@ -441,7 +441,7 @@ class ElementTemplate(Labelled):
         return self.__domain
 
     @property
-    def element_class(self) -> NamedNode:
+    def element_class(self) -> str:
         return self.__element_class
 
     @property
@@ -465,11 +465,11 @@ class ElementTemplate(Labelled):
         port_bonds: dict[str, int|None] = {}
         directions: dict[str, NamedNode|None] = {}
         for row in graph.query(
-                        ELEMENT_PORT_BONDS.replace('%ELEMENT_URI%', self.uri.value)):
+                        ELEMENT_PORT_BONDS.replace('%ELEMENT_URI%', self.uri)):
             # ?portId ?bondCount ?direction
             if isLiteral(row['portId']):
-                port_bonds[row['portId'].value] = optional_integer(row['bondCount'], 1)  # pyright: ignore[reportOptionalMemberAccess]
-                directions[row['portId'].value] = row['direction']    # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
+                port_bonds[row['portId'].value] = optional_integer(row.get('bondCount'), 1)  # pyright: ignore[reportArgumentType]
+                directions[row['portId'].value] = row.get('direction')    # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
         if len(port_bonds):
             flow_suffixed = False ##(len(port_bonds) == 2)
             self.__power_ports = {}
@@ -477,7 +477,7 @@ class ElementTemplate(Labelled):
                 suffix = f'_{id}'
                 flow_var = self.__port_name_variable(self.domain.flow, suffix if flow_suffixed else '')
                 potential_var = self.__port_name_variable(self.domain.potential, suffix)
-                self.__power_ports[id] = PowerPort(namedNode(f'{self.uri.value}{suffix}'),
+                self.__power_ports[id] = PowerPort(namedNode(f'{self.uri}{suffix}'),  # pyright: ignore[reportArgumentType]
                                                     flow_var, potential_var, direction=directions[id])
         else:
             self.__power_ports = {'': PowerPort(self.uri,
@@ -493,18 +493,18 @@ class ElementTemplate(Labelled):
 
     def __add_variables(self, graph: RDFGraph):
     #==========================================
-        for row in graph.query(ELEMENT_PARAMETERS.replace('%ELEMENT_URI%', self.uri.value, True)):
+        for row in graph.query(ELEMENT_PARAMETERS.replace('%ELEMENT_URI%', self.uri, True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
-                raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri.value}')
-            self.__parameters[var_name] = Variable(self.uri, row['name'].value, units=row['units'], value=row['value'])   # type: ignore
-        for row in graph.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri.value, True)):
+                raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
+            self.__parameters[var_name] = Variable(self.uri, row['name'].value, units=row.get('units'), value=row.get('value'))   # type: ignore
+        for row in graph.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri, True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
-                raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri.value}')
-            self.__variables[var_name] = Variable(self.uri, row['name'].value, units=row['units'], value=row['value'])   # type: ignore
+                raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
+            self.__variables[var_name] = Variable(self.uri, row['name'].value, units=row.get('units'), value=row.get('value'))   # type: ignore
         # A variable that is intrinsic to the element's class
         # Values of intrinsic variables are set by bgf:hasValue
         if self.__element_class == QUANTITY_STORE:
@@ -523,14 +523,14 @@ class ElementTemplate(Labelled):
             if name not in names:
                 names.append(name)
             elif unique:
-                raise Issue(f'Duplicate name `{name}` for {self.uri.value}')
+                raise Issue(f'Duplicate name `{name}` for {self.uri}')
         for name in self.__parameters.keys():
             add_name(name)
         for name in self.__variables.keys():
             add_name(name)
         eqn_names = self.__relation.variables if self.__relation is not None else []
         if len(names) > len(eqn_names):
-            raise Issue(f"{self.uri.value} has variables that are not in it's constitutive relation")
+            raise Issue(f"{self.uri} has variables that are not in it's constitutive relation")
         for port in self.__power_ports.values():
             if port.flow is not None:
                 add_name(port.flow.name, False)
@@ -800,14 +800,14 @@ class BondgraphFramework:
     #==========================================================================================================================
         if domain_uri is None:
             # First see if element_type refers to a composite
-            if (composite := self.__composite_elements.get(element_type)) is not None:
+            if (composite := self.__composite_elements.get(element_type.value)) is not None:
                 return composite
-            return self.__element_templates.get(element_type)
+            return self.__element_templates.get(element_type.value)
         else:
-            return self.__element_domains.get((element_type, domain_uri))
+            return self.__element_domains.get((element_type.value, domain_uri.value))
 
-    def junction(self, uri: NamedNode) -> Optional[JunctionStructure]:
-    #=================================================================
+    def junction(self, uri: str) -> Optional[JunctionStructure]:
+    #===========================================================
         return self.__junctions.get(uri)
 
 #===============================================================================

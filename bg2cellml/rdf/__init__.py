@@ -29,8 +29,7 @@ from .oxigraph import *
 def literal_as_string(literal: Optional[Literal]) -> Optional[str]:
     return literal.value if literal is not None else None
 
-def uri_fragment(uri: NamedNode) -> str:
-    full_uri = uri.value
-    return full_uri.rsplit('#')[-1]
+def uri_fragment(uri: str) -> str:
+    return uri.rsplit('#')[-1]
 
 #===============================================================================

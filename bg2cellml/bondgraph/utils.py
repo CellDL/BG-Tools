@@ -22,7 +22,7 @@ from typing import Optional
 
 #===============================================================================
 
-from ..rdf import NamedNode, uri_fragment
+from ..rdf import isNamedNode, NamedNode, uri_fragment
 
 #===============================================================================
 
@@ -33,16 +33,15 @@ LOCAL_MODEL_BASE = 'https://bg-rdf.org/models/local/'
 def pretty_uri(uri: Optional[str|NamedNode]) -> str:
 #=====================================================
     if uri is not None:
-        if isinstance(uri, NamedNode):
-            uri = uri.value
-        if uri.startswith(LOCAL_MODEL_BASE):
-            pretty = uri[len(LOCAL_MODEL_BASE):]
+        uri_text: str = uri.value if isNamedNode(uri) else uri  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
+        if uri_text.startswith(LOCAL_MODEL_BASE):
+            pretty = uri_text[len(LOCAL_MODEL_BASE):]
         else:
-            parts = uri.split('#', 1)
+            parts = uri_text.split('#', 1)
             if len(parts) > 1:
                 pretty = '#' + parts[1]
             else:
-                pretty = uri
+                pretty = uri_text
     else:
         pretty = 'None'
     return pretty
@@ -51,7 +50,7 @@ def pretty_uri(uri: Optional[str|NamedNode]) -> str:
 
 class Labelled:
     def __init__(self, uri: NamedNode, symbol: Optional[str]=None, label: Optional[str]=None):
-        self.__uri = uri
+        self.__uri = uri.value
         if symbol is not None:
             self.__symbol = symbol
         else:
@@ -76,7 +75,7 @@ class Labelled:
         return self.__symbol
 
     @property
-    def uri(self):
+    def uri(self) -> str:
         return self.__uri
 
 #===============================================================================

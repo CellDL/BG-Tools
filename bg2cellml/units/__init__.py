@@ -60,10 +60,10 @@ class Units:
     @classmethod
     def from_ucum(cls, ucum_units: Literal|str) -> Self:
         if isLiteral(ucum_units):
-            if (ucum_units.datatype != CDT.ucumunit    # pyright: ignore[reportAttributeAccessIssue]
-            and ucum_units.datatype is not None):      # pyright: ignore[reportAttributeAccessIssue]
+            if (ucum_units.datatype is not None                     # pyright: ignore[reportAttributeAccessIssue]
+            and ucum_units.datatype.value != CDT.ucumunit.value):   # pyright: ignore[reportAttributeAccessIssue]
                 raise TypeError(f'Units value has unexpected datatype: {ucum_units.datatype}')  # pyright: ignore[reportAttributeAccessIssue]
-            return cls(ucum_registry.from_ucum(ucum_units.value).u)     # pyright: ignore[reportAttributeAccessIssue]
+            return cls(ucum_registry.from_ucum(ucum_units.value).u) # pyright: ignore[reportAttributeAccessIssue]
         return cls(ucum_registry.from_ucum(ucum_units).u)
 
     @staticmethod
@@ -109,15 +109,15 @@ class Value:
 
     @classmethod
     def from_literal(cls, literal_value: Literal) -> Self:
-        if literal_value.datatype == CDT.ucum:
+        if literal_value.datatype.value == CDT.ucum.value:  # pyright: ignore[reportAttributeAccessIssue]
             parts = str(literal_value.value).split()
             value = float(parts[0])
             units = Units.from_ucum(parts[1])
-        elif literal_value.datatype is None:
+        elif literal_value.datatype is None:                # pyright: ignore[reportAttributeAccessIssue]
             value = float(literal_value.value)
             units = None
         else:
-            raise TypeError(f'Literal value has unexpected datatype: {literal_value.datatype}')
+            raise TypeError(f'Literal value has unexpected datatype: {literal_value.datatype}') # pyright: ignore[reportAttributeAccessIssue]
         return cls(value, units)
 
     def __str__(self):
