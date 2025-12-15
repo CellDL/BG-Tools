@@ -26,7 +26,7 @@ from typing import cast, Optional, Self, Sequence
 
 from ..rdf.namespace import XSD
 from ..rdf import literal_as_string, uri_fragment
-from ..rdf import isLiteral, Literal, literal, NamedNode, namedNode, RDFGraph, ResultType
+from ..rdf import isLiteral, Literal, literal, NamedNode, namedNode, RdfGraph, ResultType
 
 from ..units import Units, Value
 from ..utils import Issue, make_issue
@@ -298,7 +298,7 @@ class Domain(Labelled):
         self.__constants: list[Variable] = []
 
     @classmethod
-    def from_rdfgraph(cls, graph: RDFGraph,
+    def from_rdf_graph(cls, graph: RdfGraph,
                     uri: NamedNode, label: Optional[Literal],
                     flow_name: Literal, flow_units: Literal,
                     potential_name: Literal, potential_units: Literal,
@@ -337,7 +337,7 @@ class Domain(Labelled):
     def quantity(self):
         return self.__quantity
 
-    def __add_constants(self, graph: RDFGraph):
+    def __add_constants(self, graph: RdfGraph):
     #==========================================
         self.__constants.extend([Variable(self.uri, row['name'].value, value=row['value'])  # pyright: ignore[reportArgumentType]
                                 for row in graph.query(
@@ -458,7 +458,7 @@ class ElementTemplate(Labelled):
         self.__intrinsic_variable: Optional[Variable] = None
 
     @classmethod
-    def from_rdfgraph(cls, graph: RDFGraph, uri: NamedNode, element_class: NamedNode,
+    def from_rdf_graph(cls, graph: RdfGraph, uri: NamedNode, element_class: NamedNode,
                         label: Optional[Literal], domain: Domain, relation: Literal) -> Self:
         self = cls(uri, element_class, literal_as_string(label), domain, relation)
         self.__add_ports(graph)
@@ -494,7 +494,7 @@ class ElementTemplate(Labelled):
     def variables(self) -> dict[str, Variable]:
         return self.__variables
 
-    def __add_ports(self, graph: RDFGraph):
+    def __add_ports(self, graph: RdfGraph):
     #======================================
         port_bonds: dict[str, int|None] = {}
         directions: dict[str, NamedNode|None] = {}
@@ -525,7 +525,7 @@ class ElementTemplate(Labelled):
         return NamedPortVariable(name=port_var_name,
                                 variable=Variable(self.uri, port_var_name, units=domain_variable.units))
 
-    def __add_variables(self, graph: RDFGraph):
+    def __add_variables(self, graph: RdfGraph):
     #==========================================
         for row in graph.query(ELEMENT_PARAMETERS.replace('%ELEMENT_URI%', self.uri, True)):
             # ?name ?units ?value

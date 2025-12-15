@@ -29,7 +29,7 @@ import sympy
 
 #===============================================================================
 
-from ..rdf import BlankNode, Literal, ResultRow, ResultType, RDFGraph, NamedNode
+from ..rdf import BlankNode, Literal, ResultRow, ResultType, RdfGraph, NamedNode
 from ..rdf import isBlankNode, isLiteral, isNamedNode, literal_as_string, namedNode, Triple
 from ..mathml import Equation, MathML
 from ..units import Value
@@ -922,7 +922,7 @@ class BondgraphModel(Labelled):   ## Component ??
         return self.__graph.copy()
 
     @property
-    def rdf_graph(self) -> RDFGraph:
+    def rdf_graph(self) -> RdfGraph:
         return self.__rdf_graph
 
     def __assign_element_variables_and_equations(self):

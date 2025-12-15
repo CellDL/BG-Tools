@@ -67,7 +67,7 @@ Triple = namedtuple('Triple', 'subject, predicate, object')
 
 #===============================================================================
 
-class RDFGraph:
+class RdfGraph:
     def __init__(self, namespaces: Optional[dict[str, str]]=None):
         self.__graph = oxigraph.Store()
         self.__namespaces = namespaces or {}
@@ -88,7 +88,7 @@ class RDFGraph:
         self.__graph.add(oxigraph.Quad(triple.subject, triple.predicate, triple.object))
         return self
 
-    def merge(self, graph: 'RDFGraph'):
+    def merge(self, graph: 'RdfGraph'):
     #==================================
         self.__graph.extend(graph.__graph.quads_for_pattern(None, None, None))
 
