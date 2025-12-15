@@ -20,6 +20,7 @@
 
 from collections import namedtuple
 from pathlib import Path
+import sys
 from typing import Any, Optional, Sequence, Self
 
 #===============================================================================
@@ -72,6 +73,7 @@ Triple = namedtuple('Triple', 'subject, predicate, object')
 
 class RdfGraph:
     def __init__(self, namespaces: Optional[dict[str, str]]=None):
+        self.__pyodide = 'pyodide' in sys.modules
         self.__store = oximock.RdfStore()
         self.__namespaces = namespaces or {}
         self.__sparql_prefixes = '\n'.join([
@@ -101,7 +103,7 @@ class RdfGraph:
         query = f'{self.__sparql_prefixes}\n{query}'
         try:
             rows = self.__store.query(query)
-            if 'pyodide.ffi.JsProxy' in str(type(rows)):
+            if self.__pyodide:
                 #  We are in the browser's Pyodide environment
                 return [
                     { k: v.to_py() for k, v in row.items() }
