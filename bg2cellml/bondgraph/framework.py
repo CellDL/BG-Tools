@@ -28,11 +28,11 @@ from typing import cast, Optional
 from ..rdf import NamedNode, RdfGraph
 from ..utils import Issue, make_issue
 
-from .bondgraph import BondgraphModel
+from .model import BondgraphModel
 from .namespaces import NAMESPACES
 
 from .framework_support import BondgraphElementTemplate, CompositeTemplate, ElementTemplate
-from .framework_support import Domain, JunctionStructure, NamedPortVariable
+from .framework_support import Domain, JunctionStructure
 
 #===============================================================================
 
@@ -320,10 +320,13 @@ class BondgraphFramework:
     #===========================================================
         return self.__junctions.get(uri)
 
+#===============================================================================
+
     def make_bondgraph_model(self, base_iri: str, rdf_source: str, debug=False) -> BondgraphModel:
     #=============================================================================================
         return BondgraphModel(self, base_iri, rdf_source, debug)
 
+#===============================================================================
 #===============================================================================
 
 async def get_framework() -> BondgraphFramework:

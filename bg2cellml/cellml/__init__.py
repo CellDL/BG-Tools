@@ -18,18 +18,25 @@
 #
 #===============================================================================
 
+from typing import TYPE_CHECKING
+
+#===============================================================================
+
 import lxml.etree as etree
 import sympy
 
 #===============================================================================
 
-from ..bondgraph import BondgraphElement, BondgraphJunction, BondgraphModel
-from ..bondgraph import Variable, VOI_VARIABLE
+from ..bondgraph.framework_support import Variable, VOI_VARIABLE
+from ..bondgraph.model_support import BondgraphElement, BondgraphJunction
 from ..bondgraph.utils import clean_name
 from ..mathml import Equation, MATHML_NS
 from ..rdf import uri_fragment
 from ..units import Units
 from ..utils import XMLNamespace
+
+if TYPE_CHECKING:
+    from ..bondgraph.model import BondgraphModel
 
 #===============================================================================
 

@@ -18,8 +18,7 @@
 #
 #===============================================================================
 
-from bg2cellml.bondgraph.bondgraph import BondgraphModel
-from bg2cellml.bondgraph.framework import BondgraphFramework
+from bg2cellml.bondgraph import BondgraphFramework, BondgraphModel
 from bg2cellml.cellml import CellMLModel
 
 from bg2cellml.version import __version__

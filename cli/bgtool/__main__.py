@@ -36,9 +36,10 @@ from bgtool.utils import log, pretty_log
 
 #===============================================================================
 
-def model2cellml(model: BondgraphModel, cellml_file: Path, save_if_errors: bool=False):
-#======================================================================================
-    cellml = CellMLModel(model).to_xml()
+def model2cellml(bgrdf_model: BondgraphModel, cellml_file: Path, save_if_errors: bool=False):
+#============================================================================================
+    cellml_model = bgrdf_model.make_cellml_model()
+    cellml = cellml_model.to_xml()
     has_issues = not valid_cellml(cellml)
     if has_issues and not save_if_errors:
         log.warning('No CellML generated')
@@ -61,13 +62,13 @@ async def bg2cellml(bondgraph_source: str, output_path: Path, save_if_errors: bo
     with open(source_path) as fp:
         model_source = fp.read()
 
-    model = framework.make_bondgraph_model(source_path.as_uri(), model_source, debug=debug)
-    if model.has_issues:
-        for issue in model.issues:
+    bgrdf_model = framework.make_bondgraph_model(source_path.as_uri(), model_source, debug=debug)
+    if bgrdf_model.has_issues:
+        for issue in bgrdf_model.issues:
             traceback.print_exception(issue)
         sys.exit('Issues loading Bondgraph Model')
 
-    model2cellml(model, output_path / f'{source_path.stem}.cellml', save_if_errors)
+    model2cellml(bgrdf_model, output_path / f'{source_path.stem}.cellml', save_if_errors)
 
 #===============================================================================
 
