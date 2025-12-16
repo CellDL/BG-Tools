@@ -18,7 +18,7 @@
 #
 #===============================================================================
 
-from typing import Optional, Sequence
+from typing import Optional, Sequence, TYPE_CHECKING
 
 #===============================================================================
 
@@ -33,15 +33,18 @@ from ..mathml import Equation, MathML
 from ..units import Value
 from ..utils import Issue, make_issue
 
-from .framework import BondgraphFramework, BondgraphElementTemplate, CompositeTemplate
-from .framework import Domain, NamedPortVariable, optional_integer, PowerPort, Variable
-from .framework import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
-from .framework import FLOW_SOURCE, POTENTIAL_SOURCE
-from .framework import DISSIPATOR, FLOW_STORE, QUANTITY_STORE, REACTION
-from .framework import GYRATOR_EQUATIONS, TRANSFORMER_EQUATIONS
-from .framework import TRANSFORM_FLOW_NAME, TRANSFORM_PORT_IDS, TRANSFORM_POTENTIAL_NAME, TRANSFORM_RATIO_NAME
+from .framework_support import BondgraphElementTemplate, CompositeTemplate
+from .framework_support import Domain, NamedPortVariable, PowerPort, Variable
+from .framework_support import ONENODE_JUNCTION, TRANSFORM_JUNCTION, ZERONODE_JUNCTION
+from .framework_support import FLOW_SOURCE, POTENTIAL_SOURCE
+from .framework_support import DISSIPATOR, FLOW_STORE, QUANTITY_STORE, REACTION
+from .framework_support import GYRATOR_EQUATIONS, TRANSFORMER_EQUATIONS
+from .framework_support import TRANSFORM_FLOW_NAME, TRANSFORM_PORT_IDS, TRANSFORM_POTENTIAL_NAME, TRANSFORM_RATIO_NAME
 from .namespaces import BGF, NAMESPACES, get_curie
-from .utils import Labelled, pretty_uri
+from .utils import Labelled, optional_integer, pretty_uri
+
+if TYPE_CHECKING:
+    from .framework import BondgraphFramework
 
 #===============================================================================
 
@@ -757,7 +760,7 @@ BONDGRAPH_BONDS = """
 #===============================================================================
 
 class BondgraphModel(Labelled):   ## Component ??
-    def __init__(self, framework: BondgraphFramework, base_iri: str, rdf_source: str, debug=False):
+    def __init__(self, framework: 'BondgraphFramework', base_iri: str, rdf_source: str, debug=False):
         self.__framework = framework
         self.__rdf_graph = RdfGraph(NAMESPACES)
         self.__debug = debug
@@ -888,7 +891,7 @@ class BondgraphModel(Labelled):   ## Component ??
         return self.__elements
 
     @property
-    def framework(self) -> BondgraphFramework:
+    def framework(self) -> 'BondgraphFramework':
         return self.__framework
 
     @property

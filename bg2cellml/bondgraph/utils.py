@@ -22,7 +22,8 @@ from typing import Optional
 
 #===============================================================================
 
-from ..rdf import isNamedNode, NamedNode, uri_fragment
+from ..rdf import isLiteral, isNamedNode, NamedNode, ResultType, uri_fragment
+from ..rdf.namespace import XSD
 
 #===============================================================================
 
@@ -46,6 +47,21 @@ def pretty_uri(uri: Optional[str|NamedNode]) -> str:
         pretty = 'None'
     return pretty
 
+#===============================================================================
+#===============================================================================
+
+def optional_integer(value: ResultType, default: Optional[int]=None) -> Optional[int]:
+#=====================================================================================
+    if (value is not None and isLiteral(value)
+    and value.datatype == XSD.integer):     # pyright: ignore[reportAttributeAccessIssue]
+        return int(value.value)             # pyright: ignore[reportAttributeAccessIssue]
+    return default
+
+def clean_name(name: str) -> str:
+#=================================
+    return name.replace(':', '_').replace('-', '_').replace('.', '_')
+
+#===============================================================================
 #===============================================================================
 
 class Labelled:

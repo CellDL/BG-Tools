@@ -24,8 +24,8 @@ import sympy
 #===============================================================================
 
 from ..bondgraph import BondgraphElement, BondgraphJunction, BondgraphModel
-from ..bondgraph import VOI_VARIABLE
-from ..bondgraph.framework import clean_name, Variable
+from ..bondgraph import Variable, VOI_VARIABLE
+from ..bondgraph.utils import clean_name
 from ..mathml import Equation, MATHML_NS
 from ..rdf import uri_fragment
 from ..units import Units

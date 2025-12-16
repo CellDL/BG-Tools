@@ -20,6 +20,7 @@
 
 from .bondgraph import BondgraphElement, BondgraphJunction
 from .bondgraph import BondgraphModel
-from .framework import BondgraphFramework, VOI_VARIABLE
+from .framework import BondgraphFramework
+from .framework_support import Variable, VOI_VARIABLE
 
 #===============================================================================

@@ -62,7 +62,7 @@ async def bg2cellml(bondgraph_source: str, output_path: Path, save_if_errors: bo
     with open(source_path) as fp:
         model_source = fp.read()
 
-    model = BondgraphModel(framework, source_path.as_uri(), model_source, debug=debug)
+    model = framework.make_bondgraph_model(source_path.as_uri(), model_source, debug=debug)
     if model.has_issues:
         for issue in model.issues:
             traceback.print_exception(issue)
