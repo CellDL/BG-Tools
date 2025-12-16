@@ -58,7 +58,6 @@ async def bg2cellml(bondgraph_source: str, output_path: Path, save_if_errors: bo
     source_path = Path(bondgraph_source).resolve()
     if not source_path.exists():
         raise IOError(f'Missing BG-RDF source file: {bondgraph_source}')
-
     with open(source_path) as fp:
         model_source = fp.read()
 
