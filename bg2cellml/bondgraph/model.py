@@ -136,6 +136,7 @@ class BondgraphModel(Labelled):   ## Component ??
         self.__issues: list[Issue] = []
         self.__elements = []
         self.__junctions = []
+        self.__bonds = []
         self.__graph = nx.DiGraph()
         try:
             (model_uri, label) = self.__load_rdf(base_iri, rdf_source)
@@ -170,9 +171,10 @@ class BondgraphModel(Labelled):   ## Component ??
                 element = None
                 last_element_uri = row['uri'].value                                         # pyright: ignore[reportOptionalMemberAccess]
             if row['type'].value.startswith(NAMESPACES['bgf']):                             # pyright: ignore[reportOptionalMemberAccess]
-                template = self.__framework.element_template(row['type'], row.get('domain'))    # pyright: ignore[reportArgumentType]
+                element_type: NamedNode = row['type']                                       # pyright: ignore[reportAssignmentType]
+                template = self.__framework.element_template(element_type, row.get('domain'))   # pyright: ignore[reportArgumentType]
                 if template is None:
-                    raise Issue(f'BondElement {pretty_uri(last_element_uri)} has an unknown BG-RDF template: {get_curie(row['type'])}')
+                    raise Issue(f'BondElement {pretty_uri(last_element_uri)} has an unknown BG-RDF template: {get_curie(element_type)}')
                 else:
                     if element is None:
                         symbol = make_symbolic_name(row)
@@ -186,7 +188,6 @@ class BondgraphModel(Labelled):   ## Component ??
             raise Issue(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF template')
         if len(self.__elements) == 0:
             raise Issue(f'Model {(pretty_uri(self.uri))} has no elements...')
-        self.__bonds = []
         for row in self.__rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', self.uri)):
             # ?uri ?type ?value ?symbol ?species ?location ?label
             symbol = make_symbolic_name(row)
@@ -195,7 +196,7 @@ class BondgraphModel(Labelled):   ## Component ??
                                   symbol, literal_as_string(row.get('label'))))         # pyright: ignore[reportArgumentType]
         for row in self.__rdf_graph.query(MODEL_BONDS.replace('%MODEL%', self.uri)):
             # ?powerBond ?source ?target ?label ?bondCount
-            bond_uri: NamedNode = row['powerBond']                                                # pyright: ignore[reportAssignmentType]
+            bond_uri: NamedNode = row['powerBond']                                      # pyright: ignore[reportAssignmentType]
             if row['source'] is None or row['target'] is None:
                 raise Issue(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
             self.__bonds.append(
