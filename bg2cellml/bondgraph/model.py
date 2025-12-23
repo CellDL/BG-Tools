@@ -28,12 +28,13 @@ import networkx as nx
 
 from ..cellml import CellMLModel
 from ..mathml import Equation
-from ..rdf import ResultRow, RdfGraph, NamedNode
+from ..rdf import ResultRow, RdfGraph, NamedNode, literal_as_string
 from ..rdf import isBlankNode, isNamedNode, namedNode, Triple
 from ..utils import Issue, make_issue
 
 from .framework_support import TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
-from .model_support import BondgraphBond, BondgraphElement, BondgraphJunction, make_element_port_uri
+from .model_support import BondgraphBond, BondgraphElement, BondgraphJunction
+from .model_support import make_element_port_uri, make_symbolic_name
 from .namespaces import BGF, NAMESPACES, get_curie
 from .utils import Labelled, optional_integer, pretty_uri
 
@@ -44,23 +45,27 @@ if TYPE_CHECKING:
 #===============================================================================
 
 MODEL_ELEMENTS = """
-    SELECT DISTINCT ?uri ?type ?domain ?symbol ?label
+    SELECT DISTINCT ?uri ?type ?label ?domain ?symbol ?species ?location
     WHERE {
         <%MODEL%> bgf:hasBondElement ?uri .
         ?uri a ?type .
         OPTIONAL { ?uri bgf:hasDomain ?domain }
         OPTIONAL { ?uri bgf:hasSymbol ?symbol }
+        OPTIONAL { ?uri bgf:hasSpecies ?species }
+        OPTIONAL { ?uri bgf:hasLocation ?location }
         OPTIONAL { ?uri rdfs:label ?label }
     } ORDER BY ?uri ?type"""
 
 MODEL_JUNCTIONS = """
-    SELECT DISTINCT ?uri ?type ?label ?value ?symbol
+    SELECT DISTINCT ?uri ?type ?label ?value ?symbol ?species ?location
     WHERE {
         <%MODEL%> bgf:hasJunctionStructure ?uri .
         ?uri a ?type .
-        OPTIONAL { ?uri rdfs:label ?label }
         OPTIONAL { ?uri bgf:hasValue ?value }
         OPTIONAL { ?uri bgf:hasSymbol ?symbol }
+        OPTIONAL { ?uri bgf:hasSpecies ?species }
+        OPTIONAL { ?uri bgf:hasLocation ?location }
+        OPTIONAL { ?uri rdfs:label ?label }
     }"""
 
 MODEL_BONDS = """
@@ -158,7 +163,7 @@ class BondgraphModel(Labelled):   ## Component ??
         last_element_uri: Optional[str] = None
         element = None
         for row in self.__rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', self.uri)):
-            # ?uri ?type ?domain ?symbol ?label ORDER BY ?uri ?type
+            # ?uri ?type ?domain ?symbol ?species ?location ?label ORDER BY ?uri ?type
             if row['uri'].value != last_element_uri:                                        # pyright: ignore[reportOptionalMemberAccess]
                 if last_element_uri is not None and element is None:
                     raise Issue(f'BondElement `{pretty_uri(last_element_uri)}` has no BG-RDF template')
@@ -170,8 +175,10 @@ class BondgraphModel(Labelled):   ## Component ??
                     raise Issue(f'BondElement {pretty_uri(last_element_uri)} has an unknown BG-RDF template: {get_curie(row['type'])}')
                 else:
                     if element is None:
+                        symbol = make_symbolic_name(row)
                         element = BondgraphElement.for_model(self, row['uri'], template,    # pyright: ignore[reportArgumentType]
-                                                             row.get('domain'), row.get('symbol'), row.get('label'))    # pyright: ignore[reportArgumentType]
+                                                             row.get('domain'),             # pyright: ignore[reportArgumentType]
+                                                             symbol, literal_as_string(row.get('label')))   # pyright: ignore[reportArgumentType]
                         self.__elements.append(element)
                     else:
                         raise Issue(f'BondElement {last_element_uri} has multiple BG-RDF templates')   # pyright: ignore[reportArgumentType]
@@ -179,11 +186,13 @@ class BondgraphModel(Labelled):   ## Component ??
             raise Issue(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF template')
         if len(self.__elements) == 0:
             raise Issue(f'Model {(pretty_uri(self.uri))} has no elements...')
-        self.__junctions = [
-            BondgraphJunction(self, row['uri'], row['type'], row.get('label'), row.get('value'), row.get('symbol')) # pyright: ignore[reportArgumentType]
-                # ?uri ?type ?label ?value ?symbol
-                for row in self.__rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', self.uri))]
         self.__bonds = []
+        for row in self.__rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', self.uri)):
+            # ?uri ?type ?value ?symbol ?species ?location ?label
+            symbol = make_symbolic_name(row)
+            self.__junctions.append(
+                BondgraphJunction(self, row['uri'], row['type'], row.get('value'),      # pyright: ignore[reportArgumentType]
+                                  symbol, literal_as_string(row.get('label'))))         # pyright: ignore[reportArgumentType]
         for row in self.__rdf_graph.query(MODEL_BONDS.replace('%MODEL%', self.uri)):
             # ?powerBond ?source ?target ?label ?bondCount
             bond_uri: NamedNode = row['powerBond']                                                # pyright: ignore[reportAssignmentType]

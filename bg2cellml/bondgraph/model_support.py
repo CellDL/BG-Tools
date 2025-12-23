@@ -18,6 +18,7 @@
 #
 #===============================================================================
 
+import re
 from typing import Optional, TYPE_CHECKING
 
 #===============================================================================
@@ -90,11 +91,30 @@ def potential_symbol(node_dict: dict) -> Optional[sympy.Symbol]:
             raise Issue(f'Adjacent One Nodes to junction {junction.uri} must be merged')
     raise Issue(f'Unexpected bond graph node, cannot get potential: {node_dict}')
 
+def clean_latex(latex: str) -> str:
+#==================================
+    latex = re.sub(r'\\[^{]*{([^}]*)}', '_\\1', latex.strip())
+    latex = latex.replace('^', '_')
+    latex = re.sub(r'[^a-zA-Z_0-9]', '', latex)
+    return re.sub(r'^_*', '', latex)
+
+def make_symbolic_name(result_row: dict) -> Optional[str]:
+#=========================================================
+    symbol = literal_as_string(result_row['symbol'])
+    if symbol is not None:
+        species = literal_as_string(result_row['species'])
+        location = literal_as_string(result_row['location'])
+        if species is not None:
+            symbol += f'_{clean_latex(species)}'
+        if location is not None:
+            symbol += f'_{clean_latex(location)}'
+    return symbol
+
 #===============================================================================
 
 class ModelElement(Labelled):
-    def __init__(self,  model: 'BondgraphModel', uri: NamedNode, symbol: Optional[Literal], label: Optional[Literal]):
-        super().__init__(uri, literal_as_string(symbol) , literal_as_string(label))
+    def __init__(self,  model: 'BondgraphModel', uri: NamedNode, symbol: Optional[str]=None, label: Optional[str]=None):
+        super().__init__(uri, symbol, label)
         self.__model = model
 
     @property
@@ -152,8 +172,8 @@ class BondgraphElement(ModelElement):
                         parameter_values: Optional[dict[str, VariableValue]]=None,
                         variable_values: Optional[dict[str, VariableValue]]=None,
                         domain_uri: Optional[NamedNode]=None, value: Optional[Value|MathML]=None,
-                        symbol: Optional[Literal]=None, label: Optional[Literal]=None):
-        super().__init__(model, uri, symbol, label)
+                        symbol: Optional[str]=None, label: Optional[str]=None):
+        super().__init__(model, uri, symbol=symbol, label=label)
         element_type = pretty_uri(template.uri)
         if isinstance(template, CompositeTemplate):
             element_template = template.template
@@ -260,8 +280,8 @@ class BondgraphElement(ModelElement):
 
     @classmethod
     def for_model(cls, model: 'BondgraphModel', uri: NamedNode, template: BondgraphElementTemplate,
-    #===========================================================================================
-                                    domain_uri: Optional[NamedNode], symbol: Optional[Literal], label: Optional[Literal]):
+    #==============================================================================================
+                    domain_uri: Optional[NamedNode], symbol: Optional[str], label: Optional[str]):
         parameter_values: dict[str, VariableValue] = {row['name'].value:
                                                         VariableValue(row['value'], row.get('symbol'))  # pyright: ignore[reportArgumentType]
             for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT%', uri.value))
@@ -464,9 +484,8 @@ MODEL_BOND_PORTS = """
 class BondgraphBond(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: NamedNode,
                         source: NamedNode|BlankNode, target: NamedNode|BlankNode,
-                        label: Optional[Literal]=None,
-                        count: Optional[Literal]=None):
-        super().__init__(model, uri, None, label)
+                        count: Optional[Literal]=None, label: Optional[str]=None):
+        super().__init__(model, uri, label=label)
         self.__source_id = self.__get_port_uri(source, BGF.hasSource)
         self.__target_id = self.__get_port_uri(target, BGF.hasTarget)
         ## Check source and target units match...
@@ -501,8 +520,8 @@ class BondgraphBond(ModelElement):
 
 class BondgraphJunction(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: NamedNode, type: NamedNode,
-            label: Optional[Literal], value: Optional[Literal], symbol: Optional[Literal]):
-        super().__init__(model, uri, symbol, label)
+            value: Optional[Literal], symbol: Optional[str], label: Optional[str]):
+        super().__init__(model, uri, symbol=symbol, label=label)
         self.__type = type.value
         self.__junction = model.framework.junction(self.__type)
         if self.__junction is None:
