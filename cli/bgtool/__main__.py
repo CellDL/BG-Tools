@@ -22,12 +22,14 @@ import asyncio
 from pathlib import Path
 import sys
 import traceback
+from typing import Optional
 
 #===============================================================================
 
 from bg2cellml import BondgraphModel, CellMLModel
-from bg2cellml.bondgraph.framework import get_framework
 from bg2cellml import __version__
+from bg2cellml.bondgraph.framework import get_framework
+from bg2cellml.utils import etree_from_string
 
 #===============================================================================
 
@@ -35,6 +37,14 @@ from bgtool.cellml import valid_cellml
 from bgtool.utils import log, pretty_log
 
 #===============================================================================
+
+def get_bgrdf(celldl: str) -> Optional[str]:
+#===========================================
+    document = etree_from_string(celldl)
+    metadata_element = document.find('.//{http://www.w3.org/2000/svg}metadata[@id="celldl-rdf-metadata"]')
+    if metadata_element is not None:
+        if metadata_element.attrib.get('data-content-type') == 'text/turtle':
+            return metadata_element.text
 
 def model2cellml(bgrdf_model: BondgraphModel, cellml_file: Path, save_if_errors: bool=False):
 #============================================================================================
@@ -48,20 +58,21 @@ def model2cellml(bgrdf_model: BondgraphModel, cellml_file: Path, save_if_errors:
             fp.write(cellml)
             log.info(f'Generated {pretty_log(cellml_file)}')
 
-async def bg2cellml(bondgraph_source: str, output_path: Path, save_if_errors: bool=False, debug: bool=False):
-#============================================================================================================
+async def bg2cellml(celldl_source: str, output_path: Path, save_if_errors: bool=False, debug: bool=False):
+#=========================================================================================================
     framework = await get_framework()
     if framework.has_issues:
         for issue in framework.issues:
             traceback.print_exception(issue)
         sys.exit('Issues loading BG-RDF framework')
 
-    source_path = Path(bondgraph_source).resolve()
+    source_path = Path(celldl_source).resolve()
     if not source_path.exists():
-        raise IOError(f'Missing BG-RDF source file: {bondgraph_source}')
+        raise IOError(f'Missing CellDL file: {celldl_source}')
     with open(source_path) as fp:
-        model_source = fp.read()
-
+        model_source = get_bgrdf(fp.read())
+    if model_source is None:
+        raise TypeError(f"{celldl_source} doesn't contain BG-RDF")
     bgrdf_model = framework.make_bondgraph_model(source_path.as_uri(), model_source, debug=debug)
     if bgrdf_model.has_issues:
         for issue in bgrdf_model.issues:
@@ -74,16 +85,16 @@ async def bg2cellml(bondgraph_source: str, output_path: Path, save_if_errors: bo
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description='Convert BG-RDF models to CellML')
+    parser = argparse.ArgumentParser(description='Convert BG-RDF in CellDL to CellML')
     parser.add_argument('-v', '--version', action='version', version=__version__)
     parser.add_argument('--debug', action='store_true', help='Show generated equations for model')
     parser.add_argument('--save-errors', action='store_true', help='Output CellML even if it has errors')
     parser.add_argument('--output', metavar='OUTPUT_DIR', required=True, help='Directory where generated files are saved')
-    parser.add_argument('bg_rdf', metavar='BG-RDF', help='Input BG-RDF source file')
+    parser.add_argument('celldl', metavar='CELLDL', help='Input CellDL file')
 
     args = parser.parse_args()
 
-    asyncio.run(bg2cellml(args.bg_rdf, Path(args.output), save_if_errors=args.save_errors, debug=args.debug))
+    asyncio.run(bg2cellml(args.celldl, Path(args.output), save_if_errors=args.save_errors, debug=args.debug))
 
 #===============================================================================
 
