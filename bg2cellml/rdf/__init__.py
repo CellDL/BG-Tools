@@ -31,6 +31,9 @@ def literal_as_string(literal: Optional[Literal]) -> Optional[str]:
     return literal.value if literal is not None else None
 
 def uri_fragment(uri: str) -> str:
-    return uri.rsplit('#')[-1]
+    if '#' in uri:
+        return uri.rsplit('#')[-1]
+    else:
+        return uri.rsplit('/')[-1]
 
 #===============================================================================
