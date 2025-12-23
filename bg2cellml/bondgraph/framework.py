@@ -287,7 +287,7 @@ class BondgraphFramework:
         for row in graph.query(ELEMENT_TEMPLATE_DEFINITIONS):
             # ?uri ?element_class ?label ?domain ?relation
             if (domain := self.__domains.get(cast(NamedNode, row['domain']).value)) is None:
-                raise Issue(f'Unknown domain {row['domain']} for {row['uri']} element')
+                raise Issue(f"Unknown domain {row['domain']} for {row['uri']} element")
             self.__element_templates[cast(NamedNode, row['uri']).value] = ElementTemplate.from_rdf_graph(
                                             graph, row['uri'], row['element_class'], # pyright: ignore[reportArgumentType]
                                             row.get('label'), domain, row.get('relation'))   # pyright: ignore[reportArgumentType]
@@ -301,7 +301,7 @@ class BondgraphFramework:
         for row in graph.query(COMPOSITE_ELEMENT_DEFINITIONS):
             # ?uri ?template ?label
             if (element := self.__element_templates.get(cast(NamedNode, row['template']).value)) is None:
-                raise Issue(f'Unknown BondElement {row['template']} for composite {row['uri']}')
+                raise Issue(f"Unknown BondElement {row['template']} for composite {row['uri']}")
             #if (junction := self.__junctions.get(row.get('label'))) is None:          # type: ignore
             #    raise Issue(f'Unknown JunctionStructure {row.get('label')} for composite {row['uri']}')
             self.__composite_elements[row['uri'].value] = CompositeTemplate(row['uri'], element, row.get('label')) # pyright: ignore[reportArgumentType]
