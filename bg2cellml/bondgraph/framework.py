@@ -64,19 +64,18 @@ if _browser:
     import pyodide.http         # pyright: ignore[reportMissingImports]
 
     async def _get_bgrdf(path: str) -> str:
-        local_path = f'/bg-rdf/{path}'
-        response = await pyodide.http.pyfetch(local_path)
+        response = await pyodide.http.pyfetch(path)
         if response.ok:
             rdf = await response.text()
             return rdf
-        raise Issue('Cannot fetch RDF from {local_path}: {response.status_text}')
+        raise Issue('Cannot fetch RDF from {path}: {response.status_text}')
 
     async def get_ontology(base: str='/') -> str:
-        rdf = await _get_bgrdf(f'{base}ontology.ttl')
+        rdf = await _get_bgrdf(f'{base}bg-rdf/ontology.ttl')
         return rdf
 
     async def get_template(template: str, base: str='/') -> str:
-        rdf = await _get_bgrdf(f'{base}templates/{template}')
+        rdf = await _get_bgrdf(f'{base}bg-rdf/templates/{template}')
         return rdf
 
 elif _packaged:
