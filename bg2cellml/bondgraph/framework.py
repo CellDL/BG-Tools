@@ -71,12 +71,12 @@ if _browser:
             return rdf
         raise Issue('Cannot fetch RDF from {local_path}: {response.status_text}')
 
-    async def get_ontology() -> str:
-        rdf = await _get_bgrdf('ontology.ttl')
+    async def get_ontology(base: str='/') -> str:
+        rdf = await _get_bgrdf(f'{base}ontology.ttl')
         return rdf
 
-    async def get_template(template: str) -> str:
-        rdf = await _get_bgrdf(f'templates/{template}')
+    async def get_template(template: str, base: str='/') -> str:
+        rdf = await _get_bgrdf(f'{base}templates/{template}')
         return rdf
 
 elif _packaged:
@@ -84,20 +84,20 @@ elif _packaged:
 
     BGF_FRAMEWORK_PATH = Path('BG-RDF')
 
-    async def get_ontology() -> str:
+    async def get_ontology(base: str='/') -> str:
         return importlib.resources.read_text('bg2cellml', BGF_FRAMEWORK_PATH / 'schema/ontology.ttl')
 
-    async def get_template(template: str) -> str:
+    async def get_template(template: str, base: str='/') -> str:
         return importlib.resources.read_text('bg2cellml', BGF_FRAMEWORK_PATH / 'templates' / template)
 
 else:
     BGF_FRAMEWORK_PATH = (Path(__file__).parent / '../../BG-RDF/').resolve()
 
-    async def get_ontology() -> str:
+    async def get_ontology(base: str='/') -> str:
         with open(BGF_FRAMEWORK_PATH / 'schema/ontology.ttl') as fp:
             return fp.read()
 
-    async def get_template(template: str) -> str:
+    async def get_template(template: str, base: str='/') -> str:
         with open(BGF_FRAMEWORK_PATH / 'templates' / template) as fp:
             return fp.read()
 
@@ -236,18 +236,18 @@ class BondgraphFramework:
     def framework_loaded(self):
         return self.__framework_loaded > 0
 
-    async def load_framework(self):
-    #==============================
+    async def load_framework(self, base: str='/'):
+    #=============================================
         if self.__framework_loaded >= 0:
             while self.__framework_loaded == 0:
                 await asyncio.sleep(0.01)
             return
         self.__framework_loaded = 0
         try:
-            ontology = await get_ontology()
+            ontology = await get_ontology(base=base)
             self.__ontology_graph.load(BGF_ONTOLOGY_URI, ontology)
             for uri, template_name in BGF_TEMPLATE_URIS.items():
-                template = await get_template(template_name)
+                template = await get_template(template_name, base=base)
                 self.__add_template(uri, template)
             self.__framework_loaded = 1
         except Exception as e:
@@ -329,9 +329,9 @@ class BondgraphFramework:
 #===============================================================================
 #===============================================================================
 
-async def get_framework() -> BondgraphFramework:
+async def get_framework(base: str='/') -> BondgraphFramework:
     framework = BondgraphFramework()
-    await framework.load_framework()
+    await framework.load_framework(base=base)
     return framework
 
 #===============================================================================
