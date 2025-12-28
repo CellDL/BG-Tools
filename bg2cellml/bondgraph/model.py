@@ -190,10 +190,11 @@ class BondgraphModel(Labelled):   ## Component ??
             raise Issue(f'Model {(pretty_uri(self.uri))} has no elements...')
         for row in self.__rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', self.uri)):
             # ?uri ?type ?value ?symbol ?species ?location ?label
-            symbol = make_symbolic_name(row)
-            self.__junctions.append(
-                BondgraphJunction(self, row['uri'], row['type'], row.get('value'),      # pyright: ignore[reportArgumentType]
-                                  symbol, literal_as_string(row.get('label'))))         # pyright: ignore[reportArgumentType]
+            if row['type'].value.startswith(NAMESPACES['bgf']):                             # pyright: ignore[reportOptionalMemberAccess]
+                symbol = make_symbolic_name(row)
+                self.__junctions.append(
+                    BondgraphJunction(self, row['uri'], row['type'], row.get('value'),      # pyright: ignore[reportArgumentType]
+                                      symbol, literal_as_string(row.get('label'))))         # pyright: ignore[reportArgumentType]
         for row in self.__rdf_graph.query(MODEL_BONDS.replace('%MODEL%', self.uri)):
             # ?powerBond ?source ?target ?label ?bondCount
             bond_uri: NamedNode = row['powerBond']                                      # pyright: ignore[reportAssignmentType]
