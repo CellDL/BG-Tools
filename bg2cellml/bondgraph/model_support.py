@@ -637,7 +637,7 @@ class BondgraphJunction(ModelElement):
                             symbol = sympy.Mul(bond_count, symbol)
                         if input: inputs.append(symbol)
                         else: outputs.append(symbol)
-                    if 'power_port' in node_dict and node_dict['port_type'] != POTENTIAL_SOURCE:
+                    if 'element' in node_dict and node_dict['element'].implied_junction is None:
                         equal_value.append(node_dict['power_port'].flow.variable.symbol)
                 elif self.__type == ZERONODE_JUNCTION:
                     if (symbol := flow_symbol(bond_graph.nodes[node])) is not None:
@@ -645,7 +645,7 @@ class BondgraphJunction(ModelElement):
                             symbol = sympy.Mul(bond_count, symbol)
                         if input: inputs.append(symbol)
                         else: outputs.append(symbol)
-                    if 'power_port' in node_dict and node_dict['port_type'] != FLOW_SOURCE:
+                    if 'element' in node_dict and node_dict['element'].implied_junction is None:
                         equal_value.append(node_dict['power_port'].potential.variable.symbol)
                 if len(equation_lhs) == 0 and (port := node_dict.get('power_port')) is not None:
                     if self.__type == ONENODE_JUNCTION:
