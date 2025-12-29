@@ -1,7 +1,7 @@
 [project]
 name = "bg2cellml"
 description = "Bondgraph RDF tools"
-version = "0.8.5"
+version = "0.8.6"
 authors = [
     { name = "David Brooks", email = "d.brooks@auckland.ac.nz"}
 ]
