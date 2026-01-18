@@ -42,7 +42,7 @@ from .framework_support import DISSIPATOR, FLOW_STORE, QUANTITY_STORE, REACTION
 from .framework_support import GYRATOR_EQUATIONS, TRANSFORMER_EQUATIONS
 from .framework_support import TRANSFORM_FLOW_NAME, TRANSFORM_PORT_IDS, TRANSFORM_POTENTIAL_NAME, TRANSFORM_RATIO_NAME
 from .namespaces import BGF
-from .utils import Labelled, pretty_uri
+from .utils import Labelled, pretty_name
 
 if TYPE_CHECKING:
     from .model import BondgraphModel
@@ -174,7 +174,7 @@ class BondgraphElement(ModelElement):
                         domain_uri: Optional[NamedNode]=None, value: Optional[Value|MathML]=None,
                         symbol: Optional[str]=None, label: Optional[str]=None):
         super().__init__(model, uri, symbol=symbol, label=label)
-        element_type = pretty_uri(template.uri)
+        element_name = pretty_name(self.symbol, template.uri)
         if isinstance(template, CompositeTemplate):
             element_template = template.template
             composite = True
@@ -182,9 +182,9 @@ class BondgraphElement(ModelElement):
             element_template = template
             composite = False
         if element_template.domain is None:
-            raise Issue(f'No modelling domain for element {uri} with template {element_type}/{domain_uri}')
+            raise Issue(f'No modelling domain for element {uri} with template {element_name}/{domain_uri}')
         elif domain_uri is not None and element_template.domain.uri != domain_uri:
-            raise Issue(f'Domain mismatch for element {uri} with template {element_type}/{domain_uri}')
+            raise Issue(f'Domain mismatch for element {uri} with template {element_name}/{domain_uri}')
 
         self.__domain = element_template.domain
         self.__element_class = element_template.element_class
@@ -245,16 +245,16 @@ class BondgraphElement(ModelElement):
         self.__variable_values: dict[str, VariableValue] = {}
         if parameter_values is None:
             if len(element_template.parameters):
-                raise Issue(f'No parameters given for element {pretty_uri(uri)}')
+                raise Issue(f'No parameters given for element {pretty_name(self.symbol, uri)}')
         else:
             for name in element_template.parameters.keys():
                 if name not in parameter_values:
-                    raise Issue(f'Missing value for parameter {name} of element {pretty_uri(uri)}')
+                    raise Issue(f'Missing value for parameter {name} of element {pretty_name(self.symbol, uri)}')
             self.__variable_values.update(parameter_values)
         if variable_values is not None:
             for name in variable_values.keys():
                 if name not in name not in self.__variables:
-                    raise Issue(f'Unknown variable {name} for element {pretty_uri(uri)}')
+                    raise Issue(f'Unknown variable {name} for element {pretty_name(self.symbol, uri)}')
             self.__variable_values.update(variable_values)
 
         if (intrinsic_var := element_template.intrinsic_variable) is not None:
@@ -369,20 +369,20 @@ class BondgraphElement(ModelElement):
 
         for var_name, value in self.__variable_values.items():
             if (variable := self.__variables.get(var_name)) is None:
-                raise Issue(f'Element {pretty_uri(self.uri)} has unknown name {var_name} for {self.__type}')
+                raise Issue(f'Element {pretty_name(self.symbol, self.uri)} has unknown name {var_name} for {self.__type}')
             if value.symbol is not None:
                 variable.set_symbol(value.symbol)   ## need symbol of value[1]'s element...
             if isLiteral(value.value):
                 variable.set_value(Value.from_literal(value.value))  # pyright: ignore[reportArgumentType]
             elif isNamedNode(value.value):
                 if value.value.value not in bond_graph:
-                    raise Issue(f'Value for {pretty_uri(self.uri)} refers to unknown element: {value.value}')
+                    raise Issue(f'Value for {pretty_name(self.symbol, self.uri)} refers to unknown element: {value.value}')
                 elif (element := bond_graph.nodes[value.value.value].get('element')) is None:
-                    raise Issue(f'Value for {pretty_uri(self.uri)} is not a bond element: {value.value}')
+                    raise Issue(f'Value for {pretty_name(self.symbol, self.uri)} is not a bond element: {value.value}')
                 elif element.__intrinsic_variable is None:
-                    raise Issue(f'Value for {pretty_uri(self.uri)} is an element with no intrinsic variable: {value.value}')
+                    raise Issue(f'Value for {pretty_name(self.symbol, self.uri)} is an element with no intrinsic variable: {value.value}')
                 elif variable.units != element.__intrinsic_variable.units:
-                    raise Issue(f'Units incompatible for {pretty_uri(self.uri)} value: {value.value}')
+                    raise Issue(f'Units incompatible for {pretty_name(self.symbol, self.uri)} value: {value.value}')
                 else:
                     self.__variables[var_name] = element.__intrinsic_variable
 
@@ -546,7 +546,7 @@ class BondgraphJunction(ModelElement):
     def __get_domain(self, attributes: dict) -> Optional[Domain]:
     #============================================================
         if (domain := attributes.get('domain')) is None:
-            raise Issue(f'Cannot find domain for junction {pretty_uri(self.uri)}. Are there bonds to it?')
+            raise Issue(f'Cannot find domain for junction {pretty_name(self.symbol, self.uri)}. Are there bonds to it?')
         return domain
 
     def assign_node_variables(self, bond_graph: nx.DiGraph):

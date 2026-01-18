@@ -48,6 +48,11 @@ def pretty_uri(uri: Optional[str|NamedNode]) -> str:
     return pretty
 
 #===============================================================================
+
+def pretty_name(symbol: str, uri: Optional[str|NamedNode]) -> str:
+#=================================================================
+    return f'{symbol} ({pretty_uri(uri)})'
+
 #===============================================================================
 
 def optional_integer(value: ResultType, default: Optional[int]=None) -> Optional[int]:

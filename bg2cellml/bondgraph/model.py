@@ -36,7 +36,7 @@ from .framework_support import TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
 from .model_support import BondgraphBond, BondgraphElement, BondgraphJunction
 from .model_support import make_element_port_uri, make_symbolic_name
 from .namespaces import BGF, NAMESPACES, get_curie
-from .utils import Labelled, optional_integer, pretty_uri
+from .utils import Labelled, optional_integer, pretty_name, pretty_uri
 
 if TYPE_CHECKING:
     from .framework import BondgraphFramework
@@ -162,30 +162,36 @@ class BondgraphModel(Labelled):   ## Component ??
     #======================
         self.__generate_bonds()
         last_element_uri: Optional[str] = None
+        last_element_name: Optional[str] = None
         element = None
+        symbol = None
         for row in self.__rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', self.uri)):
             # ?uri ?type ?domain ?symbol ?species ?location ?label ORDER BY ?uri ?type
-            if row['uri'].value != last_element_uri:                                        # pyright: ignore[reportOptionalMemberAccess]
-                if last_element_uri is not None and element is None:
-                    raise Issue(f'BondElement `{pretty_uri(last_element_uri)}` has no BG-RDF template')
-                element = None
-                last_element_uri = row['uri'].value                                         # pyright: ignore[reportOptionalMemberAccess]
             if row['type'].value.startswith(NAMESPACES['bgf']):                             # pyright: ignore[reportOptionalMemberAccess]
+                if row['uri'].value != last_element_uri:                                    # pyright: ignore[reportOptionalMemberAccess]
+                    if last_element_uri is not None and element is None:
+                        raise Issue(f'BondElement `{last_element_name}` has no BG-RDF template')
+                    element = None
+                    last_element_uri = row['uri'].value
+                    symbol = make_symbolic_name(row)
+                    if symbol:
+                        last_element_name = pretty_name(symbol, last_element_uri)
+                    else:
+                        last_element_name = pretty_name('', last_element_uri)
                 element_type: NamedNode = row['type']                                       # pyright: ignore[reportAssignmentType]
                 template = self.__framework.element_template(element_type, row.get('domain'))   # pyright: ignore[reportArgumentType]
                 if template is None:
-                    raise Issue(f'BondElement {pretty_uri(last_element_uri)} has an unknown BG-RDF template: {get_curie(element_type)}')
+                    raise Issue(f'BondElement {pretty_uri(last_element_name) } has an unknown BG-RDF template: {get_curie(element_type)}')
                 else:
                     if element is None:
-                        symbol = make_symbolic_name(row)
                         element = BondgraphElement.for_model(self, row['uri'], template,    # pyright: ignore[reportArgumentType]
                                                              row.get('domain'),             # pyright: ignore[reportArgumentType]
                                                              symbol, literal_as_string(row.get('label')))   # pyright: ignore[reportArgumentType]
                         self.__elements.append(element)
                     else:
-                        raise Issue(f'BondElement {last_element_uri} has multiple BG-RDF templates')   # pyright: ignore[reportArgumentType]
+                        raise Issue(f'BondElement {last_element_name} has multiple BG-RDF templates')   # pyright: ignore[reportArgumentType]
         if last_element_uri is not None and element is None:
-            raise Issue(f'BondElement {pretty_uri(last_element_uri)} has no BG-RDF template')
+            raise Issue(f'BondElement {last_element_name} has no BG-RDF template')
         if len(self.__elements) == 0:
             raise Issue(f'Model {(pretty_uri(self.uri))} has no elements...')
         for row in self.__rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', self.uri)):
