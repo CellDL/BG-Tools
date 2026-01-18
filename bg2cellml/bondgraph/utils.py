@@ -84,15 +84,15 @@ class Labelled:
         return str(self.__uri)
 
     @property
-    def curie(self):
+    def curie(self) -> str:
         return f':{uri_fragment(self.__uri)}'
 
     @property
-    def label(self):
+    def label(self) -> Optional[str]:
         return self.__label
 
     @property
-    def symbol(self):
+    def symbol(self) -> str:
         return self.__symbol
 
     @property
