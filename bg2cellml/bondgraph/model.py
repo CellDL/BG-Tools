@@ -134,9 +134,9 @@ class BondgraphModel(Labelled):   ## Component ??
         self.__framework = framework
         self.__rdf_graph = RdfGraph(NAMESPACES)
         self.__debug = debug
-        self.__elements = []
-        self.__junctions = []
-        self.__bonds = []
+        self.__elements: list[BondgraphElement] = []
+        self.__junctions: list[BondgraphJunction] = []
+        self.__bonds: list[BondgraphBond] = []
         self.__graph = nx.DiGraph()
         (model_uri, label) = self.__load_rdf(base_iri, rdf_source)
         if model_uri is not None:
