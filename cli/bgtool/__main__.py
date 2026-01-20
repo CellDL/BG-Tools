@@ -58,21 +58,24 @@ def model2cellml(bgrdf_model: BondgraphModel, cellml_file: Path, save_if_errors:
             fp.write(cellml)
             log.info(f'Generated {pretty_log(cellml_file)}')
 
-async def bg2cellml(celldl_source: str, output_path: Path, save_if_errors: bool=False, debug: bool=False):
-#=========================================================================================================
+async def bg2cellml(source_file: str, output_path: Path, bgrdf: bool=False, save_if_errors: bool=False, debug: bool=False):
+#==========================================================================================================================
     framework = await get_framework()
     if framework.has_issues:
         for issue in framework.issues:
             traceback.print_exception(issue)
         sys.exit('Issues loading BG-RDF framework')
 
-    source_path = Path(celldl_source).resolve()
+    source_path = Path(source_file).resolve()
     if not source_path.exists():
-        raise IOError(f'Missing CellDL file: {celldl_source}')
+        raise IOError(f'Missing source file: {source_file}')
     with open(source_path) as fp:
-        model_source = get_bgrdf(fp.read())
-    if model_source is None:
-        raise TypeError(f"{celldl_source} doesn't contain BG-RDF")
+        if bgrdf:
+            model_source = fp.read()
+        else:
+            model_source = get_bgrdf(fp.read())
+    if model_source is None or model_source == '':
+        raise TypeError(f"{source_file} doesn't contain BG-RDF")
     bgrdf_model = framework.make_bondgraph_model(source_path.as_uri(), model_source, debug=debug)
     if bgrdf_model.has_issues:
         for issue in bgrdf_model.issues:
@@ -90,11 +93,12 @@ def main():
     parser.add_argument('--debug', action='store_true', help='Show generated equations for model')
     parser.add_argument('--save-errors', action='store_true', help='Output CellML even if it has errors')
     parser.add_argument('--output', metavar='OUTPUT_DIR', required=True, help='Directory where generated files are saved')
-    parser.add_argument('celldl', metavar='CELLDL', help='Input CellDL file')
+    parser.add_argument('--bgrdf', action='store_true', help='Input file is BG-RDF Turtle, not CellDL')
+    parser.add_argument('source', metavar='CELLDL', help='Input file')
 
     args = parser.parse_args()
 
-    asyncio.run(bg2cellml(args.celldl, Path(args.output), save_if_errors=args.save_errors, debug=args.debug))
+    asyncio.run(bg2cellml(args.source, Path(args.output), bgrdf=args.bgrdf, save_if_errors=args.save_errors, debug=args.debug))
 
 #===============================================================================
 
