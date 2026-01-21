@@ -79,7 +79,10 @@ async def bg2cellml(source_file: str, output_path: Path, bgrdf: bool=False, save
     bgrdf_model = framework.make_bondgraph_model(source_path.as_uri(), model_source, debug=debug)
     if bgrdf_model.has_issues:
         for issue in bgrdf_model.issues:
-            traceback.print_exception(issue)
+            if debug:
+                traceback.print_exception(issue)
+            else:
+                print(issue.reason)
         sys.exit('Issues loading Bondgraph Model')
 
     model2cellml(bgrdf_model, output_path / f'{source_path.stem}.cellml', save_if_errors)
