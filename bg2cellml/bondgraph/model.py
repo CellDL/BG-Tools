@@ -30,7 +30,7 @@ from ..cellml import CellMLModel
 from ..mathml import Equation
 from ..rdf import ResultRow, RdfGraph, NamedNode, literal_as_string
 from ..rdf import isBlankNode, isNamedNode, namedNode, Triple
-from ..utils import Issue, make_issue
+from ..utils import Issue
 
 from .framework_support import TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
 from .model_support import BondgraphBond, BondgraphElement, BondgraphJunction
@@ -173,9 +173,6 @@ class BondgraphModel(Labelled):   ## Component ??
             # ?uri ?type ?domain ?symbol ?species ?location ?label ORDER BY ?uri ?type
             if row['type'].value.startswith(NAMESPACES['bgf']):                             # pyright: ignore[reportOptionalMemberAccess]
                 if row['uri'].value != last_element_uri:                                    # pyright: ignore[reportOptionalMemberAccess]
-                    if last_element_uri is not None and element is None:
-                        self.report_issue(f'BondElement `{last_element_name}` has no BG-RDF template')
-                        continue
                     element = None
                     last_element_uri = row['uri'].value
                     symbol = make_symbolic_name(row)
@@ -186,7 +183,7 @@ class BondgraphModel(Labelled):   ## Component ??
                 element_type: NamedNode = row['type']                                       # pyright: ignore[reportAssignmentType]
                 template = self.__framework.element_template(element_type, row.get('domain'))   # pyright: ignore[reportArgumentType]
                 if template is None:
-                    self.report_issue(f'BondElement {pretty_uri(last_element_name) } has an unknown BG-RDF template: {get_curie(element_type)}')
+                    self.report_issue(f'BondElement {last_element_name} has an unknown BG-RDF template: {get_curie(element_type)}')
                     continue
                 else:
                     if element is None:
@@ -197,8 +194,6 @@ class BondgraphModel(Labelled):   ## Component ??
                     else:
                         self.report_issue(f'BondElement {last_element_name} has multiple BG-RDF templates')   # pyright: ignore[reportArgumentType]
                         continue
-        if last_element_uri is not None and element is None:
-            self.report_issue(f'BondElement {last_element_name} has no BG-RDF template')
 
         if len(self.__elements) == 0:
             self.report_issue(f'Model {(pretty_uri(self.uri))} has no elements...')
