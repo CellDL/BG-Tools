@@ -145,11 +145,11 @@ JUNCTION_STRUCTURES = """
         OPTIONAL { ?junction rdfs:label ?label }
     } ORDER BY ?junction"""
 
-COMPOSITE_ELEMENT_DEFINITIONS = """
+COMPOSITE_TEMPLATE_DEFINITIONS = """
     SELECT DISTINCT ?uri ?template ?label
     WHERE {
         ?uri
-            a bgf:CompositeElement ;
+            a bgf:CompositeTemplate ;
             rdfs:subClassOf* ?template .
         ?template
             a bgf:ElementTemplate .
@@ -297,7 +297,7 @@ class BondgraphFramework:
         self.__junctions.update({cast(NamedNode, row['junction']).value: JunctionStructure(row['junction'], row.get('label'))    # pyright: ignore[reportArgumentType]
             # ?junction ?label
             for row in graph.query(JUNCTION_STRUCTURES)})
-        for row in graph.query(COMPOSITE_ELEMENT_DEFINITIONS):
+        for row in graph.query(COMPOSITE_TEMPLATE_DEFINITIONS):
             # ?uri ?template ?label
             if (element := self.__element_templates.get(cast(NamedNode, row['template']).value)) is None:
                 raise Issue(f"Unknown BondElement {row['template']} for composite {row['uri']}")
