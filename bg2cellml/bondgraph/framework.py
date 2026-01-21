@@ -262,6 +262,10 @@ class BondgraphFramework:
     #===============================
         return self.__issues
 
+    def report_issue(self, reason: str):
+    #===================================
+        self.__issues.append(Issue(reason))
+
     def add_template(self, uri: str, template: str) -> bool:
     #=======================================================
         try:
@@ -286,7 +290,8 @@ class BondgraphFramework:
         for row in graph.query(ELEMENT_TEMPLATE_DEFINITIONS):
             # ?uri ?element_class ?label ?domain ?relation
             if (domain := self.__domains.get(cast(NamedNode, row['domain']).value)) is None:
-                raise Issue(f"Unknown domain {row['domain']} for {row['uri']} element")
+                self.report_issue(f"Unknown domain {row['domain']} for {row['uri']} element")
+                continue
             self.__element_templates[cast(NamedNode, row['uri']).value] = ElementTemplate.from_rdf_graph(
                                             graph, row['uri'], row['element_class'], # pyright: ignore[reportArgumentType]
                                             row.get('label'), domain, row.get('relation'))   # pyright: ignore[reportArgumentType]
@@ -300,9 +305,8 @@ class BondgraphFramework:
         for row in graph.query(COMPOSITE_TEMPLATE_DEFINITIONS):
             # ?uri ?template ?label
             if (element := self.__element_templates.get(cast(NamedNode, row['template']).value)) is None:
-                raise Issue(f"Unknown BondElement {row['template']} for composite {row['uri']}")
-            #if (junction := self.__junctions.get(row.get('label'))) is None:          # type: ignore
-            #    raise Issue(f'Unknown JunctionStructure {row.get('label')} for composite {row['uri']}')
+                self.report_issue(f"Unknown BondElement {row['template']} for composite {row['uri']}")
+                continue
             self.__composite_elements[row['uri'].value] = CompositeTemplate(row['uri'], element, row.get('label')) # pyright: ignore[reportArgumentType]
 
     def element_template(self, element_type: NamedNode, domain_uri: Optional[NamedNode]) -> Optional[BondgraphElementTemplate]:
