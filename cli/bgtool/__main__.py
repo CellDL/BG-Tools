@@ -26,7 +26,7 @@ from typing import Optional
 
 #===============================================================================
 
-from bg2cellml import BondgraphModel, CellMLModel
+from bg2cellml import BondgraphModel
 from bg2cellml import __version__
 from bg2cellml.bondgraph.framework import get_framework
 from bg2cellml.utils import etree_from_string
