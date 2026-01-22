@@ -327,19 +327,19 @@ class PowerPort:
 #===============================================================================
 #===============================================================================
 
-ELEMENT_PARAMETERS = """
+TEMPLATE_PARAMETERS = """
     SELECT DISTINCT ?name ?units ?value
     WHERE {
-        <%ELEMENT_URI%> bgf:hasParameter ?variable .
+        <%TEMPLATE_URI%> bgf:hasParameter ?variable .
         ?variable bgf:varName ?name .
         OPTIONAL { ?variable bgf:hasUnits ?units }
         OPTIONAL { ?variable bgf:hasValue ?value }
     }"""
 
-ELEMENT_VARIABLES = """
+TEMPLATE_VARIABLES = """
     SELECT DISTINCT ?name ?units ?value
     WHERE {
-        <%ELEMENT_URI%> bgf:hasVariable ?variable .
+        <%TEMPLATE_URI%> bgf:hasVariable ?variable .
         ?variable bgf:varName ?name .
         OPTIONAL { ?variable bgf:hasUnits ?units }
         OPTIONAL { ?variable bgf:hasValue ?value }
@@ -347,14 +347,14 @@ ELEMENT_VARIABLES = """
 
 #===============================================================================
 
-ELEMENT_PORT_BONDS = """
+TEMPLATE_PORT_BONDS = """
     SELECT DISTINCT ?portId ?bondCount ?direction
     WHERE {
         {
-            { <%ELEMENT_URI%> bgf:hasPort ?portId .
+            { <%TEMPLATE_URI%> bgf:hasPort ?portId .
             }
         UNION {
-            <%ELEMENT_URI%> bgf:hasPort ?port .
+            <%TEMPLATE_URI%> bgf:hasPort ?port .
             ?port bgf:portId ?portId ;
             OPTIONAL { ?port bgf:bondCount ?bondCount }
             OPTIONAL { ?port bgf:direction ?direction }
@@ -435,7 +435,7 @@ class ElementTemplate(Labelled):
         port_bonds: dict[str, int|None] = {}
         directions: dict[str, NamedNode|None] = {}
         for row in graph.query(
-                        ELEMENT_PORT_BONDS.replace('%ELEMENT_URI%', self.uri)):
+                        TEMPLATE_PORT_BONDS.replace('%TEMPLATE_URI%', self.uri)):
             # ?portId ?bondCount ?direction
             if isLiteral(row['portId']):
                 port_bonds[row['portId'].value] = optional_integer(row.get('bondCount'), 1)  # pyright: ignore[reportArgumentType]
@@ -463,13 +463,13 @@ class ElementTemplate(Labelled):
 
     def __add_variables(self, graph: RdfGraph):
     #==========================================
-        for row in graph.query(ELEMENT_PARAMETERS.replace('%ELEMENT_URI%', self.uri, True)):
+        for row in graph.query(TEMPLATE_PARAMETERS.replace('%TEMPLATE_URI%', self.uri, True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
                 raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
             self.__parameters[var_name] = Variable(self.uri, row['name'].value, units=row.get('units'), value=row.get('value'))   # type: ignore
-        for row in graph.query(ELEMENT_VARIABLES.replace('%ELEMENT_URI%', self.uri, True)):
+        for row in graph.query(TEMPLATE_VARIABLES.replace('%TEMPLATE_URI%', self.uri, True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
