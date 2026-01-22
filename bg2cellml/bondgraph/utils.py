@@ -71,7 +71,7 @@ def clean_name(name: str) -> str:
 
 class Labelled:
     def __init__(self, uri: NamedNode, symbol: Optional[str]=None, label: Optional[str]=None):
-        self.__uri = uri.value
+        self.__uri = uri
         if symbol is not None:
             self.__symbol = symbol
         else:
@@ -80,8 +80,8 @@ class Labelled:
 
     def __str__(self) -> str:
         if self.__label is not None:
-            return f'{str(self.__uri)} ({self.__label})'
-        return str(self.__uri)
+            return f'{self.__uri.value} ({self.__label})'
+        return self.__uri.value
 
     @property
     def curie(self) -> str:
@@ -96,7 +96,7 @@ class Labelled:
         return self.__symbol
 
     @property
-    def uri(self) -> str:
+    def uri(self) -> NamedNode:
         return self.__uri
 
 #===============================================================================

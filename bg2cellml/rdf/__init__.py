@@ -30,10 +30,14 @@ from .browser import *
 def literal_as_string(literal: Optional[Literal]) -> Optional[str]:
     return literal.value if literal is not None else None
 
-def uri_fragment(uri: str) -> str:
-    if '#' in uri:
-        return uri.rsplit('#')[-1]
+def uri_fragment(uri: str|NamedNode) -> str:
+    if isNamedNode(uri):
+        uri_as_string = uri.value       # pyright: ignore[reportAttributeAccessIssue]
     else:
-        return uri.rsplit('/')[-1]
+        uri_as_string: str = uri        # pyright: ignore[reportAssignmentType]
+    if '#' in uri_as_string:
+        return uri_as_string.rsplit('#')[-1]
+    else:
+        return uri_as_string.rsplit('/')[-1]
 
 #===============================================================================

@@ -296,7 +296,7 @@ class BondgraphFramework:
                                             graph, row['uri'], row['element_class'], # pyright: ignore[reportArgumentType]
                                             row.get('label'), domain, row.get('relation'))   # pyright: ignore[reportArgumentType]
         self.__element_domains.update({
-            (element.element_class, element.domain.uri): element
+            (element.element_class, element.domain.uri.value): element
                 for element in self.__element_templates.values() if element.domain is not None
         })
         self.__junctions.update({cast(NamedNode, row['junction']).value: JunctionStructure(row['junction'], row.get('label'))    # pyright: ignore[reportArgumentType]

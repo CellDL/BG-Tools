@@ -52,7 +52,7 @@ ZERONODE_JUNCTION  = BGF.ZeroNode.value
 # Variable of integration
 
 VOI_SYMBOL = 't'
-VOI_UCUMUNIT = literal('s', datatype=CDT.ucumunit)      # pyright: ignore[reportArgumentType]
+VOI_UCUMUNIT: Literal = literal('s', datatype=CDT.ucumunit) # pyright: ignore[reportArgumentType, reportAssignmentType]
 
 #===============================================================================
 #===============================================================================
@@ -118,7 +118,7 @@ TRANSFORMER_EQUATIONS = MathML.from_string(f"""
 #===============================================================================
 
 class Variable:
-    def __init__(self, element_uri: Optional[str], name: str,
+    def __init__(self, element_uri: Optional[NamedNode], name: str,
                         units: Optional[Literal|Units]=None,
                         value: Optional[Literal]=None):
         self.__element_uri = element_uri
@@ -146,7 +146,7 @@ class Variable:
         return f'{self.symbol} ({self.__value if self.__value is not None else self.__units})'
 
     @property
-    def element_uri(self):
+    def element_uri(self) -> Optional[NamedNode]:
         return self.__element_uri
 
     @property
@@ -247,7 +247,7 @@ class Domain(Labelled):
         return self
 
     def __eq__(self, other):
-        return self.uri == other.uri
+        return self.uri.value == other.uri.value
 
     @property
     def constants(self):
@@ -278,7 +278,7 @@ class Domain(Labelled):
         self.__constants.extend([Variable(self.uri, row['name'].value, value=row['value'])  # pyright: ignore[reportArgumentType]
                                 for row in graph.query(
                                     # ?name ?value
-                                    DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri))])
+                                    DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri.value))])
 
 #===============================================================================
 #===============================================================================
@@ -294,7 +294,7 @@ class NamedPortVariable:
 #===============================================================================
 
 class PowerPort:
-    def __init__(self, uri: str, flow: NamedPortVariable, potential: NamedPortVariable,
+    def __init__(self, uri: NamedNode, flow: NamedPortVariable, potential: NamedPortVariable,
                        direction: Optional[NamedNode]=None):
         self.__uri = uri
         self.__flow = flow
@@ -435,10 +435,10 @@ class ElementTemplate(Labelled):
         port_bonds: dict[str, int|None] = {}
         directions: dict[str, NamedNode|None] = {}
         for row in graph.query(
-                        TEMPLATE_PORT_BONDS.replace('%TEMPLATE_URI%', self.uri)):
+                        TEMPLATE_PORT_BONDS.replace('%TEMPLATE_URI%', self.uri.value)):
             # ?portId ?bondCount ?direction
             if isLiteral(row['portId']):
-                port_bonds[row['portId'].value] = optional_integer(row.get('bondCount'), 1)  # pyright: ignore[reportArgumentType]
+                port_bonds[row['portId'].value] = optional_integer(row.get('bondCount'), 1) # pyright: ignore[reportArgumentType]
                 directions[row['portId'].value] = row.get('direction')    # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
         if len(port_bonds):
             flow_suffixed = False ##(len(port_bonds) == 2)
@@ -447,7 +447,7 @@ class ElementTemplate(Labelled):
                 suffix = f'_{id}'
                 flow_var = self.__port_name_variable(self.domain.flow, suffix if flow_suffixed else '')
                 potential_var = self.__port_name_variable(self.domain.potential, suffix)
-                self.__power_ports[id] = PowerPort(namedNode(f'{self.uri}{suffix}'),  # pyright: ignore[reportArgumentType]
+                self.__power_ports[id] = PowerPort(namedNode(f'{self.uri.value}{suffix}'),  # pyright: ignore[reportArgumentType]
                                                     flow_var, potential_var, direction=directions[id])
         else:
             self.__power_ports = {'': PowerPort(self.uri,
@@ -463,13 +463,13 @@ class ElementTemplate(Labelled):
 
     def __add_variables(self, graph: RdfGraph):
     #==========================================
-        for row in graph.query(TEMPLATE_PARAMETERS.replace('%TEMPLATE_URI%', self.uri, True)):
+        for row in graph.query(TEMPLATE_PARAMETERS.replace('%TEMPLATE_URI%', self.uri.value, True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
                 raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
             self.__parameters[var_name] = Variable(self.uri, row['name'].value, units=row.get('units'), value=row.get('value'))   # type: ignore
-        for row in graph.query(TEMPLATE_VARIABLES.replace('%TEMPLATE_URI%', self.uri, True)):
+        for row in graph.query(TEMPLATE_VARIABLES.replace('%TEMPLATE_URI%', self.uri.value, True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
