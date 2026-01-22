@@ -29,7 +29,7 @@ import networkx as nx
 from ..cellml import CellMLModel
 from ..mathml import Equation
 from ..rdf import ResultRow, RdfGraph, NamedNode, literal_as_string
-from ..rdf import isBlankNode, isNamedNode, namedNode, Triple
+from ..rdf import isBlankNode, isNamedNode, Triple, uri_fragment
 from ..utils import Issue
 
 from .framework_support import TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
