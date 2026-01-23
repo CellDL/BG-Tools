@@ -28,11 +28,11 @@ import networkx as nx
 
 from ..cellml import CellMLModel
 from ..mathml import Equation
-from ..rdf import ResultRow, RdfGraph, NamedNode, literal_as_string
-from ..rdf import isBlankNode, isNamedNode, Triple, uri_fragment
+from ..rdf import ResultRow, RdfGraph, Triple
+from ..rdf import isNamedNode, literal_as_string, NamedNode
 from ..utils import Issue
 
-from .framework_support import TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
+from .framework_support import REACTION, TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
 from .model_support import BondgraphBond, BondgraphElement, BondgraphJunction
 from .model_support import make_element_port_uri, make_symbolic_name
 from .namespaces import BGF, NAMESPACES, get_curie
@@ -91,38 +91,11 @@ BONDGRAPH_MODEL = """
 #===============================================================================
 
 BONDGRAPH_BONDS = """
-    SELECT DISTINCT ?bond ?source ?target ?sourceElement ?targetElement
+    SELECT DISTINCT ?uri ?source ?target
     WHERE {
-        {
-            { ?bond
-                bgf:hasSource ?source ;
-                bgf:hasTarget ?target .
-            }
-      UNION { ?bond
-                bgf:hasSource ?source ;
-                bgf:hasTarget ?target .
-                ?target
-                    bgf:element ?targetElement ;
-                    bgf:port ?targetPort .
-            }
-      UNION { ?bond
-                bgf:hasTarget ?target ;
-                bgf:hasSource ?source .
-                ?source
-                    bgf:element ?sourceElement ;
-                    bgf:port ?sourcePort .
-            }
-      UNION { ?bond
-                bgf:hasSource ?source ;
-                bgf:hasTarget ?target .
-                ?source
-                    bgf:element ?sourceElement ;
-                    bgf:port ?sourcePort .
-               ?target
-                    bgf:element ?targetElement ;
-                    bgf:port ?targetPort .
-            }
-       }
+        ?uri
+            bgf:hasSource ?source ;
+            bgf:hasTarget ?target .
     }"""
 
 #===============================================================================
@@ -134,8 +107,8 @@ class BondgraphModel(Labelled):   ## Component ??
         self.__framework = framework
         self.__rdf_graph = RdfGraph(NAMESPACES)
         self.__debug = debug
-        self.__elements: list[BondgraphElement] = []
-        self.__junctions: list[BondgraphJunction] = []
+        self.__elements: dict[NamedNode, BondgraphElement] = {}
+        self.__junctions: dict[NamedNode, BondgraphJunction] = {}
         self.__bonds: list[BondgraphBond] = []
         self.__graph = nx.DiGraph()
         (model_uri, label) = self.__load_rdf(base_iri, rdf_source)
@@ -190,7 +163,7 @@ class BondgraphModel(Labelled):   ## Component ??
                         element = BondgraphElement.for_model(self, row['uri'], template,    # pyright: ignore[reportArgumentType]
                                                              row.get('domain'),             # pyright: ignore[reportArgumentType]
                                                              symbol, literal_as_string(row.get('label')))   # pyright: ignore[reportArgumentType]
-                        self.__elements.append(element)
+                        self.__elements[element.uri] = element
                     else:
                         self.report_issue(f'BondElement {last_element_name} has multiple BG-RDF templates')   # pyright: ignore[reportArgumentType]
                         continue
@@ -201,19 +174,45 @@ class BondgraphModel(Labelled):   ## Component ??
 
         for row in self.__rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', self.uri.value)):
             # ?uri ?type ?value ?symbol ?species ?location ?label
-            if row['type'].value.startswith(NAMESPACES['bgf']):                             # pyright: ignore[reportOptionalMemberAccess]
+            if row['type'].value.startswith(NAMESPACES['bgf']):                                 # pyright: ignore[reportOptionalMemberAccess]
                 symbol = make_symbolic_name(row)
-                self.__junctions.append(
-                    BondgraphJunction(self, row['uri'], row['type'], row.get('value'),      # pyright: ignore[reportArgumentType]
-                                      symbol, literal_as_string(row.get('label'))))         # pyright: ignore[reportArgumentType]
+                junction = BondgraphJunction(self, row['uri'], row['type'], row.get('value'),   # pyright: ignore[reportArgumentType]
+                                             symbol, literal_as_string(row.get('label')))       # pyright: ignore[reportArgumentType]
+                self.__junctions[junction.uri] = junction
+
         for row in self.__rdf_graph.query(MODEL_BONDS.replace('%MODEL%', self.uri.value)):
             # ?powerBond ?source ?target ?label ?bondCount
-            bond_uri: NamedNode = row['powerBond']                                      # pyright: ignore[reportAssignmentType]
-            if row['source'] is None or row['target'] is None:
+            bond_uri: NamedNode = row['powerBond']                                              # pyright: ignore[reportAssignmentType]
+            source: Optional[NamedNode] = row.get('source')                                     # pyright: ignore[reportAssignmentType]
+            target: Optional[NamedNode] = row.get('target')                                     # pyright: ignore[reportAssignmentType]
+            if source is None or target is None:
                 self.report_issue(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
                 continue
+            issues = []
+            if source not in self.__elements and source not in self.__junctions:
+                issues.append(f'No element or junction for source {pretty_uri(source)} of bond {pretty_uri(bond_uri)}')
+            if target not in self.__elements and target not in self.__junctions:
+                issues.append(f'No element or junction for target {pretty_uri(target)} of bond {pretty_uri(bond_uri)}')
+            if len(issues):
+                for issue in issues:
+                    self.report_issue(issue)
+                continue
+            # In terms of a BondgraphBond, the `target` is connected to the inwards port of the target node
+            # and the `source` is connected to the outwards port of the source node.
+            source_id = source.value
+            target_id = target.value
+            if (element := self.__elements.get(source)) is not None and element.element_class == REACTION:
+                for uri, port in element.power_ports.items():
+                    if port.direction == BGF.OutwardPort:
+                        source_id = uri.value
+                        break
+            if (element := self.__elements.get(target)) is not None and element.element_class == REACTION:
+                for uri, port in element.power_ports.items():
+                    if port.direction == BGF.InwardPort:
+                        target_id = uri.value
+                        break
             self.__bonds.append(
-                BondgraphBond(self, bond_uri, row.get('source'), row.get('target'), row.get('label'), optional_integer(row.get('bondCount'))))    # pyright: ignore[reportArgumentType]
+                BondgraphBond(self, bond_uri, source_id, target_id, row.get('label'), optional_integer(row.get('bondCount'))))    # pyright: ignore[reportArgumentType]
 
         self.__make_bond_network()
         self.__check_and_assign_domains_to_bond_network()
@@ -221,7 +220,7 @@ class BondgraphModel(Labelled):   ## Component ??
         self.__assign_element_variables_and_equations()
 
         self.__equations: list[Equation] = []
-        for element in self.__elements:
+        for element in self.__elements.values():
             if (cr := element.constitutive_relation) is not None:
                 self.__equations.extend(cr.equations)
                 for eq in cr.equations:
@@ -229,7 +228,7 @@ class BondgraphModel(Labelled):   ## Component ??
             self.__equations.extend(element.equations)
             for eq in element.equations:
                 eq.provenance = 'be'
-        for junction in self.__junctions:
+        for junction in self.__junctions.values():
             equations = junction.build_equations(self.__graph)
             self.__equations.extend(equations)
             for eq in equations:
@@ -237,16 +236,16 @@ class BondgraphModel(Labelled):   ## Component ??
 
         if self.__debug:
             print('Elements:')
-            for element in self.__elements:
-                print(' ', pretty_uri(element.uri))
+            for uri, element in self.__elements.items():
+                print(' ', pretty_uri(uri))
                 if (cr := element.constitutive_relation) is not None:
                     for eq in cr.equations:
                         print('   CR:', eq)
                 for eq in element.equations:
                     print('   EQ:', eq)
             print('Junctions:')
-            for junction in self.__junctions:
-                print(' ', pretty_uri(junction.uri))
+            for uri, junction in self.__junctions.items():
+                print(' ', pretty_uri(uri))
                 equations = junction.equations
                 for eq in equations:
                     print('   ', eq)
@@ -254,28 +253,18 @@ class BondgraphModel(Labelled):   ## Component ??
     def __generate_bonds(self):
     #==========================
         for row in self.__rdf_graph.query(BONDGRAPH_BONDS):
-            # ?bond ?source ?target ?sourceElement ?targetElement
-            if isNamedNode(row['source']):
-                source = row['source']
-            elif isBlankNode(row['source']) and isNamedNode(row.get('sourceElement')):
-                source = row['sourceElement']
-            else:
-                source = None
-            if isNamedNode(row['target']):
-                target = row['target']
-            elif isBlankNode(row['target']) and isNamedNode(row.get('targetElement')):
-                target = row['targetElement']
-            else:
-                target = None
+            # ?bond ?source ?target
+            source = row['source'] if isNamedNode(row['source']) else None
+            target = row['target'] if isNamedNode(row['target']) else None
             if ((Triple(None, BGF.hasBondElement, source) in self.__rdf_graph
               or Triple(None, BGF.hasJunctionStructure, source) in self.__rdf_graph)
             and (Triple(None, BGF.hasBondElement, target) in self.__rdf_graph
               or Triple(None, BGF.hasJunctionStructure, target) in self.__rdf_graph)):
-                self.__rdf_graph.add(Triple(self.uri, BGF.hasPowerBond, row['bond']))
+                self.__rdf_graph.add(Triple(self.uri, BGF.hasPowerBond, row['uri']))
 
     @property
-    def elements(self):
-        return self.__elements
+    def elements(self) -> list[BondgraphElement]:
+        return list(self.__elements.values())
 
     @property
     def framework(self) -> 'BondgraphFramework':
@@ -292,8 +281,8 @@ class BondgraphModel(Labelled):   ## Component ??
         return self.__issues
 
     @property
-    def junctions(self):
-        return self.__junctions
+    def junctions(self) -> list[BondgraphJunction]:
+        return list(self.__junctions.values())
 
     @property
     def equations(self):
@@ -309,17 +298,17 @@ class BondgraphModel(Labelled):   ## Component ??
 
     def __assign_element_variables_and_equations(self):
     #==================================================
-        for element in self.__elements:
+        for element in self.__elements.values():
             element.assign_variables(self.__graph)
-        for element in self.__elements:
+        for element in self.__elements.values():
             element.build_expressions(self.__graph)
 
     def __assign_junction_domain_and_variables(self):
     #================================================
-        for junction in self.__junctions:
+        for junction in self.__junctions.values():
             if junction.type != TRANSFORM_JUNCTION:
                 junction.assign_node_variables(self.__graph)
-        for junction in self.__junctions:
+        for junction in self.__junctions.values():
             if junction.type == TRANSFORM_JUNCTION:
                 junction.assign_transform_variables(self.__graph)
 
@@ -340,28 +329,28 @@ class BondgraphModel(Labelled):   ## Component ??
                     self.report_issue(f'Node {node} with domain {node_domain} incompatible with {domain}')
                     return
 
-        for element in self.__elements:
+        for element in self.__elements.values():
             for port_uri in element.power_ports.keys():
                 check_node(port_uri.value, element.domain)
 
     # Construct network graph of PowerBonds
     def __make_bond_network(self):
     #=============================
-        for element in self.__elements:
+        for element in self.__elements.values():
             for port_uri, port in element.power_ports.items():
                 self.__graph.add_node(port_uri.value, uri=port_uri,
                     type=get_curie(element.type),
                     power_port=port, port_type=element.element_class,
                     element=element, label=element.symbol)
-        for junction in self.__junctions:
+        for uri, junction in self.__junctions.items():
             if junction.type == TRANSFORM_JUNCTION:
                 # A Transform Node has two implicit ports, with ids `0` and `1`
                 for port_id in TRANSFORM_PORT_IDS:
-                    port_uri = make_element_port_uri(junction.uri, port_id)
+                    port_uri = make_element_port_uri(uri, port_id)
                     self.__graph.add_node(port_uri.value, uri=port_uri,
                         type=get_curie(junction.type), junction=junction, label=junction.symbol)
             else:
-                self.__graph.add_node(junction.uri.value, uri=junction.uri,
+                self.__graph.add_node(uri.value, uri=uri,
                     type=get_curie(junction.type), junction=junction, label=junction.symbol)
         for bond in self.__bonds:
             source = bond.source_id

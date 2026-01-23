@@ -29,8 +29,8 @@ import sympy
 #===============================================================================
 
 from ..mathml import Equation, MathML
-from ..rdf import BlankNode, Literal, NamedNode, namedNode
-from ..rdf import isBlankNode, isLiteral, isNamedNode, literal_as_string
+from ..rdf import Literal, NamedNode, namedNode
+from ..rdf import isLiteral, isNamedNode, literal_as_string
 from ..units import Value
 from ..utils import Issue
 
@@ -422,8 +422,8 @@ class BondgraphElement(ModelElement):
                 edge = (node, port_id.value) if input else (port_id.value, node)
                 bond_count = bond_graph.edges[edge].get('bond_count', 1)
                 forward_dirn = (port.direction
-                            and (input and port.direction.value == BGF.InwardPort.value
-                                 or not input and port.direction.value == BGF.OutwardPort.value))
+                            and (input and port.direction == BGF.InwardPort
+                              or not input and port.direction == BGF.OutwardPort))
                 if self.__implied_junction == ONENODE_JUNCTION:
                     if (expr := potential_expression(node_dict, self.model)) is not None:
                         if bond_count != 1:
@@ -482,26 +482,13 @@ class BondgraphElement(ModelElement):
 #===============================================================================
 #===============================================================================
 
-MODEL_BOND_PORTS = """
-    SELECT DISTINCT ?element ?port
-    WHERE {
-        <%MODEL%> bgf:hasPowerBond <%BOND%> .
-        <%BOND%> <%BOND_RELN%> [
-            bgf:element ?element ;
-            bgf:port ?port
-        ]
-    }"""
-
-#===============================================================================
-
 class BondgraphBond(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: NamedNode,
-                        source: NamedNode|BlankNode, target: NamedNode|BlankNode,
+                        source_id: str, target_id: str,
                         count: Optional[Literal]=None, label: Optional[str]=None):
         super().__init__(model, uri, label=label)
-        self.__source_uri = self.__get_port_uri(source, BGF.hasSource)
-        self.__target_uri = self.__get_port_uri(target, BGF.hasTarget)
-        ## Check source and target units match...
+        self.__source_id = source_id
+        self.__target_id = target_id
         self.__bond_count = int(count.value) if count is not None else 1
 
     @property
@@ -510,23 +497,11 @@ class BondgraphBond(ModelElement):
 
     @property
     def source_id(self) -> Optional[str]:
-        return self.__source_uri.value if self.__source_uri is not None else None
+        return self.__source_id
 
     @property
     def target_id(self) -> Optional[str]:
-        return self.__target_uri.value if self.__target_uri is not None else None
-
-    def __get_port_uri(self, port_uri: NamedNode|BlankNode, reln: NamedNode) -> Optional[NamedNode]:
-    #===============================================================================================
-        if isBlankNode(port_uri):
-            for row in self.model.sparql_query(
-                # ?element ?port
-                MODEL_BOND_PORTS.replace('%MODEL%', self.model.uri.value)
-                                .replace('%BOND%', self.uri.value)
-                                .replace('%BOND_RELN%', reln.value)):
-                return make_element_port_uri(row['element'], row['port'].value) # pyright: ignore[reportArgumentType]
-        else:
-            return port_uri                                                     # pyright: ignore[reportReturnType]
+        return self.__target_id
 
 #===============================================================================
 #===============================================================================

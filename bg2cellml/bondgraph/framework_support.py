@@ -348,16 +348,17 @@ TEMPLATE_VARIABLES = """
 #===============================================================================
 
 TEMPLATE_PORT_BONDS = """
-    SELECT DISTINCT ?portId ?bondCount ?direction
+    SELECT DISTINCT ?portId ?direction ?bondCount
     WHERE {
         {
             { <%TEMPLATE_URI%> bgf:hasPort ?portId .
             }
         UNION {
             <%TEMPLATE_URI%> bgf:hasPort ?port .
-            ?port bgf:portId ?portId ;
+            ?port
+                bgf:portId ?portId ;
+                bgf:direction ?direction .
             OPTIONAL { ?port bgf:bondCount ?bondCount }
-            OPTIONAL { ?port bgf:direction ?direction }
             }
         }
     } ORDER BY ?portId"""
@@ -432,24 +433,17 @@ class ElementTemplate(Labelled):
 
     def __add_ports(self, graph: RdfGraph):
     #======================================
-        port_bonds: dict[str, int|None] = {}
-        directions: dict[str, NamedNode|None] = {}
-        for row in graph.query(
-                        TEMPLATE_PORT_BONDS.replace('%TEMPLATE_URI%', self.uri.value)):
-            # ?portId ?bondCount ?direction
+        for row in graph.query(TEMPLATE_PORT_BONDS.replace('%TEMPLATE_URI%', self.uri.value)):
+            # ?portId ?direction ?bondCount
             if isLiteral(row['portId']):
-                port_bonds[row['portId'].value] = optional_integer(row.get('bondCount'), 1) # pyright: ignore[reportArgumentType]
-                directions[row['portId'].value] = row.get('direction')    # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
-        if len(port_bonds):
-            flow_suffixed = False ##(len(port_bonds) == 2)
-            self.__power_ports = {}
-            for id, _ in port_bonds.items():
+                id = row['portId'].value
                 suffix = f'_{id}'
-                flow_var = self.__port_name_variable(self.domain.flow, suffix if flow_suffixed else '')
+                flow_var = self.__port_name_variable(self.domain.flow)
                 potential_var = self.__port_name_variable(self.domain.potential, suffix)
                 self.__power_ports[id] = PowerPort(namedNode(f'{self.uri.value}{suffix}'),  # pyright: ignore[reportArgumentType]
-                                                    flow_var, potential_var, direction=directions[id])
-        else:
+                                                    flow_var, potential_var,
+                                                    direction=row.get('direction'))         # pyright: ignore[reportArgumentType]
+        if len(self.__power_ports) == 0:
             self.__power_ports = {'': PowerPort(self.uri,
                                     self.__port_name_variable(self.domain.flow),
                                     self.__port_name_variable(self.domain.potential)
