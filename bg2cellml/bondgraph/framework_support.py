@@ -303,7 +303,8 @@ class PowerPort:
         self.__bond_count = bond_count
 
     def __str__(self):
-        return f'{uri_fragment(self.__uri)}, potential: {self.__potential}, flow: {self.__flow}'
+        dirn = uri_fragment(self.__direction) if self.__direction is not None else None
+        return f'PP: {uri_fragment(self.__uri)}, potential: {self.__potential}, flow: {self.__flow}, dirn: {dirn}'
 
     @property
     def direction(self) -> Optional[NamedNode]:
