@@ -35,12 +35,12 @@ from .utils import clean_name, Labelled, optional_integer
 #===============================================================================
 #===============================================================================
 
-DISSIPATOR         = BGF.Dissipator.value
 FLOW_SOURCE        = BGF.FlowSource.value
 FLOW_STORE         = BGF.FlowStore.value
 POTENTIAL_SOURCE   = BGF.PotentialSource.value
 QUANTITY_STORE     = BGF.QuantityStore.value
 REACTION           = BGF.Reaction.value
+RESISTANCE         = BGF.Resistance.value
 
 ONENODE_JUNCTION   = BGF.OneNode.value
 TRANSFORM_JUNCTION = BGF.TransformNode.value  # Can act as a transformer of gyrator
