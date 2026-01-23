@@ -18,6 +18,7 @@
 #
 #===============================================================================
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 #===============================================================================
@@ -34,6 +35,7 @@ from ..mathml import Equation, MATHML_NS
 from ..rdf import uri_fragment
 from ..units import Units
 from ..utils import XMLNamespace
+from ..version import __version__
 
 if TYPE_CHECKING:
     from ..bondgraph.model import BondgraphModel
@@ -49,6 +51,17 @@ def cellml_element(tag: str, *args, **attributes) -> etree.Element:
 def cellml_subelement(parent: etree.Element, tag: str, *args, **attributes) -> etree.Element:
 #============================================================================================
     return etree.SubElement(parent, CELLML_NS(tag), *args, **attributes)
+
+def header_comment(source_uri: str) -> etree.Comment:
+#====================================================
+    utc = datetime.now(timezone.utc)
+    return etree.Comment(f'''
+This CellML file was generated at {utc.isoformat()}
+
+by [BG-Tools](https://github.com/CellDL/BG-Tools), version {__version__}
+
+from {source_uri}
+''')
 
 #===============================================================================
 
@@ -231,6 +244,7 @@ class CellMLModel:
 
     def to_xml(self) -> str:
     #=======================
+        self.__cellml.addprevious(header_comment(self.__model.uri.value))
         cellml_tree = etree.ElementTree(self.__cellml)
         return etree.tostring(cellml_tree,
             encoding='unicode', inclusive_ns_prefixes=['cellml'],
