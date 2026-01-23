@@ -32,7 +32,6 @@ from ..mathml import Equation, MathML
 from ..rdf import Literal, NamedNode, namedNode
 from ..rdf import isLiteral, isNamedNode, literal_as_string
 from ..units import Value
-from ..utils import Issue
 
 from .framework_support import BondgraphElementTemplate, CompositeTemplate
 from .framework_support import Domain, NamedPortVariable, PowerPort, Variable
