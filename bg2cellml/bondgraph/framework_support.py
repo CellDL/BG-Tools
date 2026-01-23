@@ -295,11 +295,12 @@ class NamedPortVariable:
 
 class PowerPort:
     def __init__(self, uri: NamedNode, flow: NamedPortVariable, potential: NamedPortVariable,
-                       direction: Optional[NamedNode]=None):
+                       direction: Optional[NamedNode]=None, bond_count: int=1):
         self.__uri = uri
         self.__flow = flow
         self.__potential = potential
         self.__direction = direction
+        self.__bond_count = bond_count
 
     def __str__(self):
         return f'{uri_fragment(self.__uri)}, potential: {self.__potential}, flow: {self.__flow}'
@@ -321,8 +322,7 @@ class PowerPort:
         return PowerPort(self.__uri,
             NamedPortVariable(name=self.__flow.name, variable=self.__flow.variable.copy(suffix=suffix, domain=domain)),
             NamedPortVariable(name=self.__potential.name, variable=self.__potential.variable.copy(suffix=suffix, domain=domain)),
-            direction = self.__direction
-        )
+            direction = self.__direction, bond_count=self.__bond_count)
 
 #===============================================================================
 #===============================================================================
@@ -442,7 +442,8 @@ class ElementTemplate(Labelled):
                 potential_var = self.__port_name_variable(self.domain.potential, suffix)
                 self.__power_ports[id] = PowerPort(namedNode(f'{self.uri.value}{suffix}'),  # pyright: ignore[reportArgumentType]
                                                     flow_var, potential_var,
-                                                    direction=row.get('direction'))         # pyright: ignore[reportArgumentType]
+                                                    direction=row.get('direction'),         # pyright: ignore[reportArgumentType]
+                                                    bond_count=optional_integer(row.get('bondCount'), 1)) # pyright: ignore[reportArgumentType]
         if len(self.__power_ports) == 0:
             self.__power_ports = {'': PowerPort(self.uri,
                                     self.__port_name_variable(self.domain.flow),
