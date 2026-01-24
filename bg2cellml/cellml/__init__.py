@@ -56,11 +56,11 @@ def header_comment(source_uri: str) -> etree.Comment:
 #====================================================
     utc = datetime.now(timezone.utc)
     return etree.Comment(f'''
-This CellML file was generated at {utc.isoformat()}
+  This CellML file was generated at {utc.isoformat()}
 
-by [BG-Tools](https://github.com/CellDL/BG-Tools), version {__version__}
+  by [BG-Tools](https://github.com/CellDL/BG-Tools), version {__version__}
 
-from {source_uri}
+  from {source_uri}
 ''')
 
 #===============================================================================
