@@ -19,7 +19,7 @@
 #===============================================================================
 
 from dataclasses import dataclass
-from typing import Optional, Self
+from typing import Self, TYPE_CHECKING
 
 #===============================================================================
 
@@ -119,15 +119,15 @@ TRANSFORMER_EQUATIONS = MathML.from_string(f"""
 
 class Variable:
     def __init__(self, element_uri: Optional[NamedNode], name: str,
-                        units: Optional[Literal|Units]=None,
-                        value: Optional[Literal]=None):
         self.__element_uri = element_uri
+                        units: Literal|Units|None=None,
+                        value: Literal|None=None):
         self.__name = clean_name(name)
-        self.__symbol: Optional[str] = None
+        self.__symbol: str|None = None
         if isLiteral(units):
             self.__units = Units.from_ucum(units)   # pyright: ignore[reportArgumentType]
         else:
-            self.__units: Optional[Units] = units   # pyright: ignore[reportAttributeAccessIssue]
+            self.__units: Units|None = units   # pyright: ignore[reportAttributeAccessIssue]
         if value is not None:
             self.__value = Value.from_literal(value)
             if self.__units is None and self.__value.units is not None:
@@ -146,8 +146,8 @@ class Variable:
         return f'{self.symbol} ({self.__value if self.__value is not None else self.__units})'
 
     @property
-    def element_uri(self) -> Optional[NamedNode]:
         return self.__element_uri
+    def element_uri(self) -> NamedNode|None:
 
     @property
     def name(self):
@@ -165,8 +165,8 @@ class Variable:
     def units(self) -> Units:
         return self.__units         # type: ignore
 
-    def copy(self, suffix: Optional[str]=None, domain: Optional['Domain']=None) -> 'Variable':
-    #=========================================================================================
+    def copy(self, suffix: str|None=None, domain: 'Domain|None'=None) -> 'Variable':
+    #===============================================================================
         if suffix is None:
             name = self.__name
         else:
@@ -218,7 +218,7 @@ DOMAIN_CONSTANTS = """
 #===============================================================================
 
 class Domain(Labelled):
-    def __init__(self, uri: NamedNode, label: Optional[str],
+    def __init__(self, uri: NamedNode, label: str|None,
                     flow_name: str, flow_units: Literal,
                     potential_name: str, potential_units: Literal,
                     quantity_name: str, quantity_units: Literal):
@@ -235,7 +235,7 @@ class Domain(Labelled):
 
     @classmethod
     def from_rdf_graph(cls, graph: RdfGraph,
-                    uri: NamedNode, label: Optional[Literal],
+                    uri: NamedNode, label: Literal|None,
                     flow_name: Literal, flow_units: Literal,
                     potential_name: Literal, potential_units: Literal,
                     quantity_name: Literal, quantity_units: Literal) -> Self:
@@ -295,7 +295,7 @@ class NamedPortVariable:
 
 class PowerPort:
     def __init__(self, uri: NamedNode, flow: NamedPortVariable, potential: NamedPortVariable,
-                       direction: Optional[NamedNode]=None, bond_count: int=1):
+                       direction: NamedNode|None=None, bond_count: int=1):
         self.__uri = uri
         self.__flow = flow
         self.__potential = potential
@@ -307,7 +307,7 @@ class PowerPort:
         return f'PP: {uri_fragment(self.__uri)}, potential: {self.__potential}, flow: {self.__flow}, dirn: {dirn}'
 
     @property
-    def direction(self) -> Optional[NamedNode]:
+    def direction(self) -> NamedNode|None:
         return self.__direction
 
     @property
@@ -318,7 +318,7 @@ class PowerPort:
     def potential(self) -> NamedPortVariable:
         return self.__potential
 
-    def copy(self, suffix: Optional[str]=None, domain: Optional[Domain]=None) -> 'PowerPort':
+    def copy(self, suffix: str|None=None, domain: Domain|None=None) -> 'PowerPort':
     #========================================================================================
         return PowerPort(self.__uri,
             NamedPortVariable(name=self.__flow.name, variable=self.__flow.variable.copy(suffix=suffix, domain=domain)),
@@ -368,7 +368,7 @@ TEMPLATE_PORT_BONDS = """
 
 class ElementTemplate(Labelled):
     def __init__(self, uri: NamedNode, element_class: NamedNode,
-                    label: Optional[str], domain: Domain, relation: str|Literal):
+                    label: str|None, domain: Domain, relation: str|Literal):
         super().__init__(uri, label)
         self.__element_class = element_class.value
         self.__domain = domain
@@ -393,11 +393,11 @@ class ElementTemplate(Labelled):
         self.__power_ports: dict[str, PowerPort] = {}
         self.__parameters: dict[str, Variable] = {}
         self.__variables: dict[str, Variable] = {}
-        self.__intrinsic_variable: Optional[Variable] = None
+        self.__intrinsic_variable: Variable|None = None
 
     @classmethod
     def from_rdf_graph(cls, graph: RdfGraph, uri: NamedNode, element_class: NamedNode,
-                        label: Optional[Literal], domain: Domain, relation: Literal) -> Self:
+                        label: Literal|None, domain: Domain, relation: Literal) -> Self:
         self = cls(uri, element_class, literal_as_string(label), domain, relation)
         self.__add_ports(graph)
         self.__add_variables(graph)
@@ -405,7 +405,7 @@ class ElementTemplate(Labelled):
         return self
 
     @property
-    def constitutive_relation(self) -> Optional[MathML]:
+    def constitutive_relation(self) -> MathML|None:
         return self.__relation
 
     @property
@@ -417,7 +417,7 @@ class ElementTemplate(Labelled):
         return self.__element_class
 
     @property
-    def intrinsic_variable(self) -> Optional[Variable]:
+    def intrinsic_variable(self) -> Variable|None:
         return self.__intrinsic_variable
 
     @property
@@ -513,14 +513,14 @@ class ElementTemplate(Labelled):
 #===============================================================================
 
 class JunctionStructure(Labelled):
-    def __init__(self, uri: NamedNode, label: Optional[str]):
+    def __init__(self, uri: NamedNode, label: str|None):
         super().__init__(uri, label)
 
 #===============================================================================
 #===============================================================================
 
 class CompositeElement(Labelled):
-    def __init__(self, uri: NamedNode, template: ElementTemplate, junction: JunctionStructure, label: Optional[str]):
+    def __init__(self, uri: NamedNode, template: ElementTemplate, junction: JunctionStructure, label: str|None):
         super().__init__(uri, label)
         self.__template = template
         self.__junction = junction
@@ -536,7 +536,7 @@ class CompositeElement(Labelled):
 #===============================================================================
 
 class CompositeTemplate(Labelled):
-    def __init__(self, uri: NamedNode, template: ElementTemplate, label: Optional[str]):
+    def __init__(self, uri: NamedNode, template: ElementTemplate, label: str|None):
         super().__init__(uri, label)
         self.__template = template
 

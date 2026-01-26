@@ -18,7 +18,7 @@
 #
 #===============================================================================
 
-from typing import Optional
+from typing import TYPE_CHECKING
 
 #===============================================================================
 
@@ -31,8 +31,8 @@ LOCAL_MODEL_BASE = 'https://bg-rdf.org/models/local/'
 
 #===============================================================================
 
-def pretty_uri(uri: Optional[str|NamedNode]) -> str:
-#=====================================================
+def pretty_uri(uri: str|NamedNode|None) -> str:
+#==============================================
     if uri is not None:
         uri_text: str = uri.value if isNamedNode(uri) else uri  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
         if uri_text.startswith(LOCAL_MODEL_BASE):
@@ -49,14 +49,14 @@ def pretty_uri(uri: Optional[str|NamedNode]) -> str:
 
 #===============================================================================
 
-def pretty_name(symbol: str, uri: Optional[str|NamedNode]) -> str:
-#=================================================================
+def pretty_name(symbol: str, uri: str|NamedNode|None) -> str:
+#============================================================
     return f'{symbol} ({pretty_uri(uri)})'
 
 #===============================================================================
 
-def optional_integer(value: ResultType, default: Optional[int]=None) -> Optional[int]:
-#=====================================================================================
+def optional_integer(value: ResultType, default: int|None=None) -> int|None:
+#===========================================================================
     if (value is not None and isLiteral(value)
     and value.datatype == XSD.integer):     # pyright: ignore[reportAttributeAccessIssue]
         return int(value.value)             # pyright: ignore[reportAttributeAccessIssue]
@@ -70,7 +70,7 @@ def clean_name(name: str) -> str:
 #===============================================================================
 
 class Labelled:
-    def __init__(self, uri: NamedNode, symbol: Optional[str]=None, label: Optional[str]=None):
+    def __init__(self, uri: NamedNode, symbol: str|None=None, label: str|None=None):
         self.__uri = uri
         if symbol is not None:
             self.__symbol = symbol
@@ -88,7 +88,7 @@ class Labelled:
         return f':{uri_fragment(self.__uri)}'
 
     @property
-    def label(self) -> Optional[str]:
+    def label(self) -> str|None:
         return self.__label
 
     @property

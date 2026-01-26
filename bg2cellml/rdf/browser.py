@@ -20,7 +20,7 @@
 
 from collections import namedtuple
 import sys
-from typing import Any, Optional, Sequence, Self
+from typing import Any, Sequence, Self
 
 #===============================================================================
 
@@ -71,7 +71,7 @@ Triple = namedtuple('Triple', 'subject, predicate, object')
 #===============================================================================
 
 class RdfGraph:
-    def __init__(self, namespaces: Optional[dict[str, str]]=None):
+    def __init__(self, namespaces: dict[str, str]|None=None):
         self.__pyodide = 'pyodide' in sys.modules
         self.__store = oximock.RdfStore()
         self.__namespaces = namespaces or {}
@@ -115,4 +115,5 @@ class RdfGraph:
         except Exception as e:
             raise Issue(f'{e}: {query}')
 
+#===============================================================================
 #===============================================================================

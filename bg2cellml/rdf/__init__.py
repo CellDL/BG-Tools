@@ -18,15 +18,11 @@
 #
 #===============================================================================
 
-from typing import Optional
-
-#===============================================================================
-
 from .browser import *
 
 #===============================================================================
 
-def literal_as_string(literal: Optional[Literal]) -> Optional[str]:
+def literal_as_string(literal: Literal|None) -> str|None:
     return literal.value if literal is not None else None
 
 def uri_fragment(uri: str|NamedNode) -> str:

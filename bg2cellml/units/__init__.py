@@ -18,7 +18,7 @@
 #
 #===============================================================================
 
-from typing import Optional, Self
+from typing import Self
 
 #===============================================================================
 
@@ -103,7 +103,7 @@ class Units:
 #===============================================================================
 
 class Value:
-    def __init__(self, value: float, units: Optional[Units]):
+    def __init__(self, value: float, units: Units|None):
         self.__units = units
         self.__value = value
 
@@ -149,14 +149,14 @@ class Value:
 #===============================================================================
 
 class Quantity:
-    def __init__(self, uri: NamedNode, units: Literal, label: Optional[Literal]=None, variable: Optional[Literal]=None):
+    def __init__(self, uri: NamedNode, units: Literal, label: Literal|None=None, variable: Literal|None=None):
         self.__uri = uri
         self.__units = Units.from_ucum(units)
         self.__label = str(label) if label is not None else str(uri)
         self.__variable = str(variable) if variable is not None else self.__label
 
     @property
-    def label(self) -> Optional[str]:
+    def label(self) -> str|None:
         return self.__label
 
     @property
@@ -171,4 +171,5 @@ class Quantity:
     def variable(self):
         return self.__variable
 
+#===============================================================================
 #===============================================================================

@@ -19,7 +19,7 @@
 #===============================================================================
 
 import re
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 #===============================================================================
 
@@ -55,15 +55,15 @@ def make_element_port_uri(element_uri: NamedNode, port_id: str) -> NamedNode:
     else:
         return namedNode(f'{element_uri.value}_{port_id}')      # pyright: ignore[reportReturnType]
 
-def flow_expression(node_dict: dict, model: 'BondgraphModel') -> Optional[sympy.Expr]:
-#=====================================================================================
+def flow_expression(node_dict: dict, model: 'BondgraphModel') -> sympy.Expr|None:
+#================================================================================
     if ('power_port' in node_dict and 'element' in node_dict
     and (expr := node_dict['element'].flow_expression) is not None):
         return expr
     return flow_symbol(node_dict, model)
 
-def flow_symbol(node_dict: dict, model: 'BondgraphModel') -> Optional[sympy.Symbol]:
-#===================================================================================
+def flow_symbol(node_dict: dict, model: 'BondgraphModel') -> sympy.Symbol|None:
+#==============================================================================
     if 'power_port' in node_dict:       # A BondElement or TransformNode's power port
         return sympy.Symbol(node_dict['power_port'].flow.variable.symbol)
     elif 'junction' in node_dict:
@@ -75,15 +75,15 @@ def flow_symbol(node_dict: dict, model: 'BondgraphModel') -> Optional[sympy.Symb
             return
     model.report_issue(f'Unexpected bond graph node, cannot get flow: {node_dict}')
 
-def potential_expression(node_dict: dict, model: 'BondgraphModel') -> Optional[sympy.Expr]:
-#==========================================================================================
+def potential_expression(node_dict: dict, model: 'BondgraphModel') -> sympy.Expr|None:
+#=====================================================================================
     if ('power_port' in node_dict and 'element' in node_dict
     and (expr := node_dict['element'].potential_expression) is not None):
         return expr
     return potential_symbol(node_dict, model)
 
-def potential_symbol(node_dict: dict, model: 'BondgraphModel') -> Optional[sympy.Symbol]:
-#========================================================================================
+def potential_symbol(node_dict: dict, model: 'BondgraphModel') -> sympy.Symbol|None:
+#===================================================================================
     if 'power_port' in node_dict:       # A BondElement or TransformNode's power port
         return sympy.Symbol(node_dict['power_port'].potential.variable.symbol)
     elif 'junction' in node_dict:
@@ -102,8 +102,8 @@ def clean_latex(latex: str) -> str:
     latex = re.sub(r'[^a-zA-Z_0-9]', '', latex)
     return re.sub(r'^_*', '', latex)
 
-def make_symbolic_name(result_row: dict) -> Optional[str]:
-#=========================================================
+def make_symbolic_name(result_row: dict) -> str|None:
+#====================================================
     symbol = literal_as_string(result_row['symbol'])
     if symbol is not None:
         species = literal_as_string(result_row['species'])
@@ -157,7 +157,7 @@ ELEMENT_VARIABLE_VALUES = """
 #===============================================================================
 
 class VariableValue:
-    def __init__(self, value: Literal|NamedNode, symbol: Optional[Literal]):
+    def __init__(self, value: Literal|NamedNode, symbol: Literal|None):
         self.__value = value
         self.__symbol = symbol.value if symbol is not None else None
 
@@ -173,10 +173,10 @@ class VariableValue:
 
 class BondgraphElement(ModelElement):
     def __init__(self,  model: 'BondgraphModel', uri: NamedNode, template: BondgraphElementTemplate,
-                        parameter_values: Optional[dict[str, VariableValue]]=None,
-                        variable_values: Optional[dict[str, VariableValue]]=None,
-                        domain_uri: Optional[NamedNode]=None, value: Optional[Value|MathML]=None,
-                        symbol: Optional[str]=None, label: Optional[str]=None):
+                        parameter_values: dict[str, VariableValue]|None=None,
+                        variable_values: dict[str, VariableValue]|None=None,
+                        domain_uri: NamedNode|None=None, value: Value|MathML|None=None,
+                        symbol: str|None=None, label: str|None=None):
         super().__init__(model, uri, symbol=symbol, label=label)
         element_name = pretty_name(self.symbol, template.uri)
         if isinstance(template, CompositeTemplate):
@@ -209,8 +209,8 @@ class BondgraphElement(ModelElement):
         for port_id, port in element_template.power_ports.items():
             self.__power_ports[make_element_port_uri(self.uri, port_id)] = port.copy(suffix=self.symbol, domain=self.__domain)
 
-        self.__flow: Optional[Variable] = None
-        self.__potential: Optional[Variable] = None
+        self.__flow: Variable|None = None
+        self.__potential: Variable|None = None
         self.__flow_symbol = None
         self.__potential_symbol = None
         self.__flow_expression = None
@@ -288,7 +288,7 @@ class BondgraphElement(ModelElement):
     @classmethod
     def for_model(cls, model: 'BondgraphModel', uri: NamedNode, template: BondgraphElementTemplate,
     #==============================================================================================
-                    domain_uri: Optional[NamedNode], symbol: Optional[str], label: Optional[str]):
+                    domain_uri: NamedNode|None, symbol: str|None, label: str|None):
         parameter_values: dict[str, VariableValue] = {row['name'].value:
                                                         VariableValue(row['value'], row.get('symbol'))  # pyright: ignore[reportArgumentType]
             for row in model.sparql_query(ELEMENT_PARAMETER_VALUES.replace('%ELEMENT%', uri.value))
@@ -299,7 +299,7 @@ class BondgraphElement(ModelElement):
             for row in model.sparql_query(ELEMENT_VARIABLE_VALUES.replace('%ELEMENT%', uri.value))
             # ?name ?value ?symbol
         }
-        value: Optional[Value|MathML] = None
+        value: Value|MathML|None = None
         for row in model.sparql_query(ELEMENT_STATE_VALUE.replace('%ELEMENT%', uri.value)):
             # ?value
             if isLiteral(row['value']):
@@ -313,7 +313,7 @@ class BondgraphElement(ModelElement):
                     value=value, symbol=symbol, label=label)
 
     @property
-    def constitutive_relation(self) -> Optional[MathML]:
+    def constitutive_relation(self) -> MathML|None:
         return self.__constitutive_relation
 
     @property
@@ -325,11 +325,11 @@ class BondgraphElement(ModelElement):
         return self.__element_class
 
     @property
-    def flow(self) -> Optional[Variable]:
+    def flow(self) -> Variable|None:
         return self.__flow
 
     @property
-    def flow_expression(self) -> Optional[sympy.Basic]:
+    def flow_expression(self) -> sympy.Basic|None:
         return self.__flow_expression
 
     @property
@@ -337,7 +337,7 @@ class BondgraphElement(ModelElement):
         return self.__equations
 
     @property
-    def implied_junction(self) -> Optional[str]:
+    def implied_junction(self) -> str|None:
         return self.__implied_junction
 
     @property
@@ -345,11 +345,11 @@ class BondgraphElement(ModelElement):
         return self.__power_ports
 
     @property
-    def potential(self) -> Optional[Variable]:
+    def potential(self) -> Variable|None:
         return self.__potential
 
     @property
-    def potential_expression(self) -> Optional[sympy.Basic]:
+    def potential_expression(self) -> sympy.Basic|None:
         return self.__potential_expression
 
     @property
@@ -416,7 +416,7 @@ class BondgraphElement(ModelElement):
             port_inputs = []
             port_outputs = []
 
-            def update_state_equalities(node: str, input) -> Optional[sympy.Symbol]:
+            def update_state_equalities(node: str, input) -> sympy.Symbol|None:
                 node_dict = bond_graph.nodes[node]
                 edge = (node, port_id.value) if input else (port_id.value, node)
                 bond_count = bond_graph.edges[edge].get('bond_count', 1)
@@ -484,7 +484,7 @@ class BondgraphElement(ModelElement):
 class BondgraphBond(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: NamedNode,
                         source_id: str, target_id: str,
-                        count: Optional[Literal]=None, label: Optional[str]=None):
+                        count: Literal|None=None, label: str|None=None):
         super().__init__(model, uri, label=label)
         self.__source_id = source_id
         self.__target_id = target_id
@@ -495,11 +495,11 @@ class BondgraphBond(ModelElement):
         return self.__bond_count
 
     @property
-    def source_id(self) -> Optional[str]:
+    def source_id(self) -> str|None:
         return self.__source_id
 
     @property
-    def target_id(self) -> Optional[str]:
+    def target_id(self) -> str|None:
         return self.__target_id
 
 #===============================================================================
@@ -507,13 +507,13 @@ class BondgraphBond(ModelElement):
 
 class BondgraphJunction(ModelElement):
     def __init__(self, model: 'BondgraphModel', uri: NamedNode, type: NamedNode,
-            value: Optional[Literal], symbol: Optional[str], label: Optional[str]):
+            value: Literal|None, symbol: str|None, label: str|None):
         super().__init__(model, uri, symbol=symbol, label=label)
         self.__type = type.value
         self.__junction = model.framework.junction(self.__type)
         if self.__junction is None:
             model.report_issue(f'Unknown Junction {self.__type} for node {uri}')
-        self.__transform_relation: Optional[MathML] = None
+        self.__transform_relation: MathML|None = None
         self.__value = value
         self.__variables: dict[str, Variable] = {}
         self.__equations: list[Equation] = []
@@ -530,8 +530,8 @@ class BondgraphJunction(ModelElement):
     def variables(self) -> dict[str, Variable]:
         return self.__variables
 
-    def __get_domain(self, attributes: dict) -> Optional[Domain]:
-    #============================================================
+    def __get_domain(self, attributes: dict) -> Domain|None:
+    #=======================================================
         if (domain := attributes.get('domain')) is None:
             self.__model.report_issue(f'Cannot find domain for junction {pretty_name(self.symbol, self.uri)}. Are there bonds to it?')
             return

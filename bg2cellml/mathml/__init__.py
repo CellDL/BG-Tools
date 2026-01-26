@@ -21,7 +21,6 @@
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Optional
 
 #===============================================================================
 
@@ -104,7 +103,7 @@ def sympy_to_mathml(sympy_object) -> str:
 class Equation:
     lhs: sympy.Symbol | sympy.Derivative
     rhs: sympy.Basic
-    provenance: Optional[str] = None
+    provenance: str|None = None
 
     def __str__(self):
         return f'{self.lhs} = {self.rhs}'

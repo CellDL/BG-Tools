@@ -20,7 +20,7 @@
 
 from collections import namedtuple
 from pathlib import Path
-from typing import Any, Optional, Self
+from typing import Any, Self
 
 #===============================================================================
 
@@ -38,10 +38,10 @@ NamedNode = oxigraph.NamedNode
 
 #===============================================================================
 
-def blankNode(value: Optional[str]=None) -> BlankNode:
+def blankNode(value: str|None=None) -> BlankNode:
     return BlankNode(value)
 
-def literal(value: str|int|float|bool, datatype: Optional[NamedNode]=None) -> Literal:
+def literal(value: str|int|float|bool, datatype: NamedNode|None=None) -> Literal:
     return Literal(value, datatype=datatype)
 
 def namedNode(uri: str) -> NamedNode:
@@ -68,7 +68,7 @@ Triple = namedtuple('Triple', 'subject, predicate, object')
 #===============================================================================
 
 class RdfGraph:
-    def __init__(self, namespaces: Optional[dict[str, str]]=None):
+    def __init__(self, namespaces: dict[str, str]|None=None):
         self.__graph = oxigraph.Store()
         self.__namespaces = namespaces or {}
         self.__sparql_prefixes = '\n'.join([
@@ -104,4 +104,5 @@ class RdfGraph:
         except Exception as e:
             raise Issue(f'{e}: {query}')
 
+#===============================================================================
 #===============================================================================

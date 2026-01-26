@@ -21,7 +21,7 @@
 import asyncio
 from pathlib import Path
 import sys
-from typing import cast, Optional
+from typing import cast
 
 #===============================================================================
 
@@ -309,8 +309,8 @@ class BondgraphFramework:
                 continue
             self.__composite_elements[row['uri'].value] = CompositeTemplate(row['uri'], element, row.get('label')) # pyright: ignore[reportArgumentType]
 
-    def element_template(self, element_type: NamedNode, domain_uri: Optional[NamedNode]) -> Optional[BondgraphElementTemplate]:
-    #==========================================================================================================================
+    def element_template(self, element_type: NamedNode, domain_uri: NamedNode|None) -> BondgraphElementTemplate|None:
+    #================================================================================================================
         if domain_uri is None:
             # First see if element_type refers to a composite
             if (composite := self.__composite_elements.get(element_type.value)) is not None:
@@ -319,8 +319,8 @@ class BondgraphFramework:
         else:
             return self.__element_domains.get((element_type.value, domain_uri.value))
 
-    def junction(self, uri: str) -> Optional[JunctionStructure]:
-    #===========================================================
+    def junction(self, uri: str) -> JunctionStructure|None:
+    #======================================================
         return self.__junctions.get(uri)
 
 #===============================================================================
