@@ -30,7 +30,7 @@ from ..units import Units, Value
 from ..utils import Issue
 
 from .namespaces import BGF, CDT
-from .utils import clean_name, Labelled, optional_integer
+from .utils import clean_name, Labelled, ModelElement, optional_integer
 
 #===============================================================================
 #===============================================================================
@@ -118,10 +118,10 @@ TRANSFORMER_EQUATIONS = MathML.from_string(f"""
 #===============================================================================
 
 class Variable:
-    def __init__(self, element_uri: Optional[NamedNode], name: str,
-        self.__element_uri = element_uri
+    def __init__(self, element: Labelled|ModelElement|None, name: str,
                         units: Literal|Units|None=None,
                         value: Literal|None=None):
+        self.__element = element
         self.__name = clean_name(name)
         self.__symbol: str|None = None
         if isLiteral(units):
@@ -135,19 +135,27 @@ class Variable:
         else:
             self.__value = None
         if self.__units is None:
-            raise Issue(f'Variable {name} for {element_uri} has no Units specified')
+            self.__report_issue(f'Variable {name} for {self.element_uri} has no Units specified')
+            return
+
         if self.__value is not None:
             if self.__value.units is None:
                 self.__value.set_units(self.__units)
             elif not self.__units.is_compatible_with(self.__value.units):
-                raise Issue(f'Value for variable {name} has incompatible units ({self.__value.units} != {self.__units})')
+                self.__report_issue(f'Value for variable {name} has incompatible units ({self.__value.units} != {self.__units})')
 
     def __str__(self):
         return f'{self.symbol} ({self.__value if self.__value is not None else self.__units})'
 
+    def __report_issue(self, issue: str):
+        if isinstance(self.__element, ModelElement):
+            self.__element.model.report_issue(issue)
+        else:
+            raise Issue(issue)
+
     @property
-        return self.__element_uri
     def element_uri(self) -> NamedNode|None:
+        return self.__element.uri if self.__element is not None else None
 
     @property
     def name(self):
@@ -180,7 +188,7 @@ class Variable:
                     name = suffix
                 else:
                     name = f'{self.__name}_{suffix}'
-        copy = Variable(self.__element_uri, name, units=self.__units)
+        copy = Variable(self.__element, name, units=self.__units)
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy
 
@@ -194,7 +202,7 @@ class Variable:
         if self.__value.units is None:
             self.__value.set_units(self.__units)                        # type: ignore
         elif not self.__units.is_compatible_with(self.__value.units):   # type: ignore
-            raise Issue(
+            self.__report_issue(
                 f'Value for variable {self.__name} has incompatible units ({self.__units} != {self.__value.units})') # type: ignore
 
 #===============================================================================
@@ -223,9 +231,9 @@ class Domain(Labelled):
                     potential_name: str, potential_units: Literal,
                     quantity_name: str, quantity_units: Literal):
         super().__init__(uri, label)
-        self.__flow = Variable(self.uri, flow_name, units=flow_units)
-        self.__potential = Variable(self.uri, potential_name, units=potential_units)
-        self.__quantity = Variable(self.uri, quantity_name, units=quantity_units)
+        self.__flow = Variable(self, flow_name, units=flow_units)
+        self.__potential = Variable(self, potential_name, units=potential_units)
+        self.__quantity = Variable(self, quantity_name, units=quantity_units)
         self.__intrinsic_symbols = [
             self.__flow.symbol,
             self.__potential.symbol,
@@ -275,7 +283,7 @@ class Domain(Labelled):
 
     def __add_constants(self, graph: RdfGraph):
     #==========================================
-        self.__constants.extend([Variable(self.uri, row['name'].value, value=row['value'])  # pyright: ignore[reportArgumentType]
+        self.__constants.extend([Variable(self, row['name'].value, value=row['value'])  # pyright: ignore[reportArgumentType]
                                 for row in graph.query(
                                     # ?name ?value
                                     DOMAIN_CONSTANTS.replace('%DOMAIN_URI%', self.uri.value))])
@@ -455,7 +463,7 @@ class ElementTemplate(Labelled):
     #==============================================================================================
         port_var_name = f'{domain_variable.name}{suffix}'
         return NamedPortVariable(name=port_var_name,
-                                variable=Variable(self.uri, port_var_name, units=domain_variable.units))
+                                variable=Variable(self, port_var_name, units=domain_variable.units))
 
     def __add_variables(self, graph: RdfGraph):
     #==========================================
@@ -464,13 +472,13 @@ class ElementTemplate(Labelled):
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
                 raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
-            self.__parameters[var_name] = Variable(self.uri, row['name'].value, units=row.get('units'), value=row.get('value'))   # type: ignore
+            self.__parameters[var_name] = Variable(self, row['name'].value, units=row.get('units'), value=row.get('value'))   # type: ignore
         for row in graph.query(TEMPLATE_VARIABLES.replace('%TEMPLATE_URI%', self.uri.value, True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
                 raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
-            self.__variables[var_name] = Variable(self.uri, row['name'].value, units=row.get('units'), value=row.get('value'))   # type: ignore
+            self.__variables[var_name] = Variable(self, row['name'].value, units=row.get('units'), value=row.get('value'))   # type: ignore
         # A variable that is intrinsic to the element's class
         # Values of intrinsic variables are set by bgf:hasValue
         if self.__element_class == QUANTITY_STORE:

@@ -25,6 +25,9 @@ from typing import TYPE_CHECKING
 from ..rdf import isLiteral, isNamedNode, NamedNode, ResultType, uri_fragment
 from ..rdf.namespace import XSD
 
+if TYPE_CHECKING:
+    from .model import BondgraphModel
+
 #===============================================================================
 
 LOCAL_MODEL_BASE = 'https://bg-rdf.org/models/local/'
@@ -98,6 +101,17 @@ class Labelled:
     @property
     def uri(self) -> NamedNode:
         return self.__uri
+
+#===============================================================================
+
+class ModelElement(Labelled):
+    def __init__(self,  model: 'BondgraphModel', uri: NamedNode, symbol: str|None=None, label: str|None=None):
+        super().__init__(uri, symbol, label)
+        self.__model = model
+
+    @property
+    def model(self):
+        return self.__model
 
 #===============================================================================
 #===============================================================================

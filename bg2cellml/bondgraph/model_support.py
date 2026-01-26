@@ -41,7 +41,7 @@ from .framework_support import FLOW_STORE, QUANTITY_STORE, REACTION, RESISTANCE
 from .framework_support import GYRATOR_EQUATIONS, TRANSFORMER_EQUATIONS
 from .framework_support import TRANSFORM_FLOW_NAME, TRANSFORM_PORT_IDS, TRANSFORM_POTENTIAL_NAME, TRANSFORM_RATIO_NAME
 from .namespaces import BGF
-from .utils import Labelled, pretty_name
+from .utils import ModelElement, pretty_name
 
 if TYPE_CHECKING:
     from .model import BondgraphModel
@@ -113,17 +113,6 @@ def make_symbolic_name(result_row: dict) -> str|None:
         if location is not None:
             symbol += f'_{clean_latex(location)}'
     return symbol
-
-#===============================================================================
-
-class ModelElement(Labelled):
-    def __init__(self,  model: 'BondgraphModel', uri: NamedNode, symbol: Optional[str]=None, label: Optional[str]=None):
-        super().__init__(uri, symbol, label)
-        self.__model = model
-
-    @property
-    def model(self):
-        return self.__model
 
 #===============================================================================
 #===============================================================================
@@ -376,7 +365,7 @@ class BondgraphElement(ModelElement):
 
         for var_name, var_value in self.__variable_values.items():
             if (variable := self.__variables.get(var_name)) is None:
-                self.__model.report_issue(f'Element {pretty_name(self.symbol, self.uri)} has unknown name {var_name} for {self.__type}')
+                self.model.report_issue(f'Element {pretty_name(self.symbol, self.uri)} has unknown name {var_name} for {self.__type}')
                 continue
             if var_value.symbol is not None:
                 variable.set_symbol(var_value.symbol)   ## need symbol of value[1]'s element...
@@ -384,16 +373,16 @@ class BondgraphElement(ModelElement):
                 variable.set_value(Value.from_literal(var_value.value))  # pyright: ignore[reportArgumentType]
             elif isNamedNode(var_value.value):
                 if var_value.value.value not in bond_graph:
-                    self.__model.report_issue(f'Value for {pretty_name(self.symbol, self.uri)} refers to unknown element: {var_value.value}')
+                    self.model.report_issue(f'Value for {pretty_name(self.symbol, self.uri)} refers to unknown element: {var_value.value}')
                     continue
                 elif (element := bond_graph.nodes[var_value.value.value].get('element')) is None:
-                    self.__model.report_issue(f'Value for {pretty_name(self.symbol, self.uri)} is not a bond element: {var_value.value}')
+                    self.model.report_issue(f'Value for {pretty_name(self.symbol, self.uri)} is not a bond element: {var_value.value}')
                     continue
                 elif element.__intrinsic_variable is None:
-                    self.__model.report_issue(f'Value for {pretty_name(self.symbol, self.uri)} is an element with no intrinsic variable: {var_value.value}')
+                    self.model.report_issue(f'Value for {pretty_name(self.symbol, self.uri)} is an element with no intrinsic variable: {var_value.value}')
                     continue
                 elif variable.units != element.__intrinsic_variable.units:
-                    self.__model.report_issue(f'Units incompatible for {pretty_name(self.symbol, self.uri)} value: {var_value.value}')
+                    self.model.report_issue(f'Units incompatible for {pretty_name(self.symbol, self.uri)} value: {var_value.value}')
                     continue
                 else:
                     self.__variables[var_name] = element.__intrinsic_variable
@@ -533,7 +522,7 @@ class BondgraphJunction(ModelElement):
     def __get_domain(self, attributes: dict) -> Domain|None:
     #=======================================================
         if (domain := attributes.get('domain')) is None:
-            self.__model.report_issue(f'Cannot find domain for junction {pretty_name(self.symbol, self.uri)}. Are there bonds to it?')
+            self.model.report_issue(f'Cannot find domain for junction {pretty_name(self.symbol, self.uri)}. Are there bonds to it?')
             return
         return domain
 
@@ -542,16 +531,16 @@ class BondgraphJunction(ModelElement):
         assert self.__type != TRANSFORM_JUNCTION
         if (domain := self.__get_domain(bond_graph.nodes[self.uri.value])) is not None:
             if self.__type == ONENODE_JUNCTION:
-                self.__variables[''] = Variable(self.uri, self.symbol, units=domain.flow.units, value=self.__value)
+                self.__variables[''] = Variable(self, self.symbol, units=domain.flow.units, value=self.__value)
             elif self.__type == ZERONODE_JUNCTION:
-                self.__variables[''] = Variable(self.uri, self.symbol, units=domain.potential.units, value=self.__value)
+                self.__variables[''] = Variable(self, self.symbol, units=domain.potential.units, value=self.__value)
 
     def assign_transform_variables(self, bond_graph: nx.DiGraph):
     #============================================================
         assert self.__type == TRANSFORM_JUNCTION
         domains = []
         graph = bond_graph.to_undirected(as_view=True)
-        self.__variables[TRANSFORM_RATIO_NAME] = Variable(self.uri, self.symbol, value=self.__value)
+        self.__variables[TRANSFORM_RATIO_NAME] = Variable(self, self.symbol, value=self.__value)
         for port_id in TRANSFORM_PORT_IDS:
             port_uri = make_element_port_uri(self.uri, port_id)
             if (domain := self.__get_domain(bond_graph.nodes[port_uri.value])) is None:
@@ -582,12 +571,12 @@ class BondgraphJunction(ModelElement):
                 if variable is not None:
                     if junction_type == ONENODE_JUNCTION:
                         self.__variables[flow_var_name] = variable
-                        potential = Variable(self.uri, potential_name, units=domain.potential.units)
+                        potential = Variable(self, potential_name, units=domain.potential.units)
                         self.__variables[potential_var_name] = potential
                         power_port = PowerPort(port_uri, NamedPortVariable(flow_name, variable),
                                                          NamedPortVariable(potential_name, potential))
                     elif junction_type == ZERONODE_JUNCTION:
-                        flow = Variable(self.uri, flow_name, units=domain.flow.units)
+                        flow = Variable(self, flow_name, units=domain.flow.units)
                         self.__variables[flow_var_name] = flow
                         self.__variables[potential_var_name] = variable
                         power_port = PowerPort(port_uri, NamedPortVariable(flow_name, flow),
