@@ -29,7 +29,7 @@ import networkx as nx
 from ..cellml import CellMLModel
 from ..mathml import Equation
 from ..rdf import ResultRow, RdfGraph, Triple
-from ..rdf import isNamedNode, literal_as_string, NamedNode
+from ..rdf import isBlankNode, isNamedNode, literal_as_string, NamedNode
 from ..utils import Issue
 
 from .framework_support import Domain, REACTION, TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
@@ -185,7 +185,8 @@ class BondgraphModel(Labelled):   ## Component ??
             bond_uri: NamedNode = row['powerBond']                                              # pyright: ignore[reportAssignmentType]
             source: NamedNode|None = row.get('source')                                     # pyright: ignore[reportAssignmentType]
             target: NamedNode|None = row.get('target')                                     # pyright: ignore[reportAssignmentType]
-            if source is None or target is None:
+            if (source is None or isBlankNode(source)
+             or target is None or isBlankNode(target)):
                 self.report_issue(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
                 continue
             issues = []
