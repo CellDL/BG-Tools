@@ -239,17 +239,17 @@ class BondgraphElement(ModelElement):
         self.__variable_values: dict[str, VariableValue] = {}
         if parameter_values is None:
             if len(element_template.parameters):
-                model.report_issue(f'No parameters given for element {pretty_name(self.symbol, uri)}')
+                model.report_issue(f'No parameters given for element {self.pretty_name}')
         else:
             for name in element_template.parameters.keys():
                 if name not in parameter_values:
-                    model.report_issue(f'Missing value for parameter {name} of element {pretty_name(self.symbol, uri)}')
+                    model.report_issue(f'Missing value for parameter {name} of element {self.pretty_name}')
                     continue
             self.__variable_values.update(parameter_values)
         if variable_values is not None:
             for name in variable_values.keys():
                 if name not in name not in self.__variables:
-                    model.report_issue(f'Unknown variable {name} for element {pretty_name(self.symbol, uri)}')
+                    model.report_issue(f'Unknown variable {name} for element {self.pretty_name}')
                     continue
             self.__variable_values.update(variable_values)
 
@@ -365,7 +365,7 @@ class BondgraphElement(ModelElement):
 
         for var_name, var_value in self.__variable_values.items():
             if (variable := self.__variables.get(var_name)) is None:
-                self.model.report_issue(f'Element {pretty_name(self.symbol, self.uri)} has unknown name {var_name} for {self.__type}')
+                self.report_issue(f'Element {self.pretty_name} has unknown name {var_name} for {self.__type}')
                 continue
             if var_value.symbol is not None:
                 variable.set_symbol(var_value.symbol)   ## need symbol of value[1]'s element...
@@ -373,16 +373,16 @@ class BondgraphElement(ModelElement):
                 variable.set_value(Value.from_literal(var_value.value))  # pyright: ignore[reportArgumentType]
             elif isNamedNode(var_value.value):
                 if var_value.value.value not in bond_graph:
-                    self.model.report_issue(f'Value for {pretty_name(self.symbol, self.uri)} refers to unknown element: {var_value.value}')
+                    self.report_issue(f'Value for {self.pretty_name} refers to unknown element: {var_value.value}')
                     continue
                 elif (element := bond_graph.nodes[var_value.value.value].get('element')) is None:
-                    self.model.report_issue(f'Value for {pretty_name(self.symbol, self.uri)} is not a bond element: {var_value.value}')
+                    self.report_issue(f'Value for {self.pretty_name} is not a bond element: {var_value.value}')
                     continue
                 elif element.__intrinsic_variable is None:
-                    self.model.report_issue(f'Value for {pretty_name(self.symbol, self.uri)} is an element with no intrinsic variable: {var_value.value}')
+                    self.report_issue(f'Value for {self.pretty_name} is an element with no intrinsic variable: {var_value.value}')
                     continue
                 elif variable.units != element.__intrinsic_variable.units:
-                    self.model.report_issue(f'Units incompatible for {pretty_name(self.symbol, self.uri)} value: {var_value.value}')
+                    self.report_issue(f'Units incompatible for {self.pretty_name} value: {var_value.value}')
                     continue
                 else:
                     self.__variables[var_name] = element.__intrinsic_variable
@@ -522,7 +522,7 @@ class BondgraphJunction(ModelElement):
     def __get_domain(self, attributes: dict) -> Domain|None:
     #=======================================================
         if (domain := attributes.get('domain')) is None:
-            self.model.report_issue(f'Cannot find domain for junction {pretty_name(self.symbol, self.uri)}. Are there bonds to it?')
+            self.report_issue(f'Cannot find domain for junction {self.pretty_name}. Are there bonds to it?')
             return
         return domain
 

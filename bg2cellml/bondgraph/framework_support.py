@@ -149,7 +149,7 @@ class Variable:
 
     def __report_issue(self, issue: str):
         if isinstance(self.__element, ModelElement):
-            self.__element.model.report_issue(issue)
+            self.__element.report_issue(issue)
         else:
             raise Issue(issue)
 

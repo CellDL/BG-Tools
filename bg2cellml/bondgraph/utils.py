@@ -95,6 +95,10 @@ class Labelled:
         return self.__label
 
     @property
+    def pretty_name(self) -> str:
+        return pretty_name(self.__symbol, self.__uri)
+
+    @property
     def symbol(self) -> str:
         return self.__symbol
 
@@ -112,6 +116,9 @@ class ModelElement(Labelled):
     @property
     def model(self):
         return self.__model
+
+    def report_issue(self, issue: str):
+        self.__model.report_issue(issue)
 
 #===============================================================================
 #===============================================================================
