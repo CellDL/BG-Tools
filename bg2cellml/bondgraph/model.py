@@ -32,7 +32,7 @@ from ..rdf import ResultRow, RdfGraph, Triple
 from ..rdf import isNamedNode, literal_as_string, NamedNode
 from ..utils import Issue
 
-from .framework_support import REACTION, TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
+from .framework_support import Domain, REACTION, TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
 from .model_support import BondgraphBond, BondgraphElement, BondgraphJunction
 from .model_support import make_element_port_uri, make_symbolic_name
 from .namespaces import BGF, NAMESPACES, get_curie
@@ -197,6 +197,7 @@ class BondgraphModel(Labelled):   ## Component ??
                 for issue in issues:
                     self.report_issue(issue)
                 continue
+
             # In terms of a BondgraphBond, the `target` is connected to the inwards port of the target node
             # and the `source` is connected to the outwards port of the source node.
             source_id = source.value
@@ -322,7 +323,7 @@ class BondgraphModel(Labelled):   ## Component ??
         seen_nodes = set()
         undirected_graph = self.__graph.to_undirected(as_view=True)
 
-        def check_node(node: str, domain):
+        def check_node(node: str, domain: Domain):
             if node not in seen_nodes:
                 seen_nodes.add(node)
                 if 'domain' not in self.__graph.nodes[node]:

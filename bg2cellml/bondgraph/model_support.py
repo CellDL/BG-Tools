@@ -87,7 +87,7 @@ def potential_symbol(node_dict: dict, model: 'BondgraphModel') -> sympy.Symbol|N
     if 'power_port' in node_dict:       # A BondElement or TransformNode's power port
         return sympy.Symbol(node_dict['power_port'].potential.variable.symbol)
     elif 'junction' in node_dict:
-        junction: BondgraphJunction = node_dict['junction']
+        junction: BondgraphJunction = node_dict['junction']  # pyright: ignore[reportUnknownVariableType]
         if junction.type == ZERONODE_JUNCTION:
             return sympy.Symbol(junction.variables[''].symbol)
         elif junction.type == ONENODE_JUNCTION:
@@ -543,6 +543,8 @@ class BondgraphJunction(ModelElement):
         self.__variables[TRANSFORM_RATIO_NAME] = Variable(self, self.symbol, value=self.__value)
         for port_id in TRANSFORM_PORT_IDS:
             port_uri = make_element_port_uri(self.uri, port_id)
+            # Domains have been assigned to the transform junction's power ports as part of
+            # `check_and_assign_domains_to_bond_network()` when building the model's graph
             if (domain := self.__get_domain(bond_graph.nodes[port_uri.value])) is None:
                 return
             domains.append(domain)
@@ -583,14 +585,14 @@ class BondgraphJunction(ModelElement):
                                                          NamedPortVariable(potential_name, variable))
             if power_port is not None:
                 bond_graph.nodes[port_uri.value]['power_port'] = power_port
-                bond_graph.nodes[port_uri.value]['port_type'] = self.type
+                bond_graph.nodes[port_uri.value]['port_type'] = TRANSFORM_JUNCTION
         if domains[0] == domains[1]:
             self.__transform_relation = TRANSFORMER_EQUATIONS.copy()
         else:
             self.__transform_relation = GYRATOR_EQUATIONS.copy()
 
-    def build_equations(self, bond_graph: nx.DiGraph):
-    #=================================================
+    def build_equations(self, bond_graph: nx.DiGraph) -> list[Equation]:
+    #===================================================================
         ## is this where we multiply by bondCount??
         if self.__type == TRANSFORM_JUNCTION:
             assert self.__transform_relation is not None
