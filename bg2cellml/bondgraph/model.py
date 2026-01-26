@@ -206,11 +206,15 @@ class BondgraphModel(Labelled):   ## Component ??
                     if port.direction == BGF.OutwardPort:
                         source_id = uri.value
                         break
+            elif (junction := self.__junctions.get(source)) is not None and junction.type == TRANSFORM_JUNCTION:
+                source_id = make_element_port_uri(source, TRANSFORM_PORT_IDS[1]).value  # Outward port id
             if (element := self.__elements.get(target)) is not None and element.element_class == REACTION:
                 for uri, port in element.power_ports.items():
                     if port.direction == BGF.InwardPort:
                         target_id = uri.value
                         break
+            elif (junction := self.__junctions.get(target)) is not None and junction.type == TRANSFORM_JUNCTION:
+                target_id = make_element_port_uri(target, TRANSFORM_PORT_IDS[0]).value  # Inward port id
             self.__bonds.append(
                 BondgraphBond(self, bond_uri, source_id, target_id, row.get('label'), optional_integer(row.get('bondCount'))))    # pyright: ignore[reportArgumentType]
 
