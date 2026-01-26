@@ -156,7 +156,7 @@ class BondgraphModel(Labelled):   ## Component ??
                 element_type: NamedNode = row['type']                                       # pyright: ignore[reportAssignmentType]
                 template = self.__framework.element_template(element_type, row.get('domain'))   # pyright: ignore[reportArgumentType]
                 if template is None:
-                    self.report_issue(f'BondElement {last_element_name} has an unknown BG-RDF template: {get_curie(element_type)}')
+                    self.report_issue(f'{get_curie(element_type)} element {last_element_name} is not instantiated')
                     continue
                 else:
                     if element is None:
@@ -165,11 +165,11 @@ class BondgraphModel(Labelled):   ## Component ??
                                                              symbol, literal_as_string(row.get('label')))   # pyright: ignore[reportArgumentType]
                         self.__elements[element.uri] = element
                     else:
-                        self.report_issue(f'BondElement {last_element_name} has multiple BG-RDF templates')   # pyright: ignore[reportArgumentType]
+                        self.report_issue(f'{get_curie(element_type)} element {last_element_name} has multiple instances')   # pyright: ignore[reportArgumentType]
                         continue
 
         if len(self.__elements) == 0:
-            self.report_issue(f'Model {(pretty_uri(self.uri))} has no elements...')
+            self.report_issue(f'Model {(pretty_uri(self.uri))} has no valid elements')
             return
 
         for row in self.__rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', self.uri.value)):
