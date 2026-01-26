@@ -170,45 +170,6 @@ COMPOSITE_ELEMENTS = """
 '''
 
 #===============================================================================
-
-ELEMENT_IS_SOURCE = """
-    SELECT DISTINCT ?bond
-    WHERE {
-        ?bond
-            bgf:hasSource <%ELEMENT_URI%> ;
-            bgf:hasTarget ?target1 .
-    }"""
-
-ELEMENT_IS_SOURCE_PORT = """
-    SELECT DISTINCT ?bond ?bnode
-    WHERE {
-        ?bond
-            bgf:hasSource ?bnode ;
-            bgf:hasTarget ?target .
-        ?bnode
-            bgf:element <%ELEMENT_URI%> ;
-            bgf:port "%PORT_ID%" .
-    }"""
-
-ELEMENT_IS_TARGET = """
-    SELECT DISTINCT ?bond
-    WHERE {
-        ?bond
-            bgf:hasSource ?source ;
-            bgf:hasTarget <%ELEMENT_URI%> .
-    } ORDER BY ?bond"""
-
-ELEMENT_IS_TARGET_PORT = """
-    SELECT DISTINCT ?bond ?bnode
-    WHERE {
-        ?bond
-            bgf:hasSource ?source ;
-            bgf:hasTarget ?bnode .
-        ?bnode
-            bgf:element <%ELEMENT_URI%> ;
-            bgf:port "%PORT_ID%" .
-    } ORDER BY ?bond"""
-
 #===============================================================================
 
 class BondgraphFramework:
