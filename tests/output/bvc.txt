@@ -1,0 +1,87 @@
+bg2cellml version 0.8.8-beta.1
+Elements:
+  #q_ac_W
+   CR: Derivative(q_ac_W, t) = v_q_ac_W
+   CR: u_q_ac_W = E_ac*(-U_ac_W + q_ac_W)/(L_ac_W - q_ac_W)**2.0
+   EQ: v_q_ac_W = -k_cc_W*u_v_cc_W - k_gl_W*u_v_gl_W + v_lv_W
+  #q_giEpi_Na
+   CR: Derivative(q_giEpi_Na, t) = v_q_giEpi_Na
+   CR: u_q_giEpi_Na = RT*log(K_q_giEpi_Na*q_giEpi_Na)
+   EQ: v_q_giEpi_Na = -3.0*k_giEpi_NKE*(-(K_K*q_giEpi_K/q_giEpi_W)**2.0*(K_Na*q_vc_Na/q_vc_W)**3.0*exp(2.0*F*u_giEpi_e/RT) + (K_K*q_vc_K/q_vc_W)**2.0*(K_Na*q_giEpi_Na/q_giEpi_W)**3.0)/(((K_K*q_giEpi_K/q_giEpi_W)**2.0 + 1.0)*((K_K*q_vc_K/q_vc_W)**2.0 + 1.0)*((K_Na*q_giEpi_Na/q_giEpi_W)**3.0 + 1.0)*((K_Na*q_vc_Na/q_vc_W)**3.0 + 1.0)) + kappa_gi_Na*(exp(u_f_v_gi_Na/RT) - exp(u_r_v_gi_Na/RT))
+  #q_gi_Na
+   CR: Derivative(q_gi_Na, t) = v_q_gi_Na
+   CR: u_q_gi_Na = RT*log(K_q_gi_Na*q_gi_Na)
+   EQ: v_q_gi_Na = -kappa_gi_Na*(exp(u_f_v_gi_Na/RT) - exp(u_r_v_gi_Na/RT)) + v_in_Na - v_out1_Na
+  #q_gi_W
+   CR: Derivative(q_gi_W, t) = v_q_gi_W
+   CR: u_q_gi_W = E_q_gi_W/q_gi_W
+   EQ: v_q_gi_W = -RT*k_gi_W*(-q_gi_Na/q_gi_W + q_vc_Na/q_vc_W) + v_in_W - v_out1_W
+  #q_ptEpi_Na
+   CR: Derivative(q_ptEpi_Na, t) = v_q_ptEpi_Na
+   CR: u_q_ptEpi_Na = RT*log(K_q_ptEpi_Na*q_ptEpi_Na)
+   EQ: v_q_ptEpi_Na = -3.0*k_ptEpi_NKE*(-(K_K*q_ptEpi_K/q_ptEpi_W)**2.0*(K_Na*q_vc_Na/q_vc_W)**3.0*exp(2.0*F*u_ptEpi_e/RT) + (K_K*q_vc_K/q_vc_W)**2.0*(K_Na*q_ptEpi_Na/q_ptEpi_W)**3.0)/(((K_K*q_ptEpi_K/q_ptEpi_W)**2.0 + 1.0)*((K_K*q_vc_K/q_vc_W)**2.0 + 1.0)*((K_Na*q_ptEpi_Na/q_ptEpi_W)**3.0 + 1.0)*((K_Na*q_vc_Na/q_vc_W)**3.0 + 1.0)) + kappa_pt_Na*(exp(u_f_v_pt_Na/RT) - exp(u_r_v_pt_Na/RT))
+  #q_pt_Na
+   CR: Derivative(q_pt_Na, t) = v_q_pt_Na
+   CR: u_q_pt_Na = RT*log(K_q_pt_Na*q_pt_Na)
+   EQ: v_q_pt_Na = kappa_gl_Na*(exp(u_f_v_gl_Na/RT) - exp(u_r_v_gl_Na/RT)) - kappa_pt_Na*(exp(u_f_v_pt_Na/RT) - exp(u_r_v_pt_Na/RT)) - v_out2_Na
+  #q_pt_W
+   CR: Derivative(q_pt_W, t) = v_q_pt_W
+   CR: u_q_pt_W = E_pt*(-U_pt_W + q_pt_W)/(L_pt_W - q_pt_W)**2.0
+   EQ: v_q_pt_W = -RT*k_pt_W*(-q_pt_Na/q_pt_W + q_vc_Na/q_vc_W) + k_gl_W*u_v_gl_W - v_out2_W
+  #q_vc_Na
+   CR: Derivative(q_vc_Na, t) = v_q_vc_Na
+   CR: u_q_vc_Na = RT*log(K_q_vc_Na*q_vc_Na)
+   EQ: v_q_vc_Na = 3.0*k_giEpi_NKE*(-(K_K*q_giEpi_K/q_giEpi_W)**2.0*(K_Na*q_vc_Na/q_vc_W)**3.0*exp(2.0*F*u_giEpi_e/RT) + (K_K*q_vc_K/q_vc_W)**2.0*(K_Na*q_giEpi_Na/q_giEpi_W)**3.0)/(((K_K*q_giEpi_K/q_giEpi_W)**2.0 + 1.0)*((K_K*q_vc_K/q_vc_W)**2.0 + 1.0)*((K_Na*q_giEpi_Na/q_giEpi_W)**3.0 + 1.0)*((K_Na*q_vc_Na/q_vc_W)**3.0 + 1.0)) + 3.0*k_ptEpi_NKE*(-(K_K*q_ptEpi_K/q_ptEpi_W)**2.0*(K_Na*q_vc_Na/q_vc_W)**3.0*exp(2.0*F*u_ptEpi_e/RT) + (K_K*q_vc_K/q_vc_W)**2.0*(K_Na*q_ptEpi_Na/q_ptEpi_W)**3.0)/(((K_K*q_ptEpi_K/q_ptEpi_W)**2.0 + 1.0)*((K_K*q_vc_K/q_vc_W)**2.0 + 1.0)*((K_Na*q_ptEpi_Na/q_ptEpi_W)**3.0 + 1.0)*((K_Na*q_vc_Na/q_vc_W)**3.0 + 1.0)) - kappa_gl_Na*(exp(u_f_v_gl_Na/RT) - exp(u_r_v_gl_Na/RT))
+  #q_vc_W
+   CR: Derivative(q_vc_W, t) = v_q_vc_W
+   CR: u_q_vc_W = E_vc*(-U_vc_W + q_vc_W)/(L_vc_W - q_vc_W)**2.0
+   EQ: v_q_vc_W = RT*k_gi_W*(-q_gi_Na/q_gi_W + q_vc_Na/q_vc_W) + RT*k_pt_W*(-q_pt_Na/q_pt_W + q_vc_Na/q_vc_W) + k_cc_W*u_v_cc_W - v_lv_W
+  #v_cc_W
+   CR: v_cc_W = k_cc_W*u_v_cc_W
+   EQ: u_v_cc_W = E_ac*(-U_ac_W + q_ac_W)/(L_ac_W - q_ac_W)**2.0 - E_vc*(-U_vc_W + q_vc_W)/(L_vc_W - q_vc_W)**2.0
+  #v_giEpi_NKE
+   CR: v_giEpi_NKE = 3.0*k_giEpi_NKE*(-(K_K*q_giEpi_K/q_giEpi_W)**2.0*(K_Na*q_vc_Na/q_vc_W)**3.0*exp(2.0*F*u_giEpi_e/RT) + (K_K*q_vc_K/q_vc_W)**2.0*(K_Na*q_giEpi_Na/q_giEpi_W)**3.0)/(((K_K*q_giEpi_K/q_giEpi_W)**2.0 + 1.0)*((K_K*q_vc_K/q_vc_W)**2.0 + 1.0)*((K_Na*q_giEpi_Na/q_giEpi_W)**3.0 + 1.0)*((K_Na*q_vc_Na/q_vc_W)**3.0 + 1.0))
+   EQ: u_K_f_v_giEpi_NKE = u_q_giEpi_Na
+   EQ: u_K_r_v_giEpi_NKE = u_q_vc_Na
+  #v_gi_Na
+   CR: v_gi_Na = kappa_gi_Na*(exp(u_f_v_gi_Na/RT) - exp(u_r_v_gi_Na/RT))
+   EQ: u_f_v_gi_Na = u_q_gi_Na
+   EQ: u_r_v_gi_Na = u_q_giEpi_Na
+  #v_gi_W
+   CR: v_gi_W = RT*k_gi_W*(-q_gi_Na/q_gi_W + q_vc_Na/q_vc_W)
+   EQ: u_v_gi_W = E_q_gi_W/q_gi_W - E_vc*(-U_vc_W + q_vc_W)/(L_vc_W - q_vc_W)**2.0
+  #v_gl_Na
+   CR: v_gl_Na = kappa_gl_Na*(exp(u_f_v_gl_Na/RT) - exp(u_r_v_gl_Na/RT))
+   EQ: u_f_v_gl_Na = u_q_vc_Na
+   EQ: u_r_v_gl_Na = u_q_pt_Na
+  #v_gl_W
+   CR: v_gl_W = k_gl_W*u_v_gl_W
+   EQ: u_v_gl_W = E_ac*(-U_ac_W + q_ac_W)/(L_ac_W - q_ac_W)**2.0 - E_pt*(-U_pt_W + q_pt_W)/(L_pt_W - q_pt_W)**2.0
+  #v_in_Na
+   EQ: u_v_in_Na = -RT*log(K_q_gi_Na*q_gi_Na)
+  #v_in_W
+   EQ: u_v_in_W = -E_q_gi_W/q_gi_W
+  #v_lv_W
+   EQ: u_v_lv_W = -E_ac*(-U_ac_W + q_ac_W)/(L_ac_W - q_ac_W)**2.0 + E_vc*(-U_vc_W + q_vc_W)/(L_vc_W - q_vc_W)**2.0
+  #v_out1_Na
+   EQ: u_v_out1_Na = RT*log(K_q_gi_Na*q_gi_Na)
+  #v_out1_W
+   EQ: u_v_out1_W = E_q_gi_W/q_gi_W
+  #v_out2_Na
+   EQ: u_v_out2_Na = RT*log(K_q_pt_Na*q_pt_Na)
+  #v_out2_W
+   EQ: u_v_out2_W = E_pt*(-U_pt_W + q_pt_W)/(L_pt_W - q_pt_W)**2.0
+  #v_ptEpi_NKE
+   CR: v_ptEpi_NKE = 3.0*k_ptEpi_NKE*(-(K_K*q_ptEpi_K/q_ptEpi_W)**2.0*(K_Na*q_vc_Na/q_vc_W)**3.0*exp(2.0*F*u_ptEpi_e/RT) + (K_K*q_vc_K/q_vc_W)**2.0*(K_Na*q_ptEpi_Na/q_ptEpi_W)**3.0)/(((K_K*q_ptEpi_K/q_ptEpi_W)**2.0 + 1.0)*((K_K*q_vc_K/q_vc_W)**2.0 + 1.0)*((K_Na*q_ptEpi_Na/q_ptEpi_W)**3.0 + 1.0)*((K_Na*q_vc_Na/q_vc_W)**3.0 + 1.0))
+   EQ: u_K_f_v_ptEpi_NKE = u_q_ptEpi_Na
+   EQ: u_K_r_v_ptEpi_NKE = u_q_vc_Na
+  #v_pt_Na
+   CR: v_pt_Na = kappa_pt_Na*(exp(u_f_v_pt_Na/RT) - exp(u_r_v_pt_Na/RT))
+   EQ: u_f_v_pt_Na = u_q_pt_Na
+   EQ: u_r_v_pt_Na = u_q_ptEpi_Na
+  #v_pt_W
+   CR: v_pt_W = RT*k_pt_W*(-q_pt_Na/q_pt_W + q_vc_Na/q_vc_W)
+   EQ: u_v_pt_W = E_pt*(-U_pt_W + q_pt_W)/(L_pt_W - q_pt_W)**2.0 - E_vc*(-U_vc_W + q_vc_W)/(L_vc_W - q_vc_W)**2.0
+Junctions:
+CellML is valid
+[2m2026-01-26T20:25:24.141651Z[0m [[32m[1minfo     [0m] [1mGenerated [0m[32mtests/output/bvc.cellml[0m[1m[0m

@@ -1,0 +1,14 @@
+bg2cellml version 0.8.8-beta.1
+Elements:
+  #R_0
+   CR: v_R_0 = u_R_0/R_R_0
+   EQ: u_R_0 = u_V_in - q_1/C_q_1
+  #V_in
+   EQ: v_V_in = -u_R_0/R_R_0
+  #q_1
+   CR: Derivative(q_1, t) = v_q_1
+   CR: u_q_1 = q_1/C_q_1
+   EQ: v_q_1 = u_R_0/R_R_0
+Junctions:
+CellML is valid
+[2m2026-01-26T20:25:11.676492Z[0m [[32m[1minfo     [0m] [1mGenerated [0m[32mtests/output/example_RC_reduced.cellml[0m[1m[0m

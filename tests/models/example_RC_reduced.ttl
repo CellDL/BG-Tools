@@ -1,0 +1,75 @@
+@prefix bgf: <https://bg-rdf.org/ontologies/bondgraph-framework#> .
+@prefix cdt: <https://w3id.org/cdt/> .
+@prefix sim: <https://celldl.org/ontologies/simulation#> .
+@prefix tpl: <https://bg-rdf.org/templates/> .
+
+@prefix : <#> .
+
+#===============================================================================
+#
+#      +------- R_0 -------+  V_out
+#      |                   |
+#     V_in                C_1
+#      |                   |
+#      +-------------------+
+#
+#===============================================================================
+#
+#                 R          C
+#                 |          |
+#                 |          |
+#     V_in ------ v ------ V_out
+#
+#
+#     V_in ----> R_0 ----> q_1
+#
+#===============================================================================
+
+# Simulate for 0.1 sec at 1 ms steps
+
+:simulation
+    a sim:Simulation ;
+    sim:hasModel :RC_circuit ;
+    sim:begin "0 s"^^cdt:ucum ;
+    sim:end "0.1 s"^^cdt:ucum ;
+    sim:numberOfSteps 100 .
+
+#===============================================================================
+
+:RC_circuit
+    a bgf:BondgraphModel ;
+    bgf:usesTemplate tpl:electrical.ttl ;
+    bgf:hasBondElement :V_in, :R_0, :q_1 .
+
+#===============================================================================
+
+:R_0
+    a bgf:ElectricalResistiveNode ;
+    bgf:parameterValue [
+        bgf:varName "R" ;
+        bgf:hasValue "10 Ohm"^^cdt:ucum
+    ] .
+
+:q_1
+    a bgf:ElectricalCapacitiveNode ;
+    bgf:hasValue "0 C"^^cdt:ucum ;
+    bgf:parameterValue [
+        bgf:varName "C" ;
+        bgf:hasValue "0.001 F"^^cdt:ucum
+    ] .
+
+:V_in
+    a bgf:VoltageSource ;
+    bgf:hasValue "10 V"^^cdt:ucum .
+
+#===============================================================================
+
+:V_in.R
+    bgf:hasSource :V_in ;
+    bgf:hasTarget :R_0 .
+
+:R.C
+    bgf:hasSource :R_0 ;
+    bgf:hasTarget :q_1 .
+
+#===============================================================================

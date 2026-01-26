@@ -1,0 +1,504 @@
+@prefix bgf: <https://bg-rdf.org/ontologies/bondgraph-framework#> .
+@prefix cdt: <https://w3id.org/cdt/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix tpl: <https://bg-rdf.org/templates/> .
+
+@prefix : <#> .
+
+#===============================================================================
+
+## var RT: J_per_mol {init: 2.5e3};
+## var F: C_per_mol {init: 0.965e5};
+##
+## var K_Na: L_per_mol {init: 1};
+## var K_K: L_per_mol {init: 1};
+
+#===============================================================================
+
+:BVC_model
+    a bgf:BondgraphModel ;
+    bgf:usesTemplate
+        tpl:chemical.ttl ,
+        tpl:hydraulic.ttl ;
+    bgf:hasBondElement
+        :v_gi_W, :v_giEpi_NKE, :q_giEpi_Na, :v_gi_Na, :q_gi_Na, :q_gi_W,
+        :v_gl_W, :v_gl_Na,
+        :v_pt_W, :v_ptEpi_NKE, :q_ptEpi_Na, :v_pt_Na, :q_pt_Na, :q_pt_W,
+        :q_vc_W, :q_ac_W, :q_vc_Na, :v_cc_W,
+        :v_lv_W, :v_in_W, :v_out1_W, :v_out2_W,
+        :v_in_Na, :v_out1_Na, :v_out2_Na .
+
+#===============================================================================
+
+# Gi-tract
+
+:v_in_W
+    a bgf:HydraulicFlow ;
+    bgf:hasValue "0 L/s"^^cdt:ucum .
+# var v_in_W: L_per_s {init: 0};
+
+:v_out1_W
+    a bgf:HydraulicFlow ;
+    bgf:hasValue "0 L/s"^^cdt:ucum .
+# var v_out1_W: L_per_s {init: 0};
+
+:v_in_Na
+    a bgf:ChemicalFlow ;
+    bgf:hasValue "1.16e-6 mol/s"^^cdt:ucum .
+# var v_in_Na: mol_per_s {init: 1.16e-6};
+
+:v_out1_Na
+    a bgf:ChemicalFlow ;
+    bgf:hasValue "0 mol/s"^^cdt:ucum .
+# var v_out1_Na: mol_per_s {init: 0};
+
+:v_gi_W
+    a bgf:OldOsmosisNode ;
+    bgf:parameterValue [
+        bgf:varName "k_membrane" ;
+        bgf:hasSymbol "k_gi_W" ;
+        bgf:hasValue "1 L.s-1.kPa-1"^^cdt:ucum
+    ], [
+        bgf:varName "q_solute_in" ;
+        bgf:hasValue :q_gi_Na
+    ], [
+        bgf:varName "q_water_in" ;
+        bgf:hasValue :q_gi_W
+    ], [
+        bgf:varName "q_solute_out" ;
+        bgf:hasValue :q_vc_Na
+    ], [
+        bgf:varName "q_water_out" ;
+        bgf:hasValue :q_vc_W
+    ] .
+# var v_gi_W: L_per_s;
+# var k_gi_W: L_per_s_per_kPa {init: 1};
+#
+# v_gi_W = k_gi_W*(u_vc_osmotic-u_gi_osmotic);
+#          RT*k_gi_W*(q_vc_Na/q_vc_W-q_gi_Na/q_gi_W)
+#
+# v = k_osmosis*(u_W_i - u_W_o - RT*(q_solute_i/q_W_i - q_solute_out/q_W_o));
+
+:v_giEpi_NKE
+    a bgf:NKETransporterNode ;
+    ## Need to multiply CR by 3
+    bgf:parameterValue [
+        bgf:varName "k_NKE" ;
+        bgf:hasSymbol "k_giEpi_NKE" ;
+        bgf:hasValue "1e4 mol/s"^^cdt:ucum
+    ], [
+        bgf:varName "u_e";
+        bgf:hasSymbol "u_giEpi_e" ;
+        bgf:hasValue "-0.040 J/C"^^cdt:ucum
+    ], [
+        bgf:varName "q_H2O_in" ;
+        bgf:hasSymbol "q_giEpi_W" ;
+        bgf:hasValue "0.5 L"^^cdt:ucum
+    ], [
+        bgf:varName "q_H2O_out" ;
+        bgf:hasValue :q_vc_W
+    ], [
+        bgf:varName "K_Na" ;
+        bgf:hasSymbol "K_Na" ;
+        bgf:hasValue "1 L/mol"^^cdt:ucum
+    ], [
+        bgf:varName "q_Na_in" ;
+        bgf:hasValue :q_giEpi_Na
+    ], [
+        bgf:varName "q_Na_out" ;
+        bgf:hasValue :q_vc_Na
+    ], [
+        bgf:varName "K_K";
+        bgf:hasSymbol "K_K" ;
+        bgf:hasValue "1 L/mol"^^cdt:ucum
+    ], [
+        bgf:varName "q_K_in" ;
+        bgf:hasSymbol "q_giEpi_K" ;
+        bgf:hasValue "0.012 mol"^^cdt:ucum
+    ], [
+        bgf:varName "q_K_out" ;
+        bgf:hasSymbol "q_vc_K" ;
+        bgf:hasValue "0.03 mol"^^cdt:ucum
+    ] .
+# var k_giEpi_NKE: mol_per_s {init: 1e4};
+# var u_giEpi_e: J_per_C {init: -0.040};
+# var q_giEpi_K: mole {init: 0.012};
+# var q_vc_K: mole {init: 0.03};
+# var q_giEpi_W: litre {init: 0.5};
+
+:q_giEpi_Na
+    a bgf:ChemicalStorageNode ;
+    bgf:hasValue "0.012 mol"^^cdt:ucum ;
+    bgf:parameterValue [
+        bgf:varName "K" ;
+        bgf:hasValue "1 mol-1"^^cdt:ucum
+    ] .
+# var q_giEpi_Na: mole {init: 0.012};
+
+:v_gi_Na
+    a bgf:ChemicalReactionNode ;
+    bgf:parameterValue [
+        bgf:varName "kappa" ;
+        bgf:hasSymbol "kappa_gi_Na" ;
+        bgf:hasValue "1 mol/s"^^cdt:ucum
+    ] .
+# var v_giEpi_NKE: mol_per_s;
+# var kK_gi_Na: per_s {init: 1};
+# v_gi_Na     = kK_gi_Na*(q_gi_Na-q_giEpi_Na);
+
+:q_gi_Na
+    a bgf:ChemicalStorageNode ;
+    bgf:hasValue "0.1 mol"^^cdt:ucum ;
+    bgf:parameterValue [
+        bgf:varName "K" ;
+        bgf:hasValue "1 mol-1"^^cdt:ucum
+    ] .
+# var q_gi_Na: mole {init: 0.1};
+
+:q_gi_W
+    a bgf:HydraulicStorageNode ;
+    bgf:hasValue "1 L"^^cdt:ucum ;
+    bgf:parameterValue [
+        bgf:varName "E" ;  ### ??????????
+        bgf:hasValue "1 J"^^cdt:ucum
+    ] .
+# var q_gi_W: litre {init: 1};
+
+:gi_bond_1
+    bgf:hasSource :v_in_Na ;
+    bgf:hasTarget :q_gi_Na .
+
+:gi_bond_2
+    bgf:hasSource :q_gi_Na ;
+    bgf:hasTarget :v_out1_Na .
+
+:gi_bond_3
+    bgf:hasSource :q_gi_Na ;
+    bgf:hasTarget :v_gi_Na .
+
+:gi_bond_4
+    bgf:hasSource :v_gi_Na ;
+    bgf:hasTarget :q_giEpi_Na .
+
+:gi_bond_5
+    bgf:hasSource :q_giEpi_Na ;
+    bgf:hasTarget :v_giEpi_NKE .
+
+:gi_bond_6
+    bgf:hasSource :v_in_W ;
+    bgf:hasTarget :q_gi_W .
+
+:gi_bond_7
+    bgf:hasSource :q_gi_W ;
+    bgf:hasTarget :v_out1_W .
+
+:gi_bond_8
+    bgf:hasSource :q_gi_W ;
+    bgf:hasTarget :v_gi_W .
+
+#===============================================================================
+
+# Kidney
+
+:v_out2_W
+    a bgf:HydraulicFlow ;
+    bgf:hasValue "0 L/s"^^cdt:ucum .
+# var v_out2_W: L_per_s {init: 0};
+
+:v_out2_Na
+    a bgf:ChemicalFlow ;
+    bgf:hasValue "1.16e-6 mol/s"^^cdt:ucum .
+# var v_out2_Na: mol_per_s {init: 1.16e-6};
+
+:v_gl_W
+    a bgf:HydraulicResistanceNode ;
+    bgf:parameterValue [
+        bgf:varName "k" ;
+        bgf:hasSymbol "k_gl_W" ;
+        bgf:hasValue "1 L.s-1.kPa-1"^^cdt:ucum
+    ] .
+# var v_gl_W: L_per_s;
+# var k_gl_W: L_per_s_per_kPa {init: 1};
+# v_gl_W = k_gl_W*(u_ac_W-u_pt_W);
+
+:v_gl_Na
+    a bgf:ChemicalReactionNode ;
+    bgf:parameterValue [
+        bgf:varName "kappa" ;
+        bgf:hasSymbol "kappa_gl_Na" ;
+        bgf:hasValue "1 mol/s"^^cdt:ucum
+    ] .
+# var v_gl_Na: mol_per_s;
+# var kK_gl_Na: per_s {init: 1};
+# v_gl_Na     = kK_gl_Na*(q_vc_Na-q_pt_Na);
+
+:v_pt_W
+    a bgf:OldOsmosisNode ;
+    bgf:parameterValue [
+        bgf:varName "k_membrane" ;
+        bgf:hasSymbol "k_pt_W" ;
+        bgf:hasValue "0 L.s-1.kPa-1"^^cdt:ucum
+    ], [
+        bgf:varName "q_solute_in" ;
+        bgf:hasValue :q_pt_Na
+    ], [
+        bgf:varName "q_water_in" ;
+        bgf:hasValue :q_pt_W
+    ], [
+        bgf:varName "q_solute_out" ;
+        bgf:hasValue :q_vc_Na
+    ], [
+        bgf:varName "q_water_out" ;
+        bgf:hasValue :q_vc_W
+    ] .
+# var v_pt_W: L_per_s;
+# var k_pt_W: L_per_s_per_kPa {init: 0};
+# v_pt_W = k_pt_W*(u_vc_osmotic-u_pt_osmotic);
+#          RT*k_pt_W*(q_vc_Na/q_vc_W-q_pt_Na/q_pt_W)
+
+:v_ptEpi_NKE
+    a bgf:NKETransporterNode ;
+    ## Need to multiply CR by 3
+    bgf:parameterValue [
+        bgf:varName "k_NKE" ;
+        bgf:hasSymbol "k_ptEpi_NKE" ;
+        bgf:hasValue "1e5 mol/s"^^cdt:ucum
+    ], [
+        bgf:varName "u_e";
+        bgf:hasSymbol "u_ptEpi_e" ;
+        bgf:hasValue "-0.040 J/C"^^cdt:ucum
+    ], [
+        bgf:varName "q_H2O_in" ;
+        bgf:hasSymbol "q_ptEpi_W" ;
+        bgf:hasValue "0.5 L"^^cdt:ucum
+    ], [
+        bgf:varName "q_H2O_out" ;
+        bgf:hasValue :q_vc_W
+    ], [
+        bgf:varName "K_Na" ;
+        bgf:hasSymbol "K_Na" ;
+        bgf:hasValue "1 L/mol"^^cdt:ucum
+    ], [
+        bgf:varName "q_Na_in" ;
+        bgf:hasValue :q_ptEpi_Na
+    ], [
+        bgf:varName "q_Na_out" ;
+        bgf:hasValue :q_vc_Na
+    ], [
+        bgf:varName "K_K";
+        bgf:hasSymbol "K_K" ;
+        bgf:hasValue "1 L/mol"^^cdt:ucum
+    ], [
+        bgf:varName "q_K_in" ;
+        bgf:hasSymbol "q_ptEpi_K" ;
+        bgf:hasValue "0.012 mol"^^cdt:ucum
+    ], [
+        bgf:varName "q_K_out" ;
+        bgf:hasSymbol "q_vc_K" ;
+        bgf:hasValue "0.03 mol"^^cdt:ucum
+    ] .
+# var k_ptEpi_NKE: mol_per_s {init: 1e5};
+# var u_ptEpi_e: J_per_C {init: -0.040};
+# var q_ptEpi_K: mole {init: 0.012};
+# var q_vc_K: mole {init: 0.03};
+# var q_ptEpi_W: litre {init: 0.5};
+
+:q_ptEpi_Na
+    a bgf:ChemicalStorageNode ;
+    bgf:hasValue "0.012 mol"^^cdt:ucum ;
+    bgf:parameterValue [
+        bgf:varName "K" ;
+        bgf:hasValue "1 mol-1"^^cdt:ucum
+    ] .
+# var q_ptEpi_Na: mole {init: 0.012};
+
+:v_pt_Na
+    a bgf:ChemicalReactionNode ;
+    bgf:parameterValue [
+        bgf:varName "kappa" ;
+        bgf:hasSymbol "kappa_pt_Na" ;
+        bgf:hasValue "1 mol/s"^^cdt:ucum
+    ] .
+# var v_ptEpi_NKE: mol_per_s;
+# var kK_pt_Na: per_s {init: 1};
+# v_pt_Na     = kK_pt_Na*(q_pt_Na-q_ptEpi_Na);
+
+:q_pt_Na
+    a bgf:ChemicalStorageNode ;
+    bgf:hasValue "0.01 mol"^^cdt:ucum ;
+    bgf:parameterValue [
+        bgf:varName "K" ;
+        bgf:hasValue "1 mol-1"^^cdt:ucum
+    ] .
+# var q_pt_Na: mole {init: 0.01};
+
+:q_pt_W
+    a bgf:HydraulicElasticStorageNode ;
+    bgf:hasValue "0.1 L"^^cdt:ucum ;
+    bgf:parameterValue [
+        bgf:varName "E" ;
+        bgf:hasSymbol "E_pt" ;
+        bgf:hasValue "1 J"^^cdt:ucum
+    ], [
+        bgf:varName "q_hat" ;
+        bgf:hasSymbol "U_pt_W" ;
+        bgf:hasValue "0.1 L"^^cdt:ucum
+    ], [
+        bgf:varName "q_bar" ;
+        bgf:hasSymbol "L_pt_W" ;
+        bgf:hasValue "1 L"^^cdt:ucum
+    ] .
+# var q_pt_W: litre {init: 0.1};
+# var E_pt: joule {init: 1};
+# var U_pt_W: litre {init: 0.1};
+# var L_pt_W: litre {init: 1};
+# u_pt_W = E_pt*(q_pt_W-U_pt_W)/sqr(L_pt_W-q_pt_W);
+
+:kidney_bond_1
+    bgf:hasSource :v_gl_Na ;
+    bgf:hasTarget :q_pt_Na .
+
+:kidney_bond_2
+    bgf:hasSource :q_pt_Na ;
+    bgf:hasTarget :v_out2_Na .
+
+:kidney_bond_3
+    bgf:hasSource :q_pt_Na ;
+    bgf:hasTarget :v_pt_Na .
+
+:kidney_bond_4
+    bgf:hasSource :v_pt_Na ;
+    bgf:hasTarget :q_ptEpi_Na .
+
+:kidney_bond_5
+    bgf:hasSource :q_ptEpi_Na ;
+    bgf:hasTarget :v_ptEpi_NKE .
+
+:kidney_bond_6
+    bgf:hasSource :v_gl_W ;
+    bgf:hasTarget :q_pt_W .
+
+:kidney_bond_7
+    bgf:hasSource :q_pt_W ;
+    bgf:hasTarget :v_out2_W .
+
+:kidney_bond_8
+    bgf:hasSource :q_pt_W ;
+    bgf:hasTarget :v_pt_W .
+
+#===============================================================================
+
+# Circulation:
+
+:q_vc_W
+    a bgf:HydraulicElasticStorageNode ;
+    bgf:hasValue "2 L"^^cdt:ucum ;
+    bgf:parameterValue [
+        bgf:varName "E" ;
+        bgf:hasSymbol "E_vc" ;
+        bgf:hasValue "6e1 J"^^cdt:ucum
+    ], [
+        bgf:varName "q_hat" ;
+        bgf:hasSymbol "U_vc_W" ;
+        bgf:hasValue "1.5 L"^^cdt:ucum
+    ], [
+        bgf:varName "q_bar" ;
+        bgf:hasSymbol "L_vc_W" ;
+        bgf:hasValue "2.5 L"^^cdt:ucum
+    ] .
+# var q_vc_W: litre {init: 2};
+# var E_vc: joule {init: 6e1};
+# var U_vc_W: litre {init: 1.5};
+# var L_vc_W: litre {init: 2.5};
+# u_vc_W = E_vc*(q_vc_W-U_vc_W)/sqr(L_vc_W-q_vc_W);
+
+:v_lv_W
+    a bgf:HydraulicFlow ;
+    bgf:hasValue "0.1 L/s"^^cdt:ucum .
+# var v_lv_W: L_per_s {init: 0.1};
+
+:q_ac_W
+    a bgf:HydraulicElasticStorageNode ;
+    bgf:hasValue "1 L"^^cdt:ucum ;
+    bgf:parameterValue [
+        bgf:varName "E" ;
+        bgf:hasSymbol "E_ac" ;
+        bgf:hasValue "6e1 J"^^cdt:ucum
+    ], [
+        bgf:varName "q_hat" ;
+        bgf:hasSymbol "U_ac_W" ;
+        bgf:hasValue "0.5 L"^^cdt:ucum
+    ], [
+        bgf:varName "q_bar" ;
+        bgf:hasSymbol "L_ac_W" ;
+        bgf:hasValue "1.5 L"^^cdt:ucum
+    ] .
+# var q_ac_W: litre {init: 1};
+# var E_ac: joule {init: 6e1};
+# var U_ac_W: litre {init: 0.5};
+# var L_ac_W: litre {init: 1.5};
+# u_ac_W = E_ac*(q_ac_W-U_ac_W)/sqr(L_ac_W-q_ac_W);
+
+:q_vc_Na
+    a bgf:ChemicalStorageNode ;
+    bgf:hasValue "0.84 mol"^^cdt:ucum ;
+    bgf:parameterValue [
+        bgf:varName "K" ;
+        bgf:hasValue "1 mol-1"^^cdt:ucum
+    ] .
+# var q_vc_Na: mole {init: 0.84};
+
+:v_cc_W
+    a bgf:HydraulicResistanceNode ;
+    bgf:parameterValue [
+        bgf:varName "k" ;
+        bgf:hasSymbol "k_cc_W" ;
+        bgf:hasValue "1 L.s-1.kPa-1"^^cdt:ucum
+    ] .
+# var v_cc_W: L_per_s;
+# var k_cc_W: L_per_s_per_kPa {init: 1};
+# v_cc_W = k_cc_W*(u_ac_W-u_vc_W);
+
+
+:circ_bond_1
+    bgf:hasSource :v_giEpi_NKE ;
+    bgf:hasTarget :q_vc_Na .
+
+:circ_bond_2
+    bgf:hasSource :v_ptEpi_NKE ;
+    bgf:hasTarget :q_vc_Na .
+
+:circ_bond_3
+    bgf:hasSource :q_vc_Na ;
+    bgf:hasTarget :v_gl_Na .
+
+:circ_bond_4
+    bgf:hasSource :v_gi_W ;
+    bgf:hasTarget :q_vc_W .
+
+:circ_bond_5
+    bgf:hasSource :v_pt_W ;
+    bgf:hasTarget :q_vc_W .
+
+:circ_bond_6
+    bgf:hasSource :v_cc_W ;
+    bgf:hasTarget :q_vc_W .
+
+:circ_bond_7
+    bgf:hasSource :q_vc_W ;
+    bgf:hasTarget :v_lv_W .
+
+:circ_bond_8
+    bgf:hasSource :v_lv_W ;
+    bgf:hasTarget :q_ac_W .
+
+:circ_bond_9
+    bgf:hasSource :q_ac_W ;
+    bgf:hasTarget :v_gl_W .
+
+:circ_bond_9
+    bgf:hasSource :q_ac_W ;
+    bgf:hasTarget :v_cc_W .
+
+#===============================================================================
+#===============================================================================

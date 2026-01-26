@@ -1,0 +1,118 @@
+<!--
+  This CellML file was generated at 2026-01-26T20:25:11.462308+00:00
+
+  by [BG-Tools](https://github.com/CellDL/BG-Tools), version 0.8.8-beta.1
+
+  from file:///Users/dbro078/BG-RDF/BG-Tools/tests/models/example_RC_reduced.ttl#RC_circuit
+-->
+<model xmlns="http://www.cellml.org/cellml/1.1#" xmlns:cellml="http://www.cellml.org/cellml/1.1#" name="BG_RC_circuit">
+  <units name="dim">
+    <unit units="dimensionless"/>
+  </units>
+  <units name="coulomb_squared_per_joule">
+    <unit units="coulomb" exponent="2"/>
+    <unit units="joule" exponent="-1"/>
+  </units>
+  <units name="joule_per_coulomb">
+    <unit units="joule" exponent="1"/>
+    <unit units="coulomb" exponent="-1"/>
+  </units>
+  <units name="coulomb_per_second">
+    <unit units="coulomb" exponent="1"/>
+    <unit units="second" exponent="-1"/>
+  </units>
+  <units name="joule_second_per_coulomb_squared">
+    <unit units="joule" exponent="1"/>
+    <unit units="second" exponent="1"/>
+    <unit units="coulomb" exponent="-2"/>
+  </units>
+  <component name="main">
+    <variable name="t" units="second"/>
+    <variable name="C_q_1" units="coulomb_squared_per_joule" initial_value="0.001"/>
+    <variable name="u_R_0" units="joule_per_coulomb"/>
+    <variable name="v_R_0" units="coulomb_per_second"/>
+    <variable name="R_R_0" units="joule_second_per_coulomb_squared" initial_value="10.0"/>
+    <variable name="u_V_in" units="joule_per_coulomb" initial_value="10.0"/>
+    <variable name="v_V_in" units="coulomb_per_second"/>
+    <variable name="q_1" units="coulomb" initial_value="0.0"/>
+    <variable name="u_q_1" units="joule_per_coulomb"/>
+    <variable name="v_q_1" units="coulomb_per_second"/>
+    <!-- Element ODEs-->
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+      <apply>
+        <eq/>
+        <apply>
+          <diff/>
+          <bvar>
+            <ci>t</ci>
+          </bvar>
+          <ci>q_1</ci>
+        </apply>
+        <ci>v_q_1</ci>
+      </apply>
+    </math>
+    <!-- Element algebraics-->
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+      <apply>
+        <eq/>
+        <ci>u_R_0</ci>
+        <apply>
+          <minus/>
+          <ci>u_V_in</ci>
+          <apply>
+            <divide/>
+            <ci>q_1</ci>
+            <ci>C_q_1</ci>
+          </apply>
+        </apply>
+      </apply>
+    </math>
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+      <apply>
+        <eq/>
+        <ci>u_q_1</ci>
+        <apply>
+          <divide/>
+          <ci>q_1</ci>
+          <ci>C_q_1</ci>
+        </apply>
+      </apply>
+    </math>
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+      <apply>
+        <eq/>
+        <ci>v_R_0</ci>
+        <apply>
+          <divide/>
+          <ci>u_R_0</ci>
+          <ci>R_R_0</ci>
+        </apply>
+      </apply>
+    </math>
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+      <apply>
+        <eq/>
+        <ci>v_V_in</ci>
+        <apply>
+          <minus/>
+          <apply>
+            <divide/>
+            <ci>u_R_0</ci>
+            <ci>R_R_0</ci>
+          </apply>
+        </apply>
+      </apply>
+    </math>
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+      <apply>
+        <eq/>
+        <ci>v_q_1</ci>
+        <apply>
+          <divide/>
+          <ci>u_R_0</ci>
+          <ci>R_R_0</ci>
+        </apply>
+      </apply>
+    </math>
+  </component>
+</model>
