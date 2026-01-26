@@ -546,6 +546,7 @@ class BondgraphJunction(ModelElement):
             # Domains have been assigned to the transform junction's power ports as part of
             # `check_and_assign_domains_to_bond_network()` when building the model's graph
             if (domain := self.__get_domain(bond_graph.nodes[port_uri.value])) is None:
+                self.report_issue(f'Cannot determine physical domain for port of {self.pretty_name}')
                 return
             domains.append(domain)
             neighbours = list(graph.neighbors(port_uri.value))
@@ -595,10 +596,10 @@ class BondgraphJunction(ModelElement):
     #===================================================================
         ## is this where we multiply by bondCount??
         if self.__type == TRANSFORM_JUNCTION:
-            assert self.__transform_relation is not None
-            for name, variable in self.__variables.items():
-                self.__transform_relation.substitute(name, variable.symbol)
-            self.__equations = self.__transform_relation.equations
+            if self.__transform_relation is not None:
+                for name, variable in self.__variables.items():
+                    self.__transform_relation.substitute(name, variable.symbol)
+                self.__equations = self.__transform_relation.equations
         elif bond_graph.degree[self.uri.value] > 1:
             # we are connected to several nodes
             inputs = []
