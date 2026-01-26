@@ -122,7 +122,11 @@ class BondgraphModel(Labelled):   ## Component ??
 
     def __load_rdf(self, base_iri: str, rdf_source: str) -> tuple[NamedNode|None, str|None]:
     #=======================================================================================
-        self.__rdf_graph.load(base_iri, rdf_source)
+        try:
+            self.__rdf_graph.load(base_iri, rdf_source)
+        except Exception as e:
+            self.report_issue(str(e))
+            return (None, None)
         models: dict[NamedNode, str|None] = {}
         for row in self.__rdf_graph.query(BONDGRAPH_MODEL):
             # ?uri ?label
