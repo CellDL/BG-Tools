@@ -101,6 +101,8 @@ def main():
 
     args = parser.parse_args()
 
+    if args.debug:
+        print(f'bg2cellml version {__version__}')
     asyncio.run(bg2cellml(args.source, Path(args.output), bgrdf=args.bgrdf, save_if_errors=args.save_errors, debug=args.debug))
 
 #===============================================================================
