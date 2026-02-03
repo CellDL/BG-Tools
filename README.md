@@ -8,7 +8,7 @@
 ### As a package
 
 ```sh
-uv add https://github.com/CellDL/BG-Tools/releases/download/v0.7.3/bg2cellml-0.7.3-py3-none-any.whl
+uv add https://github.com/CellDL/BG-Tools/releases/download/v0.9.0/bg2cellml-0.9.0-py3-none-any.whl
 ```
 
 ### Development
@@ -22,15 +22,7 @@ $ uv sync --all-groups
 
 ## Usage
 
-```Python
-from bg2cellml.bondgraph import BondgraphModelSource
-from bg2cellml.cellml import CellMLModel
-
-# NB: a source file might contain several models
-
-for model in BondgraphModelSource(bondgraph_rdf_source).models:
-    cellml = CellMLModel(model).to_xml()
-```
+See `cli/bgtool/__main__.py` for details.
 
 ## Example models:
 
