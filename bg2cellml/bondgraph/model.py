@@ -282,12 +282,10 @@ class BondgraphModel(Labelled):   ## Component ??
 
     @property
     def has_issues(self) -> bool:
-    #============================
         return len(self.__issues) > 0
 
     @property
     def issues(self) -> list[Issue]:
-    #===============================
         return self.__issues
 
     @property
