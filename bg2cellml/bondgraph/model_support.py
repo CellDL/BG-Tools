@@ -48,12 +48,12 @@ if TYPE_CHECKING:
 
 #===============================================================================
 
-def make_element_port_uri(element_uri: NamedNode, port_id: str) -> NamedNode:
-#============================================================================
+def make_element_port_id(element_id: str, port_id: str) -> str:
+#==============================================================
     if port_id in [None, '']:
-        return element_uri
+        return element_id
     else:
-        return namedNode(f'{element_uri.value}_{port_id}')      # pyright: ignore[reportReturnType]
+        return f'{element_id}_{port_id}'
 
 def flow_expression(node_dict: dict, model: 'BondgraphModel') -> sympy.Expr|None:
 #================================================================================
@@ -161,12 +161,12 @@ class VariableValue:
 #===============================================================================
 
 class BondgraphElement(ModelElement):
-    def __init__(self,  model: 'BondgraphModel', uri: NamedNode, template: BondgraphElementTemplate,
+    def __init__(self,  model: 'BondgraphModel', id: str, template: BondgraphElementTemplate,
                         parameter_values: dict[str, VariableValue]|None=None,
                         variable_values: dict[str, VariableValue]|None=None,
                         domain_uri: NamedNode|None=None, value: Value|MathML|None=None,
                         symbol: str|None=None, label: str|None=None):
-        super().__init__(model, uri, symbol=symbol, label=label)
+        super().__init__(model, id, symbol=symbol, label=label)
         element_name = pretty_name(self.symbol, template.uri)
         if isinstance(template, CompositeTemplate):
             element_template = template.template
@@ -175,9 +175,9 @@ class BondgraphElement(ModelElement):
             element_template = template
             composite = False
         if element_template.domain is None:
-            model.report_issue(f'No modelling domain for element {uri} with template {element_name}/{domain_uri}')
+            model.report_issue(f'No modelling domain for element {id} with template {element_name}/{domain_uri}')
         elif domain_uri is not None and element_template.domain.uri.value != domain_uri.value:
-            model.report_issue(f'Domain mismatch for element {uri} with template {element_name}/{domain_uri}')
+            model.report_issue(f'Domain mismatch for element {id} with template {element_name}/{domain_uri}')
 
         self.__domain = element_template.domain
         self.__element_class = element_template.element_class
@@ -190,13 +190,13 @@ class BondgraphElement(ModelElement):
                 self.__constitutive_relation = None
         else:
             if element_template.constitutive_relation is None:
-                model.report_issue(f'Template {element_template.uri} for element {uri} has no constitutive relation')
+                model.report_issue(f'Template {element_template.uri} for element {id} has no constitutive relation')
             else:
                 self.__constitutive_relation = element_template.constitutive_relation.copy()
 
-        self.__power_ports: dict[NamedNode, PowerPort] = {}
+        self.__power_ports: dict[str, PowerPort] = {}
         for port_id, port in element_template.power_ports.items():
-            self.__power_ports[make_element_port_uri(self.uri, port_id)] = port.copy(suffix=self.symbol, domain=self.__domain)
+            self.__power_ports[make_element_port_id(self.uri.value, port_id)] = port.copy(suffix=self.symbol, domain=self.__domain)
 
         self.__flow: Variable|None = None
         self.__potential: Variable|None = None
@@ -257,10 +257,10 @@ class BondgraphElement(ModelElement):
             self.__variables[intrinsic_var.name] = intrinsic_var.copy(suffix=self.symbol, domain=self.__domain)
             self.__intrinsic_variable = self.__variables[intrinsic_var.name]
             if self.__element_class == FLOW_SOURCE:
-                port_var = self.__power_ports[self.uri].flow
+                port_var = self.__power_ports[self.uri.value].flow
                 port_var.variable = self.__intrinsic_variable
             elif self.__element_class == POTENTIAL_SOURCE:
-                port_var = self.__power_ports[self.uri].potential
+                port_var = self.__power_ports[self.uri.value].potential
                 port_var.variable = self.__intrinsic_variable
             if value is not None and isinstance(value, Value):
                 self.__intrinsic_variable.set_value(value)
@@ -297,7 +297,7 @@ class BondgraphElement(ModelElement):
                 else:
                     value = Value.from_literal(row['value'])          # pyright: ignore[reportArgumentType]
                 break
-        return cls(model, uri, template, domain_uri=domain_uri,
+        return cls(model, uri.value, template, domain_uri=domain_uri,
                     parameter_values=parameter_values, variable_values=variable_values,
                     value=value, symbol=symbol, label=label)
 
@@ -330,7 +330,7 @@ class BondgraphElement(ModelElement):
         return self.__implied_junction
 
     @property
-    def power_ports(self) -> dict[NamedNode, PowerPort]:
+    def power_ports(self) -> dict[str, PowerPort]:
         return self.__power_ports
 
     @property
@@ -353,15 +353,15 @@ class BondgraphElement(ModelElement):
     def assign_variables(self, bond_graph: nx.DiGraph):
     #==================================================
         ## Remove variables associated with any unconnected ports
-        unused_ports: list[NamedNode] = []
-        for port_uri, port in self.__power_ports.items():
-            if bond_graph.degree(port_uri.value) == 0:     # pyright: ignore[reportCallIssue]
-                unused_ports.append(port_uri)
+        unused_ports: list[str] = []
+        for port_id, port in self.__power_ports.items():
+            if bond_graph.degree(port_id) == 0:     # pyright: ignore[reportCallIssue]
+                unused_ports.append(port_id)
                 if self.__element_class in [RESISTANCE, REACTION]:
                     del self.__variables[port.potential.name]
                     self.__port_variable_names.remove(port.potential.name)
-        for port_uri in unused_ports:
-            del self.__power_ports[port_uri]
+        for port_id in unused_ports:
+            del self.__power_ports[port_id]
 
         for var_name, var_value in self.__variable_values.items():
             if (variable := self.__variables.get(var_name)) is None:
@@ -407,7 +407,7 @@ class BondgraphElement(ModelElement):
 
             def update_state_equalities(node: str, input) -> sympy.Symbol|None:
                 node_dict = bond_graph.nodes[node]
-                edge = (node, port_id.value) if input else (port_id.value, node)
+                edge = (node, port_id) if input else (port_id, node)
                 bond_count = bond_graph.edges[edge].get('bond_count', 1)
                 forward_dirn = (port.direction
                             and (input and port.direction == BGF.InwardPort
@@ -438,9 +438,9 @@ class BondgraphElement(ModelElement):
                             if forward_dirn: port_inputs.append(symbol)
                             else: port_outputs.append(symbol)
 
-            for node in bond_graph.predecessors(port_id.value):
+            for node in bond_graph.predecessors(port_id):
                 update_state_equalities(node, True)
-            for node in bond_graph.successors(port_id.value):
+            for node in bond_graph.successors(port_id):
                 update_state_equalities(node, False)
 
             bond_expr = sympy.Add(*bond_inputs, sympy.Mul(-1, sympy.Add(*bond_outputs)))
@@ -471,10 +471,10 @@ class BondgraphElement(ModelElement):
 #===============================================================================
 
 class BondgraphBond(ModelElement):
-    def __init__(self, model: 'BondgraphModel', uri: NamedNode,
+    def __init__(self, model: 'BondgraphModel', id: str,
                         source_id: str, target_id: str,
                         count: Literal|None=None, label: str|None=None):
-        super().__init__(model, uri, label=label)
+        super().__init__(model, id, label=label)
         self.__source_id = source_id
         self.__target_id = target_id
         self.__bond_count = int(count.value) if count is not None else 1
@@ -495,13 +495,13 @@ class BondgraphBond(ModelElement):
 #===============================================================================
 
 class BondgraphJunction(ModelElement):
-    def __init__(self, model: 'BondgraphModel', uri: NamedNode, type: NamedNode,
+    def __init__(self, model: 'BondgraphModel', id: str, type: NamedNode,
             value: Literal|None, symbol: str|None, label: str|None):
-        super().__init__(model, uri, symbol=symbol, label=label)
+        super().__init__(model, id, symbol=symbol, label=label)
         self.__type = type.value
         self.__junction = model.framework.junction(self.__type)
         if self.__junction is None:
-            model.report_issue(f'Unknown Junction {self.__type} for node {uri}')
+            model.report_issue(f'Unknown Junction {self.__type} for node {id}')
         self.__transform_relation: MathML|None = None
         self.__value = value
         self.__variables: dict[str, Variable] = {}
@@ -542,14 +542,14 @@ class BondgraphJunction(ModelElement):
         graph = bond_graph.to_undirected(as_view=True)
         self.__variables[TRANSFORM_RATIO_NAME] = Variable(self, self.symbol, value=self.__value)
         for port_id in TRANSFORM_PORT_IDS:
-            port_uri = make_element_port_uri(self.uri, port_id)
+            port_uri_id = make_element_port_id(self.uri.value, port_id)
             # Domains have been assigned to the transform junction's power ports as part of
             # `check_and_assign_domains_to_bond_network()` when building the model's graph
-            if (domain := self.__get_domain(bond_graph.nodes[port_uri.value])) is None:
+            if (domain := self.__get_domain(bond_graph.nodes[port_uri_id])) is None:
                 self.report_issue(f'Cannot determine physical domain for port of {self.pretty_name}')
                 return
             domains.append(domain)
-            neighbours = list(graph.neighbors(port_uri.value))
+            neighbours = list(graph.neighbors(port_uri_id))
             power_port = None
             flow_name = f'{TRANSFORM_FLOW_NAME}_{self.symbol}_{port_id}'
             flow_var_name = f'{TRANSFORM_FLOW_NAME}_{port_id}'
@@ -572,21 +572,22 @@ class BondgraphJunction(ModelElement):
                     junction_type = junction.type
                     variable = junction.variables['']
                 if variable is not None:
+                    port_uri = namedNode(port_uri_id)
                     if junction_type == ONENODE_JUNCTION:
                         self.__variables[flow_var_name] = variable
                         potential = Variable(self, potential_name, units=domain.potential.units)
                         self.__variables[potential_var_name] = potential
-                        power_port = PowerPort(port_uri, NamedPortVariable(flow_name, variable),
+                        power_port = PowerPort(port_uri, NamedPortVariable(flow_name, variable),    # pyright: ignore[reportArgumentType]
                                                          NamedPortVariable(potential_name, potential))
                     elif junction_type == ZERONODE_JUNCTION:
                         flow = Variable(self, flow_name, units=domain.flow.units)
                         self.__variables[flow_var_name] = flow
                         self.__variables[potential_var_name] = variable
-                        power_port = PowerPort(port_uri, NamedPortVariable(flow_name, flow),
+                        power_port = PowerPort(port_uri, NamedPortVariable(flow_name, flow),        # pyright: ignore[reportArgumentType]
                                                          NamedPortVariable(potential_name, variable))
             if power_port is not None:
-                bond_graph.nodes[port_uri.value]['power_port'] = power_port
-                bond_graph.nodes[port_uri.value]['port_type'] = TRANSFORM_JUNCTION
+                bond_graph.nodes[port_uri_id]['power_port'] = power_port
+                bond_graph.nodes[port_uri_id]['port_type'] = TRANSFORM_JUNCTION
         if domains[0] == domains[1]:
             self.__transform_relation = TRANSFORMER_EQUATIONS.copy()
         else:

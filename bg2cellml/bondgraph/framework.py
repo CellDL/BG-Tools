@@ -260,7 +260,7 @@ class BondgraphFramework:
             (element.element_class, element.domain.uri.value): element
                 for element in self.__element_templates.values() if element.domain is not None
         })
-        self.__junctions.update({cast(NamedNode, row['junction']).value: JunctionStructure(row['junction'], row.get('label'))    # pyright: ignore[reportArgumentType]
+        self.__junctions.update({cast(NamedNode, row['junction']).value: JunctionStructure(row['junction'].value, row.get('label'))    # pyright: ignore[reportArgumentType]
             # ?junction ?label
             for row in graph.query(JUNCTION_STRUCTURES)})
         for row in graph.query(COMPOSITE_TEMPLATE_DEFINITIONS):
@@ -268,7 +268,7 @@ class BondgraphFramework:
             if (element := self.__element_templates.get(cast(NamedNode, row['template']).value)) is None:
                 self.report_issue(f"Unknown BondElement {row['template']} for composite {row['uri']}")
                 continue
-            self.__composite_elements[row['uri'].value] = CompositeTemplate(row['uri'], element, row.get('label')) # pyright: ignore[reportArgumentType]
+            self.__composite_elements[row['uri'].value] = CompositeTemplate(row['uri'].value, element, row.get('label')) # pyright: ignore[reportArgumentType]
 
     def element_template(self, element_type: NamedNode, domain_uri: NamedNode|None) -> BondgraphElementTemplate|None:
     #================================================================================================================

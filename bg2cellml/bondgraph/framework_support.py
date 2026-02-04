@@ -226,11 +226,11 @@ DOMAIN_CONSTANTS = """
 #===============================================================================
 
 class Domain(Labelled):
-    def __init__(self, uri: NamedNode, label: str|None,
+    def __init__(self, id: str, label: str|None,
                     flow_name: str, flow_units: Literal,
                     potential_name: str, potential_units: Literal,
                     quantity_name: str, quantity_units: Literal):
-        super().__init__(uri, label)
+        super().__init__(id, label)
         self.__flow = Variable(self, flow_name, units=flow_units)
         self.__potential = Variable(self, potential_name, units=potential_units)
         self.__quantity = Variable(self, quantity_name, units=quantity_units)
@@ -247,7 +247,7 @@ class Domain(Labelled):
                     flow_name: Literal, flow_units: Literal,
                     potential_name: Literal, potential_units: Literal,
                     quantity_name: Literal, quantity_units: Literal) -> Self:
-        self = cls(uri, literal_as_string(label),
+        self = cls(uri.value, literal_as_string(label),
                         flow_name.value, flow_units,
                         potential_name.value, potential_units,
                         quantity_name.value, quantity_units)
@@ -375,9 +375,9 @@ TEMPLATE_PORT_BONDS = """
 #===============================================================================
 
 class ElementTemplate(Labelled):
-    def __init__(self, uri: NamedNode, element_class: NamedNode,
+    def __init__(self, id: str, element_class: NamedNode,
                     label: str|None, domain: Domain, relation: str|Literal):
-        super().__init__(uri, label)
+        super().__init__(id, label)
         self.__element_class = element_class.value
         self.__domain = domain
         if self.__element_class in [FLOW_SOURCE, POTENTIAL_SOURCE]:
@@ -391,7 +391,7 @@ class ElementTemplate(Labelled):
                     # Do we insist on datatyping? Default to MathML ??
                     mathml = relation
             if mathml is None:
-                raise Issue(f'BondElement {uri} has no constitutive relation')
+                raise Issue(f'BondElement {id} has no constitutive relation')
             elif isLiteral(mathml):
                 mathml = mathml.value                           # pyright: ignore[reportAttributeAccessIssue]
             try:
@@ -406,7 +406,7 @@ class ElementTemplate(Labelled):
     @classmethod
     def from_rdf_graph(cls, graph: RdfGraph, uri: NamedNode, element_class: NamedNode,
                         label: Literal|None, domain: Domain, relation: Literal) -> Self:
-        self = cls(uri, element_class, literal_as_string(label), domain, relation)
+        self = cls(uri.value, element_class, literal_as_string(label), domain, relation)
         self.__add_ports(graph)
         self.__add_variables(graph)
         self.__check_names()
@@ -521,15 +521,15 @@ class ElementTemplate(Labelled):
 #===============================================================================
 
 class JunctionStructure(Labelled):
-    def __init__(self, uri: NamedNode, label: str|None):
-        super().__init__(uri, label)
+    def __init__(self, id: str, label: str|None):
+        super().__init__(id, label)
 
 #===============================================================================
 #===============================================================================
 
 class CompositeElement(Labelled):
-    def __init__(self, uri: NamedNode, template: ElementTemplate, junction: JunctionStructure, label: str|None):
-        super().__init__(uri, label)
+    def __init__(self, id: str, template: ElementTemplate, junction: JunctionStructure, label: str|None):
+        super().__init__(id, label)
         self.__template = template
         self.__junction = junction
 
@@ -544,8 +544,8 @@ class CompositeElement(Labelled):
 #===============================================================================
 
 class CompositeTemplate(Labelled):
-    def __init__(self, uri: NamedNode, template: ElementTemplate, label: str|None):
-        super().__init__(uri, label)
+    def __init__(self, id: str, template: ElementTemplate, label: str|None):
+        super().__init__(id, label)
         self.__template = template
 
     @property

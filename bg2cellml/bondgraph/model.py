@@ -34,7 +34,7 @@ from ..utils import Issue
 
 from .framework_support import Domain, REACTION, TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
 from .model_support import BondgraphBond, BondgraphElement, BondgraphJunction
-from .model_support import make_element_port_uri, make_symbolic_name
+from .model_support import make_element_port_id, make_symbolic_name
 from .namespaces import BGF, NAMESPACES, get_curie
 from .utils import Labelled, optional_integer, pretty_name, pretty_uri
 
@@ -107,37 +107,37 @@ class BondgraphModel(Labelled):   ## Component ??
         self.__framework = framework
         self.__rdf_graph = RdfGraph(NAMESPACES)
         self.__debug = debug
-        self.__elements: dict[NamedNode, BondgraphElement] = {}
-        self.__junctions: dict[NamedNode, BondgraphJunction] = {}
+        self.__elements: dict[str, BondgraphElement] = {}
+        self.__junctions: dict[str, BondgraphJunction] = {}
         self.__bonds: list[BondgraphBond] = []
         self.__graph = nx.DiGraph()
-        (model_uri, label) = self.__load_rdf(base_iri, rdf_source)
-        if model_uri is not None:
-            super().__init__(model_uri, label)   # pyright: ignore[reportArgumentType]
+        (model_id, label) = self.__load_rdf(base_iri, rdf_source)
+        if model_id is not None:
+            super().__init__(model_id, label)   # pyright: ignore[reportArgumentType]
             self.__initialise()
 
     def report_issue(self, reason: str):
     #===================================
         self.__issues.append(Issue(reason))
 
-    def __load_rdf(self, base_iri: str, rdf_source: str) -> tuple[NamedNode|None, str|None]:
-    #=======================================================================================
+    def __load_rdf(self, base_iri: str, rdf_source: str) -> tuple[str|None, str|None]:
+    #=================================================================================
         try:
             self.__rdf_graph.load(base_iri, rdf_source)
         except Exception as e:
             self.report_issue(str(e))
             return (None, None)
-        models: dict[NamedNode, str|None] = {}
+        models: list[tuple[str, str|None]] = []
         for row in self.__rdf_graph.query(BONDGRAPH_MODEL):
             # ?uri ?label
-            models[row['uri']] = label.value if (label := row.get('label')) is not None else None # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
+            models.append((row['uri'].value, label.value if (label := row.get('label')) is not None else None)) # pyright: ignore[reportArgumentType]
         if len(models) == 0:
             self.report_issue('No BondgraphModels defined in RDF source')
             return (None, None)
         elif len(models) > 1:
             self.report_issue("Multiple BondgraphModels defined in RDF source -- a model's URI must be given")
             return (None, None)
-        return list(models.items())[0]
+        return models[0]
 
     def __initialise(self):
     #======================
@@ -167,7 +167,7 @@ class BondgraphModel(Labelled):   ## Component ??
                         element = BondgraphElement.for_model(self, row['uri'], template,    # pyright: ignore[reportArgumentType]
                                                              row.get('domain'),             # pyright: ignore[reportArgumentType]
                                                              symbol, literal_as_string(row.get('label')))   # pyright: ignore[reportArgumentType]
-                        self.__elements[element.uri] = element
+                        self.__elements[element.uri.value] = element
                     else:
                         self.report_issue(f'{get_curie(element_type)} element {last_element_name} has multiple instances')   # pyright: ignore[reportArgumentType]
                         continue
@@ -182,22 +182,24 @@ class BondgraphModel(Labelled):   ## Component ??
                 symbol = make_symbolic_name(row)
                 junction = BondgraphJunction(self, row['uri'], row['type'], row.get('value'),   # pyright: ignore[reportArgumentType]
                                              symbol, literal_as_string(row.get('label')))       # pyright: ignore[reportArgumentType]
-                self.__junctions[junction.uri] = junction
+                self.__junctions[junction.uri.value] = junction
 
         for row in self.__rdf_graph.query(MODEL_BONDS.replace('%MODEL%', self.uri.value)):
             # ?powerBond ?source ?target ?label ?bondCount
-            bond_uri: NamedNode = row['powerBond']                                              # pyright: ignore[reportAssignmentType]
+            bond_id: NamedNode = row['powerBond'].value                                    # pyright: ignore[reportAssignmentType]
             source: NamedNode|None = row.get('source')                                     # pyright: ignore[reportAssignmentType]
             target: NamedNode|None = row.get('target')                                     # pyright: ignore[reportAssignmentType]
             if (source is None or isBlankNode(source)
              or target is None or isBlankNode(target)):
-                self.report_issue(f'Bond {pretty_uri(bond_uri)} is missing source and/or target node')
+                self.report_issue(f'Bond {pretty_uri(bond_id)} is missing source and/or target node')
                 continue
+            source_id = source.value
+            target_id = target.value
             issues = []
-            if source not in self.__elements and source not in self.__junctions:
-                issues.append(f'No element or junction for source {pretty_uri(source)} of bond {pretty_uri(bond_uri)}')
-            if target not in self.__elements and target not in self.__junctions:
-                issues.append(f'No element or junction for target {pretty_uri(target)} of bond {pretty_uri(bond_uri)}')
+            if source_id not in self.__elements and source_id not in self.__junctions:
+                issues.append(f'No element or junction for source {pretty_uri(source_id)} of bond {pretty_uri(bond_id)}')
+            if target_id not in self.__elements and target_id not in self.__junctions:
+                issues.append(f'No element or junction for target {pretty_uri(target_id)} of bond {pretty_uri(bond_id)}')
             if len(issues):
                 for issue in issues:
                     self.report_issue(issue)
@@ -205,24 +207,22 @@ class BondgraphModel(Labelled):   ## Component ??
 
             # In terms of a BondgraphBond, the `target` is connected to the inwards port of the target node
             # and the `source` is connected to the outwards port of the source node.
-            source_id = source.value
-            target_id = target.value
-            if (element := self.__elements.get(source)) is not None and element.element_class == REACTION:
-                for uri, port in element.power_ports.items():
+            if (element := self.__elements.get(source_id)) is not None and element.element_class == REACTION:
+                for port_id, port in element.power_ports.items():
                     if port.direction == BGF.OutwardPort:
-                        source_id = uri.value
+                        source_id = port_id
                         break
-            elif (junction := self.__junctions.get(source)) is not None and junction.type == TRANSFORM_JUNCTION:
-                source_id = make_element_port_uri(source, TRANSFORM_PORT_IDS[1]).value  # Outward port id
-            if (element := self.__elements.get(target)) is not None and element.element_class == REACTION:
-                for uri, port in element.power_ports.items():
+            elif (junction := self.__junctions.get(source_id)) is not None and junction.type == TRANSFORM_JUNCTION:
+                source_id = make_element_port_id(source_id, TRANSFORM_PORT_IDS[1])  # Outward port id
+            if (element := self.__elements.get(target_id)) is not None and element.element_class == REACTION:
+                for port_id, port in element.power_ports.items():
                     if port.direction == BGF.InwardPort:
-                        target_id = uri.value
+                        target_id = port_id
                         break
-            elif (junction := self.__junctions.get(target)) is not None and junction.type == TRANSFORM_JUNCTION:
-                target_id = make_element_port_uri(target, TRANSFORM_PORT_IDS[0]).value  # Inward port id
+            elif (junction := self.__junctions.get(target_id)) is not None and junction.type == TRANSFORM_JUNCTION:
+                target_id = make_element_port_id(target_id, TRANSFORM_PORT_IDS[0])  # Inward port id
             self.__bonds.append(
-                BondgraphBond(self, bond_uri, source_id, target_id, row.get('label'), optional_integer(row.get('bondCount'))))    # pyright: ignore[reportArgumentType]
+                BondgraphBond(self, bond_id, source_id, target_id, row.get('label'), optional_integer(row.get('bondCount'))))    # pyright: ignore[reportArgumentType]
 
         self.__make_bond_network()
         self.__check_and_assign_domains_to_bond_network()
@@ -340,27 +340,27 @@ class BondgraphModel(Labelled):   ## Component ??
                     return
 
         for element in self.__elements.values():
-            for port_uri in element.power_ports.keys():
-                check_node(port_uri.value, element.domain)
+            for port_id in element.power_ports.keys():
+                check_node(port_id, element.domain)
 
     # Construct network graph of PowerBonds
     def __make_bond_network(self):
     #=============================
         for element in self.__elements.values():
-            for port_uri, port in element.power_ports.items():
-                self.__graph.add_node(port_uri.value, uri=port_uri,
+            for port_id, port in element.power_ports.items():
+                self.__graph.add_node(port_id, uri=port_id,
                     type=get_curie(element.type),
                     power_port=port, port_type=element.element_class,
                     element=element, label=element.symbol)
-        for uri, junction in self.__junctions.items():
+        for junction_id, junction in self.__junctions.items():
             if junction.type == TRANSFORM_JUNCTION:
                 # A Transform Node has two implicit ports, with ids `0` and `1`
                 for port_id in TRANSFORM_PORT_IDS:
-                    port_uri = make_element_port_uri(uri, port_id)
-                    self.__graph.add_node(port_uri.value, uri=port_uri,
+                    port_uri_id = make_element_port_id(junction_id, port_id)
+                    self.__graph.add_node(port_uri_id, uri=port_uri_id,
                         type=get_curie(junction.type), junction=junction, label=junction.symbol)
             else:
-                self.__graph.add_node(uri.value, uri=uri,
+                self.__graph.add_node(junction_id, uri=junction_id,
                     type=get_curie(junction.type), junction=junction, label=junction.symbol)
         for bond in self.__bonds:
             source = bond.source_id

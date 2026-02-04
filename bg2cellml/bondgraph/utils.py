@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 #===============================================================================
 
-from ..rdf import isLiteral, isNamedNode, NamedNode, ResultType, uri_fragment
+from ..rdf import isLiteral, isNamedNode, namedNode, NamedNode, ResultType, uri_fragment
 from ..rdf.namespace import XSD
 
 if TYPE_CHECKING:
@@ -73,12 +73,13 @@ def clean_name(name: str) -> str:
 #===============================================================================
 
 class Labelled:
-    def __init__(self, uri: NamedNode, symbol: str|None=None, label: str|None=None):
-        self.__uri = uri
+    def __init__(self, id: str, symbol: str|None=None, label: str|None=None):
+        self.__id = id
+        self.__uri = namedNode(id)
         if symbol is not None:
             self.__symbol = symbol
         else:
-            self.__symbol = uri_fragment(self.__uri)
+            self.__symbol = uri_fragment(id)
         self.__label = label
 
     def __str__(self) -> str:
@@ -88,7 +89,7 @@ class Labelled:
 
     @property
     def curie(self) -> str:
-        return f':{uri_fragment(self.__uri)}'
+        return f':{uri_fragment(self.__id)}'
 
     @property
     def label(self) -> str|None:
@@ -96,7 +97,7 @@ class Labelled:
 
     @property
     def pretty_name(self) -> str:
-        return pretty_name(self.__symbol, self.__uri)
+        return pretty_name(self.__symbol, self.__id)
 
     @property
     def symbol(self) -> str:
@@ -104,13 +105,13 @@ class Labelled:
 
     @property
     def uri(self) -> NamedNode:
-        return self.__uri
+        return self.__uri       # pyright: ignore[reportReturnType]
 
 #===============================================================================
 
 class ModelElement(Labelled):
-    def __init__(self,  model: 'BondgraphModel', uri: NamedNode, symbol: str|None=None, label: str|None=None):
-        super().__init__(uri, symbol, label)
+    def __init__(self,  model: 'BondgraphModel', id: str, symbol: str|None=None, label: str|None=None):
+        super().__init__(id, symbol, label)
         self.__model = model
 
     @property
