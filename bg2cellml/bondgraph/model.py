@@ -180,8 +180,8 @@ class BondgraphModel(Labelled):   ## Component ??
             # ?uri ?type ?value ?symbol ?species ?location ?label
             if row['type'].value.startswith(NAMESPACES['bgf']):                                 # pyright: ignore[reportOptionalMemberAccess]
                 symbol = make_symbolic_name(row)
-                junction = BondgraphJunction(self, row['uri'], row['type'], row.get('value'),   # pyright: ignore[reportArgumentType]
-                                             symbol, literal_as_string(row.get('label')))       # pyright: ignore[reportArgumentType]
+                junction = BondgraphJunction(self, row['uri'].value, row['type'], row.get('value'),     # pyright: ignore[reportArgumentType]
+                                             symbol, literal_as_string(row.get('label')))               # pyright: ignore[reportArgumentType]
                 self.__junctions[junction.uri.value] = junction
 
         for row in self.__rdf_graph.query(MODEL_BONDS.replace('%MODEL%', self.uri.value)):
