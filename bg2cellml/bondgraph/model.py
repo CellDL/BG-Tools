@@ -32,6 +32,7 @@ from ..rdf import ResultRow, RdfGraph, Triple
 from ..rdf import isBlankNode, isNamedNode, literal_as_string, NamedNode
 from ..utils import Issue
 
+from .framework_support import BondgraphElementTemplate
 from .framework_support import Domain, REACTION, TRANSFORM_JUNCTION, TRANSFORM_PORT_IDS
 from .model_support import BondgraphBond, BondgraphElement, BondgraphJunction
 from .model_support import make_element_port_id, make_symbolic_name
@@ -144,12 +145,16 @@ class BondgraphModel(Labelled):   ## Component ??
         self.__generate_bonds()
         last_element_uri: str|None = None
         last_element_name: str|None = None
+        last_element_type: NamedNode|None = None
+        last_template: BondgraphElementTemplate|None = None
         element = None
         symbol = None
         for row in self.__rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', self.uri.value)):
             # ?uri ?type ?domain ?symbol ?species ?location ?label ORDER BY ?uri ?type
             if row['type'].value.startswith(NAMESPACES['bgf']):                             # pyright: ignore[reportOptionalMemberAccess]
                 if row['uri'].value != last_element_uri:                                    # pyright: ignore[reportOptionalMemberAccess]
+                    if last_element_type is not None and last_template is None:
+                        self.report_issue(f'{get_curie(last_element_type)} element {last_element_name} is not instantiated')
                     element = None
                     last_element_uri = row['uri'].value
                     symbol = make_symbolic_name(row)
@@ -157,20 +162,19 @@ class BondgraphModel(Labelled):   ## Component ??
                         last_element_name = pretty_name(symbol, last_element_uri)
                     else:
                         last_element_name = pretty_name('', last_element_uri)
-                element_type: NamedNode = row['type']                                       # pyright: ignore[reportAssignmentType]
-                template = self.__framework.element_template(element_type, row.get('domain'))   # pyright: ignore[reportArgumentType]
-                if template is None:
-                    self.report_issue(f'{get_curie(element_type)} element {last_element_name} is not instantiated')
-                    continue
-                else:
+                last_element_type = row['type']                                       # pyright: ignore[reportAssignmentType]
+                last_template = self.__framework.element_template(last_element_type, row.get('domain'))   # pyright: ignore[reportArgumentType]
+                if last_template is not None:
                     if element is None:
-                        element = BondgraphElement.for_model(self, row['uri'], template,    # pyright: ignore[reportArgumentType]
+                        element = BondgraphElement.for_model(self, row['uri'], last_template,    # pyright: ignore[reportArgumentType]
                                                              row.get('domain'),             # pyright: ignore[reportArgumentType]
                                                              symbol, literal_as_string(row.get('label')))   # pyright: ignore[reportArgumentType]
                         self.__elements[element.uri.value] = element
                     else:
-                        self.report_issue(f'{get_curie(element_type)} element {last_element_name} has multiple instances')   # pyright: ignore[reportArgumentType]
-                        continue
+                        self.report_issue(f'{get_curie(last_element_type)} element {last_element_name} has multiple instances')   # pyright: ignore[reportArgumentType]
+                    continue
+        if last_element_type is not None and last_template is None:
+            self.report_issue(f'{get_curie(last_element_type)} element {last_element_name} is not instantiated')
 
         if len(self.__elements) == 0:
             self.report_issue(f'Model {(pretty_uri(self.uri))} has no valid elements')
