@@ -30,7 +30,7 @@ import sympy
 
 from ..mathml import Equation, MathML
 from ..rdf import Literal, NamedNode, namedNode
-from ..rdf import isLiteral, isNamedNode, literal_as_string
+from ..rdf import isLiteral, isNamedNode, literal_as_string, uri_fragment
 from ..units import Value
 
 from .framework_support import BondgraphElementTemplate, CompositeTemplate
@@ -105,13 +105,14 @@ def clean_latex(latex: str) -> str:
 def make_symbolic_name(result_row: dict) -> str|None:
 #====================================================
     symbol = literal_as_string(result_row.get('symbol'))
-    if symbol is not None:
-        species = literal_as_string(result_row.get('species'))
-        location = literal_as_string(result_row.get('location'))
-        if species is not None:
-            symbol += f'_{clean_latex(species)}'
-        if location is not None:
-            symbol += f'_{clean_latex(location)}'
+    if symbol is None:
+        symbol = uri_fragment(result_row['uri'].value)
+    species = literal_as_string(result_row.get('species'))
+    location = literal_as_string(result_row.get('location'))
+    if species is not None:
+        symbol += f'_{clean_latex(species)}'
+    if location is not None:
+        symbol += f'_{clean_latex(location)}'
     return symbol
 
 #===============================================================================
