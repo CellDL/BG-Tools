@@ -104,10 +104,10 @@ def clean_latex(latex: str) -> str:
 
 def make_symbolic_name(result_row: dict) -> str|None:
 #====================================================
-    symbol = literal_as_string(result_row['symbol'])
+    symbol = literal_as_string(result_row.get('symbol'))
     if symbol is not None:
-        species = literal_as_string(result_row['species'])
-        location = literal_as_string(result_row['location'])
+        species = literal_as_string(result_row.get('species'))
+        location = literal_as_string(result_row.get('location'))
         if species is not None:
             symbol += f'_{clean_latex(species)}'
         if location is not None:
