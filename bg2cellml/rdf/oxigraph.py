@@ -18,8 +18,6 @@
 #
 #===============================================================================
 
-from collections import namedtuple
-from pathlib import Path
 from typing import Any, Self
 
 #===============================================================================
@@ -29,6 +27,8 @@ import pyoxigraph as oxigraph
 #===============================================================================
 
 from ..utils import Issue
+
+from .types import Triple
 
 #===============================================================================
 
@@ -62,8 +62,6 @@ def isNamedNode(node: Any) -> bool:
 
 type ResultType = BlankNode | Literal | NamedNode | None
 type ResultRow = dict[str, ResultType]
-
-Triple = namedtuple('Triple', 'subject, predicate, object')
 
 #===============================================================================
 

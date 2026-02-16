@@ -18,9 +18,8 @@
 #
 #===============================================================================
 
-from collections import namedtuple
 import sys
-from typing import Any, Sequence, Self
+from typing import Any, cast, Sequence, Self
 
 #===============================================================================
 
@@ -29,6 +28,8 @@ import oximock
 #===============================================================================
 
 from ..utils import Issue
+
+from .types import Triple
 
 #===============================================================================
 
@@ -64,9 +65,8 @@ class NamedNode(Term):
 #===============================================================================
 
 type ResultType = BlankNode | Literal | NamedNode
-type ResultRow = dict[str, ResultType]
 
-Triple = namedtuple('Triple', 'subject, predicate, object')
+type ResultRow = dict[str, ResultType]
 
 #===============================================================================
 
@@ -114,6 +114,10 @@ class RdfGraph:
                 return [ { k: row[k] for k in keys } for row in rows]
         except Exception as e:
             raise Issue(f'{e}: {query}')
+
+    def statements(self) -> list[Triple]:
+    #====================================
+        return [cast(Triple, s) for s in self.__store.statements()]
 
 #===============================================================================
 #===============================================================================
