@@ -18,15 +18,22 @@
 #
 #===============================================================================
 
-import asyncio
 from pathlib import Path
-import sys
 from typing import cast
+
+import logging
+
+FORMAT = '%(asctime)s: %(message)s'
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 #===============================================================================
 
 from ..rdf import NamedNode, RdfGraph
-from ..utils import Issue, make_issue
+from ..rdf.types import Triple
+
+from ..utils import Issue
 
 from .model import BondgraphModel
 from .namespaces import NAMESPACES
@@ -53,32 +60,9 @@ BGF_TEMPLATE_URIS: dict[str, str] = {
 
 #===============================================================================
 
-# Determine where we can get the bundle BG-RDF framework
+# The BG-RDF framework is bundled with a released wheel
 
-_browser = 'pyodide' in sys.modules
-_packaged = 'site-packages' in __file__
-
-#===============================================================================
-
-if _browser:
-    import pyodide.http         # pyright: ignore[reportMissingImports]
-
-    async def _get_bgrdf(path: str) -> str:
-        response = await pyodide.http.pyfetch(path)
-        if response.ok:
-            rdf = await response.text()
-            return rdf
-        raise Issue('Cannot fetch RDF from {path}: {response.status_text}')
-
-    async def get_ontology(base: str='/') -> str:
-        rdf = await _get_bgrdf(f'{base}bg-rdf/ontology.ttl')
-        return rdf
-
-    async def get_template(template: str, base: str='/') -> str:
-        rdf = await _get_bgrdf(f'{base}bg-rdf/templates/{template}')
-        return rdf
-
-elif _packaged:
+if 'site-packages' in __file__:
     import importlib.resources
 
     BGF_FRAMEWORK_PATH = Path('BG-RDF')
@@ -181,37 +165,22 @@ class BondgraphFramework:
             cls._instance = super(BondgraphFramework, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self):
-    #==================
-        self.__ontology_graph = RdfGraph(NAMESPACES)
+    def __init__(self, statements: list[Triple]|None=None):
+    #======================================================
+        self.__graph = RdfGraph(NAMESPACES)
         self.__element_templates: dict[str, ElementTemplate] = {}
         self.__domains: dict[str, Domain] = {}
         self.__element_domains: dict[tuple[str, str], ElementTemplate] = {}
         self.__junctions: dict[str, JunctionStructure] = {}
         self.__composite_elements: dict[str, CompositeTemplate] = {}
         self.__issues: list[Issue] = []
-        self.__framework_loaded = -1
+        if statements is not None:
+            self.add_statements(statements)
 
     @property
-    def framework_loaded(self):
-        return self.__framework_loaded > 0
-
-    async def load_framework(self, base: str='/'):
-    #=============================================
-        if self.__framework_loaded >= 0:
-            while self.__framework_loaded == 0:
-                await asyncio.sleep(0.01)
-            return
-        self.__framework_loaded = 0
-        try:
-            ontology = await get_ontology(base=base)
-            self.__ontology_graph.load(BGF_ONTOLOGY_URI, ontology)
-            for uri, template_name in BGF_TEMPLATE_URIS.items():
-                template = await get_template(template_name, base=base)
-                self.__add_template(uri, template)
-            self.__framework_loaded = 1
-        except Exception as e:
-            self.__issues.append(make_issue(e))
+    def domains(self) -> list[str]:
+    #==============================
+        return list(self.__domains.keys())
 
     @property
     def has_issues(self) -> bool:
@@ -227,20 +196,17 @@ class BondgraphFramework:
     #===================================
         self.__issues.append(Issue(reason))
 
-    def add_template(self, uri: str, template: str) -> bool:
-    #=======================================================
-        try:
-            self.__add_template(uri, template)
-            return True
-        except Exception as e:
-            self.__issues.append(make_issue(e))
-        return False
+    def add_statements(self, statements: list[Triple]):
+    #==================================================
+        logger.info(f'adding statements: {len(statements)}')
+        for statement in statements:
+            self.__graph.add(statement)
+        logger.info('added statements')
+        self.__load_templates(self.__graph)
+        logger.info('loaded templates')
 
-    def __add_template(self, uri: str, template: str):
-    #=================================================
-        graph = RdfGraph(NAMESPACES)
-        graph.merge(self.__ontology_graph)
-        graph.load(uri, template)
+    def __load_templates(self, graph: RdfGraph):
+    #===========================================
         self.__domains.update({cast(NamedNode, row['domain']).value: Domain.from_rdf_graph(
                                     graph, row['domain'], row.get('label'),         # pyright: ignore[reportArgumentType]
                                     row['flowName'], row['flowUnits'],              # pyright: ignore[reportArgumentType]
@@ -294,9 +260,23 @@ class BondgraphFramework:
 #===============================================================================
 
 async def get_framework(base: str='/') -> BondgraphFramework:
+#============================================================
     framework = BondgraphFramework()
-    await framework.load_framework(base=base)
+    graph = RdfGraph()
+    try:
+        ontology = await get_ontology(base=base)
+        graph.load(BGF_ONTOLOGY_URI, ontology)
+        for uri, template_name in BGF_TEMPLATE_URIS.items():
+            template = await get_template(template_name, base=base)
+            graph.load(uri, template)
+        framework.add_statements(graph.statements())
+    except Exception as e:
+        framework.report_issue(str(e))
     return framework
+
+def framework_from_rdf(statements: list[Triple])-> BondgraphFramework:
+#=====================================================================
+    return BondgraphFramework(statements)
 
 #===============================================================================
 #===============================================================================
