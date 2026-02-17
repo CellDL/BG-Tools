@@ -21,13 +21,6 @@
 from pathlib import Path
 from typing import cast
 
-import logging
-
-FORMAT = '%(asctime)s: %(message)s'
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
 #===============================================================================
 
 from ..rdf import NamedNode, RdfGraph
@@ -198,12 +191,9 @@ class BondgraphFramework:
 
     def add_statements(self, statements: list[Triple]):
     #==================================================
-        logger.info(f'adding statements: {len(statements)}')
         for statement in statements:
             self.__graph.add(statement)
-        logger.info('added statements')
         self.__load_templates(self.__graph)
-        logger.info('loaded templates')
 
     def __load_templates(self, graph: RdfGraph):
     #===========================================
