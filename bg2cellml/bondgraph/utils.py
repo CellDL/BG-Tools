@@ -92,6 +92,10 @@ class Labelled:
         return f':{uri_fragment(self.__id)}'
 
     @property
+    def id(self) -> str:
+        return self.__id
+
+    @property
     def label(self) -> str|None:
         return self.__label
 

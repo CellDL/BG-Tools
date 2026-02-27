@@ -18,6 +18,7 @@
 #
 #===============================================================================
 
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -92,6 +93,39 @@ def symbol_sort_key(symbol: str) -> str:
 
 #===============================================================================
 
+class CellMLComponent:
+    def __init__(self, name: str, parent: etree.Element):
+        self.__name = name
+        self.__element = cellml_subelement(parent, 'component', name=name)
+        self.__bg_elements = defaultdict(list[str])
+
+    @property
+    def bg_elements(self):
+    #=====================
+        return self.__bg_elements
+
+    @property
+    def element(self):
+    #=================
+        return self.__element
+
+    def add_dimensionless_attrib(self):
+    #====================================
+        for element in self.__element.findall(f'.//{MATHML_NS.cn}'):
+            element.attrib[CELLML_UNITS_ATTRIB] = DIMENSIONLESS_UNITS_NAME
+
+    def add_element(self, element: etree.Element):
+    #=============================================
+        self.__element.append(element)
+
+    def add_variable(self, variable: 'CellMLVariable', bg_node_id: str|None=None):
+    #=============================================================================
+        self.__element.append(variable.get_element())
+        if bg_node_id is not None:
+            self.__bg_elements[bg_node_id].append(f'{self.__name}/{variable.symbol}')
+
+#===============================================================================
+
 class CellMLVariable:
     def __init__(self, variable: Variable):
         self.__symbol = variable.symbol
@@ -121,11 +155,15 @@ class CellMLModel:
         self.__name = f'BG_{clean_name(name)}'
         self.__cellml = cellml_element('model', name=self.__name,
                                         nsmap={None: str(CELLML_NS), 'cellml': str(CELLML_NS)})
-        self.__main = cellml_subelement(self.__cellml, 'component', name='main')
+        self.__components: list[CellMLComponent] = []
+        self.__components.append(CellMLComponent('main', self.__cellml))
+        self.__first_component_element = self.__components[0].element
+        self.__current_component = self.__components[0]
+
         self.__model = model
         self.__known_units: set[str] = set()
         self.__known_fixed: set[str] = set()
-        self.__known_variables: dict[str, Variable] = {}
+        self.__known_variables: dict[str, tuple[Variable, str]] = {}
 
         self.__add_unit_xml(DIMENSIONLESS_UNIT_DEFINITION)  ## Only if <cn> in MathML??
         self.__add_fixed(VOI_VARIABLE)       # only if VOI in some element's CR??
@@ -136,7 +174,8 @@ class CellMLModel:
             self.__add_junction_variables(junction)
         self.__output_variable_definitions()
         self.__equations_to_mathml()
-        self.__add_dimensionless_attrib()
+        for component in self.__components:
+            component.add_dimensionless_attrib()
 
     @property
     def name(self):
@@ -148,25 +187,20 @@ class CellMLModel:
         for constant in element.domain.constants:
             self.__add_fixed(constant)
         for variable in element.variables.values():
-            self.__add_variable(variable)
-
-    def __add_dimensionless_attrib(self):
-    #====================================
-        for element in self.__main.findall(f'.//{MATHML_NS.cn}'):
-            element.attrib[CELLML_UNITS_ATTRIB] = DIMENSIONLESS_UNITS_NAME
+            self.__add_variable(variable, element.id)
 
     def __add_fixed(self, variable: Variable):
     #===========================================
         if variable.symbol not in self.__known_fixed:
             self.__add_units(variable.units)
             cellml_variable = CellMLVariable(variable)
-            self.__main.append(cellml_variable.get_element())
+            self.__current_component.add_variable(cellml_variable)
             self.__known_fixed.add(variable.symbol)
 
     def __add_junction_variables(self, junction: BondgraphJunction):
     #===============================================================
         for variable in junction.variables.values():
-            self.__add_variable(variable)
+            self.__add_variable(variable, junction.id)
 
     def __add_units(self, units: Units):
     #===================================
@@ -179,20 +213,21 @@ class CellMLModel:
     #=============================================
         if len(unit_xml):
             units_element = etree.fromstring(''.join(unit_xml))
-            self.__main.addprevious(units_element)
+            self.__first_component_element.addprevious(units_element)
 
-    def __add_variable(self, variable: Variable):
-    #============================================
+    def __add_variable(self, variable: Variable, bg_node_id: str):
+    #=============================================================
         if variable.symbol not in self.__known_variables:
-            self.__known_variables[variable.symbol] = variable
+            # variables/component
+            self.__known_variables[variable.symbol] = (variable, bg_node_id)
 
     def __output_variable_definitions(self):
     #=======================================
         for symbol in sorted(self.__known_variables.keys(), key=symbol_sort_key):
-            variable = self.__known_variables[symbol]
+            variable, bg_node_id = self.__known_variables[symbol]
             self.__add_units(variable.units)
             cellml_variable = CellMLVariable(variable)
-            self.__main.append(cellml_variable.get_element())
+            self.__current_component.add_variable(cellml_variable, bg_node_id)
 
     def __elements_from_units(self, units: Units) -> list[list[str]]:
     #================================================================
@@ -218,9 +253,9 @@ class CellMLModel:
     def __output_equations(self, equations: list[Equation], description: str):
     #=========================================================================
         if len(equations):
-            self.__main.append(etree.Comment(f' {description}'))
+            self.__current_component.add_element(etree.Comment(f' {description}'))
             for equation in sorted(equations, key=lambda eq: str(eq.lhs)):
-                self.__main.append(equation.mathml_equation())
+                self.__current_component.add_element(equation.mathml_equation())
 
     def __equations_to_mathml(self):
     #===============================
@@ -241,6 +276,17 @@ class CellMLModel:
         self.__output_equations(element_odes, 'Element ODEs')
         self.__output_equations(element_algebraics, 'Element algebraics')
         self.__output_equations(junction_algebraics, 'Junction algebraics')
+
+    def annotation(self) -> list[dict[str, dict[str, list[str]]]]:
+    #=============================================================
+        bg_vars = defaultdict(list[str])
+        for component in self.__components:
+            for bg_element, variables in component.bg_elements.items():
+                bg_vars[bg_element].extend(variables)
+        return [
+            { id: { 'variables': vars } }
+                for id, vars in bg_vars.items()
+        ]
 
     def to_xml(self) -> str:
     #=======================
