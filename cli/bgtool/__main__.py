@@ -19,6 +19,7 @@
 #===============================================================================
 
 import asyncio
+import json
 from pathlib import Path
 import sys
 import traceback
@@ -46,8 +47,9 @@ def get_bgrdf(celldl: str) -> Optional[str]:
         if metadata_element.attrib.get('data-content-type') == 'text/turtle':
             return metadata_element.text
 
-def model2cellml(bgrdf_model: BondgraphModel, cellml_file: Path, save_if_errors: bool=False):
-#============================================================================================
+def model2cellml(bgrdf_model: BondgraphModel, cellml_file: Path,
+                 export_annotation: bool=False, save_if_errors: bool=False):
+#===========================================================================
     cellml_model = bgrdf_model.make_cellml_model()
     cellml = cellml_model.to_xml()
     has_issues = not valid_cellml(cellml)
@@ -57,9 +59,15 @@ def model2cellml(bgrdf_model: BondgraphModel, cellml_file: Path, save_if_errors:
         with open(cellml_file, 'w') as fp:
             fp.write(cellml)
             log.info(f'Generated {pretty_log(cellml_file)}')
+        if export_annotation:
+            annotation_file = cellml_file.with_suffix('.json')
+            with open(annotation_file, 'w') as fp:
+                fp.write(json.dumps(cellml_model.annotation(), indent=4))
+                log.info(f'BG annotation: {pretty_log(annotation_file)}')
 
-async def bg2cellml(source_file: str, output_path: Path, bgrdf: bool=False, save_if_errors: bool=False, debug: bool=False):
-#==========================================================================================================================
+async def bg2cellml(source_file: str, output_path: Path, bgrdf: bool=False,
+    export_annotation: bool=False, save_if_errors: bool=False, debug: bool=False):
+#=================================================================================
     framework = await get_framework()
     if framework.has_issues:
         for issue in framework.issues:
@@ -85,7 +93,8 @@ async def bg2cellml(source_file: str, output_path: Path, bgrdf: bool=False, save
                 print(issue.reason)
         sys.exit('Issues loading Bondgraph Model')
 
-    model2cellml(bgrdf_model, output_path / f'{source_path.stem}.cellml', save_if_errors)
+    model2cellml(bgrdf_model, output_path / f'{source_path.stem}.cellml',
+                 export_annotation=export_annotation, save_if_errors=save_if_errors)
 
 #===============================================================================
 
@@ -97,13 +106,15 @@ def main():
     parser.add_argument('--save-errors', action='store_true', help='Output CellML even if it has errors')
     parser.add_argument('--output', metavar='OUTPUT_DIR', required=True, help='Directory where generated files are saved')
     parser.add_argument('--bgrdf', action='store_true', help='Input file is BG-RDF Turtle, not CellDL')
+    parser.add_argument('--annotate', action='store_true', help='Output annotation relatibg BG elements and their CellML variables')
     parser.add_argument('source', metavar='CELLDL', help='Input file')
 
     args = parser.parse_args()
 
     if args.debug:
         print(f'bg2cellml version {__version__}')
-    asyncio.run(bg2cellml(args.source, Path(args.output), bgrdf=args.bgrdf, save_if_errors=args.save_errors, debug=args.debug))
+    asyncio.run(bg2cellml(args.source, Path(args.output), bgrdf=args.bgrdf,
+        export_annotation=args.annotate, save_if_errors=args.save_errors, debug=args.debug))
 
 #===============================================================================
 
