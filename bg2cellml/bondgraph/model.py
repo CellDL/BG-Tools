@@ -55,7 +55,7 @@ MODEL_ELEMENTS = """
         OPTIONAL { ?uri bgf:hasSpecies ?species }
         OPTIONAL { ?uri bgf:hasLocation ?location }
         OPTIONAL { ?uri rdfs:label ?label }
-    } ORDER BY ?uri ?type"""
+    } ORDER BY ?uri"""
 
 MODEL_JUNCTIONS = """
     SELECT DISTINCT ?uri ?type ?label ?value ?symbol ?species ?location
@@ -143,38 +143,42 @@ class BondgraphModel(Labelled):   ## Component ??
     def __initialise(self):
     #======================
         self.__generate_bonds()
+        element_name: str|None = None
+        element_type: NamedNode|None = None
         last_element_uri: str|None = None
-        last_element_name: str|None = None
-        last_element_type: NamedNode|None = None
         last_template: BondgraphElementTemplate|None = None
-        element = None
         symbol = None
         for row in self.__rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', self.uri.value)):
             # ?uri ?type ?domain ?symbol ?species ?location ?label ORDER BY ?uri ?type
-            if row['type'].value.startswith(NAMESPACES['bgf']):                             # pyright: ignore[reportOptionalMemberAccess]
-                if row['uri'].value != last_element_uri:                                    # pyright: ignore[reportOptionalMemberAccess]
-                    if last_element_type is not None and last_template is None:
-                        self.report_issue(f'{get_curie(last_element_type)} element {last_element_name} is not instantiated')
-                    element = None
-                    last_element_uri = row['uri'].value
+            if row['type'].value.startswith(NAMESPACES['bgf']):                     # pyright: ignore[reportOptionalMemberAccess]
+                element_uri = row['uri'] .value                                     # pyright: ignore[reportAssignmentType]
+                element_type = row['type']                                          # pyright: ignore[reportAssignmentType]
+                assert element_type is not None
+                if element_uri != last_element_uri:                                 # pyright: ignore[reportOptionalMemberAccess]
+                    if last_element_uri is not None and last_template is None:
+                        self.report_issue(f'{get_curie(element_type)} element {element_name} is not instantiated 1')
                     symbol = make_symbolic_name(row)
                     if symbol:
-                        last_element_name = pretty_name(symbol, last_element_uri)
+                        element_name = pretty_name(symbol, element_uri)
                     else:
-                        last_element_name = pretty_name('', last_element_uri)
-                last_element_type = row['type']                                       # pyright: ignore[reportAssignmentType]
-                last_template = self.__framework.element_template(last_element_type, row.get('domain'))   # pyright: ignore[reportArgumentType]
-                if last_template is not None:
-                    if element is None:
-                        element = BondgraphElement.for_model(self, row['uri'], last_template,    # pyright: ignore[reportArgumentType]
+                        element_name = pretty_name('', element_uri)
+                    element = None
+                    last_template = None
+                    last_element_uri = element_uri
+                template = self.__framework.element_template(element_type, row.get('domain'))   # pyright: ignore[reportArgumentType]
+                if template is not None:
+                    if last_template is None:
+                        element = BondgraphElement.for_model(self, row['uri'], template,    # pyright: ignore[reportArgumentType]
                                                              row.get('domain'),             # pyright: ignore[reportArgumentType]
                                                              symbol, literal_as_string(row.get('label')))   # pyright: ignore[reportArgumentType]
                         self.__elements[element.uri.value] = element
-                    else:
-                        self.report_issue(f'{get_curie(last_element_type)} element {last_element_name} has multiple instances')   # pyright: ignore[reportArgumentType]
-                    continue
-        if last_element_type is not None and last_template is None:
-            self.report_issue(f'{get_curie(last_element_type)} element {last_element_name} is not instantiated')
+                        last_template = template
+                    elif template != last_template:
+                        self.report_issue(f'{get_curie(element_type)} element {element_name} has multiple instances')   # pyright: ignore[reportArgumentType]
+
+        if last_element_uri is not None and last_template is None:
+            assert element_type is not None
+            self.report_issue(f'{get_curie(element_type)} element {element_name} is not instantiated 2')
 
         if len(self.__elements) == 0:
             self.report_issue(f'Model {(pretty_uri(self.uri))} has no valid elements')

@@ -87,6 +87,9 @@ class Labelled:
             return f'{self.__uri.value} ({self.__label})'
         return self.__uri.value
 
+    def __eq__(self, other):
+        return self.__id == other.__id
+
     @property
     def curie(self) -> str:
         return f':{uri_fragment(self.__id)}'
