@@ -20,6 +20,7 @@
 
 from collections import defaultdict
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 #===============================================================================
@@ -33,7 +34,8 @@ from ..bondgraph.framework_support import Variable, VOI_VARIABLE
 from ..bondgraph.model_support import BondgraphElement, BondgraphJunction
 from ..bondgraph.utils import clean_name
 from ..mathml import Equation, MATHML_NS
-from ..rdf import uri_fragment
+from ..rdf import namedNode, RdfGraph, Triple, uri_fragment
+from ..rdf.namespace import Namespace, RDF, RDFS
 from ..units import Units
 from ..utils import XMLNamespace
 from ..version import __version__
@@ -43,14 +45,34 @@ if TYPE_CHECKING:
 
 #===============================================================================
 
+CELLML_MODEL_URI = 'file:///CELLML_MODEL_URI'
+CELLML_MODEL_NS = Namespace(f'{CELLML_MODEL_URI}#')
+
+BQMODEL = Namespace('http://biomodels.net/model-qualifiers/')
+
+METADATA_NAMESPACES = {
+    'bgf': 'https://bg-rdf.org/ontologies/bondgraph-framework#',
+    'bqmodel': str(BQMODEL),
+    'rdfs': str(RDFS),
+}
+
+#===============================================================================
+
 CELLML_NS = XMLNamespace('http://www.cellml.org/cellml/1.1#')
+CMETA_NS = XMLNamespace('http://www.cellml.org/metadata/2.0#')
+
+#===============================================================================
 
 def cellml_element(tag: str, *args, **attributes) -> etree.Element:
 #==================================================================
+    if 'id' in attributes:
+        attributes[CMETA_NS('id')] = attributes.pop('id')
     return etree.Element(CELLML_NS(tag), *args, **attributes)
 
 def cellml_subelement(parent: etree.Element, tag: str, *args, **attributes) -> etree.Element:
 #============================================================================================
+    if 'id' in attributes:
+        attributes[CMETA_NS('id')] = attributes.pop('id')
     return etree.SubElement(parent, CELLML_NS(tag), *args, **attributes)
 
 def header_comment(source_uri: str) -> etree.Comment:
@@ -95,8 +117,9 @@ def symbol_sort_key(symbol: str) -> str:
 
 class CellMLComponent:
     def __init__(self, name: str, parent: etree.Element):
+        self.__id = name
         self.__name = name
-        self.__element = cellml_subelement(parent, 'component', name=name)
+        self.__element = cellml_subelement(parent, 'component', name=name, id=self.__id)
         self.__bg_elements = defaultdict(list[str])
 
     @property
@@ -108,6 +131,11 @@ class CellMLComponent:
     def element(self):
     #=================
         return self.__element
+
+    @property
+    def id(self):
+    #============
+        return self.__id
 
     def add_dimensionless_attrib(self):
     #====================================
@@ -127,7 +155,8 @@ class CellMLComponent:
 #===============================================================================
 
 class CellMLVariable:
-    def __init__(self, variable: Variable):
+    def __init__(self, component: CellMLComponent, variable: Variable):
+        self.__id = f'{component.id}-{variable.symbol}'
         self.__symbol = variable.symbol
         self.__units = variable.units.name
         if variable.value is not None:
@@ -135,9 +164,14 @@ class CellMLVariable:
         else:
             self.__initial_value = None
 
+    @property
+    def id(self):
+    #============
+        return self.__id
+
     def get_element(self) -> etree.Element:
     #======================================
-        element = cellml_element('variable', name=self.__symbol, units=self.__units)
+        element = cellml_element('variable', name=self.__symbol, units=self.__units, id=self.__id)
         if self.__initial_value is not None:
             element.attrib['initial_value'] = f'{self.__initial_value}'
         return element
@@ -154,7 +188,11 @@ class CellMLModel:
         name = uri_fragment(model.uri).rsplit('.')[0]
         self.__name = f'BG_{clean_name(name)}'
         self.__cellml = cellml_element('model', name=self.__name,
-                                        nsmap={None: str(CELLML_NS), 'cellml': str(CELLML_NS)})
+                                        nsmap={
+                                            None: str(CELLML_NS),
+                                            'cellml': str(CELLML_NS),
+                                            'cmeta': str(CMETA_NS)
+                                        })
         self.__components: list[CellMLComponent] = []
         self.__components.append(CellMLComponent('main', self.__cellml))
         self.__first_component_element = self.__components[0].element
@@ -164,6 +202,9 @@ class CellMLModel:
         self.__known_units: set[str] = set()
         self.__known_fixed: set[str] = set()
         self.__known_variables: dict[str, tuple[Variable, str]] = {}
+
+        self.__metadata = RdfGraph()
+        self.__metadata.add(Triple(namedNode(CELLML_MODEL_URI), BQMODEL.isDescribedBy, model.uri))
 
         self.__add_unit_xml(DIMENSIONLESS_UNIT_DEFINITION)  ## Only if <cn> in MathML??
         self.__add_fixed(VOI_VARIABLE)       # only if VOI in some element's CR??
@@ -193,7 +234,7 @@ class CellMLModel:
     #===========================================
         if variable.symbol not in self.__known_fixed:
             self.__add_units(variable.units)
-            cellml_variable = CellMLVariable(variable)
+            cellml_variable = CellMLVariable(self.__current_component, variable)
             self.__current_component.add_variable(cellml_variable)
             self.__known_fixed.add(variable.symbol)
 
@@ -201,6 +242,12 @@ class CellMLModel:
     #===============================================================
         for variable in junction.variables.values():
             self.__add_variable(variable, junction.id)
+
+    def __add_metadata(self, cellml_variable: CellMLVariable, bg_node_id: str, var_type: str|None):
+    #==============================================================================================
+        if var_type is not None:
+            self.__metadata.add(Triple(CELLML_MODEL_NS(cellml_variable.id), BQMODEL.isDerivedFrom, namedNode(bg_node_id)))
+            self.__metadata.add(Triple(CELLML_MODEL_NS(cellml_variable.id), RDF.type, var_type))
 
     def __add_units(self, units: Units):
     #===================================
@@ -226,8 +273,9 @@ class CellMLModel:
         for symbol in sorted(self.__known_variables.keys(), key=symbol_sort_key):
             variable, bg_node_id = self.__known_variables[symbol]
             self.__add_units(variable.units)
-            cellml_variable = CellMLVariable(variable)
+            cellml_variable = CellMLVariable(self.__current_component, variable)
             self.__current_component.add_variable(cellml_variable, bg_node_id)
+            self.__add_metadata(cellml_variable, bg_node_id, variable.type)
 
     def __elements_from_units(self, units: Units) -> list[list[str]]:
     #================================================================
@@ -287,6 +335,14 @@ class CellMLModel:
             { id: { 'variables': vars } }
                 for id, vars in bg_vars.items()
         ]
+
+    def metadata(self, cellml_file: Path) -> str:
+    #============================================
+        namespaces = METADATA_NAMESPACES.copy()
+        namespaces['model'] = str(CELLML_MODEL_NS)
+        namespaces['diagram'] = f'{self.__model.uri.value}#'
+        metadata = self.__metadata.serialise(namespaces).replace(CELLML_MODEL_URI, cellml_file.resolve().as_uri())
+        return metadata
 
     def to_xml(self) -> str:
     #=======================
