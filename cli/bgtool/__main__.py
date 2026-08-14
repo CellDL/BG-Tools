@@ -60,9 +60,9 @@ def model2cellml(bgrdf_model: BondgraphModel, cellml_file: Path,
             fp.write(cellml)
             log.info(f'Generated {pretty_log(cellml_file)}')
         if export_annotation:
-            annotation_file = cellml_file.with_suffix('.json')
+            annotation_file = cellml_file.with_suffix('.ttl')
             with open(annotation_file, 'w') as fp:
-                fp.write(json.dumps(cellml_model.annotation(), indent=4))
+                fp.write(cellml_model.metadata(cellml_file))
                 log.info(f'BG annotation: {pretty_log(annotation_file)}')
 
 async def bg2cellml(source_file: str, output_path: Path, bgrdf: bool=False,
@@ -106,7 +106,7 @@ def main():
     parser.add_argument('--save-errors', action='store_true', help='Output CellML even if it has errors')
     parser.add_argument('--output', metavar='OUTPUT_DIR', required=True, help='Directory where generated files are saved')
     parser.add_argument('--bgrdf', action='store_true', help='Input file is BG-RDF Turtle, not CellDL')
-    parser.add_argument('--annotate', action='store_true', help='Output annotation relatibg BG elements and their CellML variables')
+    parser.add_argument('--annotate', action='store_true', help='Output annotations relating BG elements and their CellML variables')
     parser.add_argument('source', metavar='CELLDL', help='Input file')
 
     args = parser.parse_args()
