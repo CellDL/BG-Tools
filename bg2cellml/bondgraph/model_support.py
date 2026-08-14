@@ -532,9 +532,9 @@ class BondgraphJunction(ModelElement):
         assert self.__type != TRANSFORM_JUNCTION
         if (domain := self.__get_domain(bond_graph.nodes[self.uri.value])) is not None:
             if self.__type == ONENODE_JUNCTION:
-                self.__variables[''] = Variable(self, self.symbol, units=domain.flow.units, value=self.__value)
+                self.__variables[''] = Variable(self, self.symbol, units=domain.flow.units, value=self.__value, type=BGF.FlowVariable)
             elif self.__type == ZERONODE_JUNCTION:
-                self.__variables[''] = Variable(self, self.symbol, units=domain.potential.units, value=self.__value)
+                self.__variables[''] = Variable(self, self.symbol, units=domain.potential.units, value=self.__value, type=BGF.PotentialVariable)
 
     def assign_transform_variables(self, bond_graph: nx.DiGraph):
     #============================================================

@@ -120,10 +120,12 @@ TRANSFORMER_EQUATIONS = MathML.from_string(f"""
 class Variable:
     def __init__(self, element: Labelled|ModelElement|None, name: str,
                         units: Literal|Units|None=None,
-                        value: Literal|None=None):
+                        value: Literal|None=None,
+                        type: NamedNode|str|None=None):
         self.__element = element
         self.__name = clean_name(name)
         self.__symbol: str|None = None
+        self.__type = type.value if isinstance(type, NamedNode) else type
         if isLiteral(units):
             self.__units = Units.from_ucum(units)   # pyright: ignore[reportArgumentType]
         else:
@@ -145,7 +147,7 @@ class Variable:
                 self.__report_issue(f'Value for variable {name} has incompatible units ({self.__value.units} != {self.__units})')
 
     def __str__(self):
-        return f'{self.symbol} ({self.__value if self.__value is not None else self.__units})'
+        return f'{self.symbol} ({self.__value if self.__value is not None else self.__units}) [{self.type}]'
 
     def __report_issue(self, issue: str):
         if isinstance(self.__element, ModelElement):
@@ -164,6 +166,10 @@ class Variable:
     @property
     def symbol(self) -> str:
         return self.__symbol if self.__symbol is not None else self.__name
+
+    @property
+    def type(self):
+        return self.__type
 
     @property
     def value(self):
@@ -188,7 +194,7 @@ class Variable:
                     name = suffix
                 else:
                     name = f'{self.__name}_{suffix}'
-        copy = Variable(self.__element, name, units=self.__units)
+        copy = Variable(self.__element, name, units=self.__units, type=self.__type)
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy
 
@@ -207,7 +213,7 @@ class Variable:
 
 #===============================================================================
 
-VOI_VARIABLE = Variable(None, VOI_SYMBOL, units=VOI_UCUMUNIT)
+VOI_VARIABLE = Variable(None, VOI_SYMBOL, units=VOI_UCUMUNIT, type=BGF.VariableOfIntergration)
 
 #===============================================================================
 #===============================================================================
@@ -231,9 +237,9 @@ class Domain(Labelled):
                     potential_name: str, potential_units: Literal,
                     quantity_name: str, quantity_units: Literal):
         super().__init__(id, label)
-        self.__flow = Variable(self, flow_name, units=flow_units)
-        self.__potential = Variable(self, potential_name, units=potential_units)
-        self.__quantity = Variable(self, quantity_name, units=quantity_units)
+        self.__flow = Variable(self, flow_name, units=flow_units, type=BGF.FlowVariable)
+        self.__potential = Variable(self, potential_name, units=potential_units, type=BGF.PotentialVariable)
+        self.__quantity = Variable(self, quantity_name, units=quantity_units, type=BGF.QuantityVariable)
         self.__intrinsic_symbols = [
             self.__flow.symbol,
             self.__potential.symbol,
@@ -463,7 +469,7 @@ class ElementTemplate(Labelled):
     #==============================================================================================
         port_var_name = f'{domain_variable.name}{suffix}'
         return NamedPortVariable(name=port_var_name,
-                                variable=Variable(self, port_var_name, units=domain_variable.units))
+                                variable=Variable(self, port_var_name, units=domain_variable.units, type=domain_variable.type))
 
     def __add_variables(self, graph: RdfGraph):
     #==========================================
