@@ -23,6 +23,8 @@ import tempfile
 
 import libopencor as loc
 
+from bgtool.utils import log
+
 #===============================================================================
 
 def string_to_list(string: str) -> list[int]:
@@ -61,7 +63,7 @@ def valid_cellml(cellml: str) -> bool:
                     print(f'{instance.issue_count} issues running simulation created from CellML...')
                     no_issues = False
     if no_issues:
-        print('CellML is valid')
+        log.info('CellML is valid')
     return no_issues
 
 #===============================================================================
