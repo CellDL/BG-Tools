@@ -256,6 +256,10 @@ class BondgraphModel(Labelled):   ## Component ??
             print('Elements:')
             for uri, element in self.__elements.items():
                 print(' ', pretty_uri(uri))
+                print('   Type:', pretty_uri(element.type))
+                print('   Vars:')
+                for (name, var) in element.variables.items():
+                    print(f'     {name}: {var}')
                 if (cr := element.constitutive_relation) is not None:
                     for eq in cr.equations:
                         print('   CR:', eq)
@@ -264,6 +268,10 @@ class BondgraphModel(Labelled):   ## Component ??
             print('Junctions:')
             for uri, junction in self.__junctions.items():
                 print(' ', pretty_uri(uri))
+                print('   Type:', pretty_uri(junction.type))
+                print('   Vars:')
+                for var in junction.variables.values():
+                    print(f'     {var}')
                 equations = junction.equations
                 for eq in equations:
                     print('   ', eq)
