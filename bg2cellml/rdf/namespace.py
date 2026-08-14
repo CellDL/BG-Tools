@@ -36,8 +36,11 @@ class Namespace:
     def __str__(self):
         return self.__ns
 
-    def __getattr__(self, attr: str='') -> NamedNode:
+    def __call__(self, attr: str='') -> NamedNode:
         return cast(NamedNode, namedNode(f'{self.__ns}{attr}'))
+
+    def __getattr__(self, attr: str='') -> NamedNode:
+        return self(attr)
 
 #===============================================================================
 
