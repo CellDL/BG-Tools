@@ -102,5 +102,9 @@ class RdfGraph:
         except Exception as e:
             raise Issue(f'{e}: {query}')
 
+    def serialise(self, prefixes: dict[str, str]|None=None) -> str:
+    #==============================================================
+        return self.__graph.dump(None, oxigraph.RdfFormat.TURTLE, prefixes=prefixes).decode()
+
 #===============================================================================
 #===============================================================================

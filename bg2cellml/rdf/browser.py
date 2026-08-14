@@ -115,6 +115,10 @@ class RdfGraph:
         except Exception as e:
             raise Issue(f'{e}: {query}')
 
+    def serialise(self, prefixes: dict[str, str]|None=None) -> str:
+    #==============================================================
+        return self.__store.serialise(prefixes=prefixes)  #  base_iri=None
+
     def statements(self) -> list[Triple]:
     #====================================
         return [cast(Triple, s) for s in self.__store.statements()]

@@ -61,5 +61,11 @@ class RdfStore:
     def query(self, sparql: str) -> oxigraph.QuerySolutions:
         return self.__graph.query(sparql)    # type: ignore
 
+    def serialise(self, prefixes: dict[str, str]|None=None) -> str:
+        return self.__graph.dump(None, oxigraph.RdfFormat.TURTLE,
+                                    from_graph=oxigraph.DefaultGraph(),
+                                    prefixes=prefixes,
+                                 ).decode()
+
 #===============================================================================
 #===============================================================================
