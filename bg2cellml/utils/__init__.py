@@ -59,6 +59,9 @@ class XMLNamespace:
     def __getattr__(self, attr: str) -> str:
         return f'{{{self.__ns}}}{attr}'
 
+    def url(self, suffix: str) -> str:
+        return f'{self.__ns}{suffix}'
+
 #===============================================================================
 
 def etree_from_string(xml: str) -> etree.Element:
