@@ -23,6 +23,7 @@ from typing import Self
 #===============================================================================
 
 import pint
+from pint import Quantity
 from ucumvert import PintUcumRegistry
 
 #===============================================================================
@@ -87,9 +88,9 @@ class Units:
     def name(self):
         return self.__name
 
-    def base_items(self):
-    #====================
-        unit_quantity = pint.Quantity(1, self.__units)
+    def base_items(self) -> list[tuple[str, int]]:
+    #=============================================
+        unit_quantity: Quantity = pint.Quantity(1, self.__units)
         return PREFERRED_BASE_ITEMS.get(str(self),
                                         unit_quantity.unit_items())
         ## if not PREFERRED_BASE_ITEMS start by going through
