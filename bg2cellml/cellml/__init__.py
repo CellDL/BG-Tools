@@ -32,9 +32,9 @@ import sympy
 
 from ..bondgraph.framework_support import Variable, VOI_VARIABLE
 from ..bondgraph.model_support import BondgraphElement, BondgraphJunction
-from ..bondgraph.utils import clean_name
+from ..bondgraph.utils import clean_name, ModelElement
 from ..mathml import Equation, MATHML_NS
-from ..rdf import namedNode, RdfGraph, Triple, uri_fragment
+from ..rdf import literal, namedNode, RdfGraph, Triple, uri_fragment
 from ..rdf.namespace import Namespace, RDF, RDFS
 from ..units import Units
 from ..utils import XMLNamespace
@@ -201,7 +201,7 @@ class CellMLModel:
         self.__model = model
         self.__known_units: set[str] = set()
         self.__known_fixed: set[str] = set()
-        self.__known_variables: dict[str, tuple[Variable, str]] = {}
+        self.__known_variables: dict[str, tuple[Variable, ModelElement]] = {}
 
         self.__metadata = RdfGraph()
         self.__metadata.add(Triple(namedNode(CELLML_MODEL_URI), BQMODEL.isDescribedBy, model.uri))
@@ -228,7 +228,7 @@ class CellMLModel:
         for constant in element.domain.constants:
             self.__add_fixed(constant)
         for variable in element.variables.values():
-            self.__add_variable(variable, element.id)
+            self.__add_variable(variable, element)
 
     def __add_fixed(self, variable: Variable):
     #===========================================
@@ -241,13 +241,16 @@ class CellMLModel:
     def __add_junction_variables(self, junction: BondgraphJunction):
     #===============================================================
         for variable in junction.variables.values():
-            self.__add_variable(variable, junction.id)
+            self.__add_variable(variable, junction)
 
-    def __add_metadata(self, cellml_variable: CellMLVariable, bg_node_id: str, var_type: str|None):
-    #==============================================================================================
-        if var_type is not None:
-            self.__metadata.add(Triple(CELLML_MODEL_NS(cellml_variable.id), BQMODEL.isDerivedFrom, namedNode(bg_node_id)))
-            self.__metadata.add(Triple(CELLML_MODEL_NS(cellml_variable.id), RDF.type, var_type))
+    def __add_metadata(self, cellml_variable: CellMLVariable, variable: Variable, model_element: ModelElement):
+    #==========================================================================================================
+        if variable.type is not None:
+            self.__metadata.add(Triple(CELLML_MODEL_NS(cellml_variable.id), BQMODEL.isDerivedFrom, namedNode(model_element.id)))
+            self.__metadata.add(Triple(CELLML_MODEL_NS(cellml_variable.id), RDF.type, variable.type))
+        if model_element.label:
+            # This won't create duplicate statements
+            self.__metadata.add(Triple(namedNode(model_element.id), RDFS.label, literal(model_element.label)))
 
     def __add_units(self, units: Units):
     #===================================
@@ -262,20 +265,20 @@ class CellMLModel:
             units_element = etree.fromstring(''.join(unit_xml))
             self.__first_component_element.addprevious(units_element)
 
-    def __add_variable(self, variable: Variable, bg_node_id: str):
-    #=============================================================
+    def __add_variable(self, variable: Variable, element: ModelElement):
+    #==================================================================
         if variable.symbol not in self.__known_variables:
             # variables/component
-            self.__known_variables[variable.symbol] = (variable, bg_node_id)
+            self.__known_variables[variable.symbol] = (variable, element)
 
     def __output_variable_definitions(self):
     #=======================================
         for symbol in sorted(self.__known_variables.keys(), key=symbol_sort_key):
-            variable, bg_node_id = self.__known_variables[symbol]
+            variable, model_element = self.__known_variables[symbol]
             self.__add_units(variable.units)
             cellml_variable = CellMLVariable(self.__current_component, variable)
-            self.__current_component.add_variable(cellml_variable, bg_node_id)
-            self.__add_metadata(cellml_variable, bg_node_id, variable.type)
+            self.__current_component.add_variable(cellml_variable, model_element.id)
+            self.__add_metadata(cellml_variable, variable, model_element)
 
     def __elements_from_units(self, units: Units) -> list[list[str]]:
     #================================================================
