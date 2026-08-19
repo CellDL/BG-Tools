@@ -111,7 +111,7 @@ def model2cellml(bgrdf_model: BondgraphModel, source_path: Path, output: str|Non
                 cellml_file_uri = cellml_file.resolve().as_uri()
                 with open(cellml_file, 'w') as fp:
                     fp.write(cellml)
-                omex_maker.add_content(cellml_file.name, OMEX_SPEC_NS.url('cellml'))
+                omex_maker.add_content(cellml_file.name, OMEX_SPEC_NS.url('cellml'), master=True)
 
                 # Save the CellML annotation in the archive
                 annotation_file = cellml_file.with_suffix('.ttl')
