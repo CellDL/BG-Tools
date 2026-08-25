@@ -196,7 +196,7 @@ notebook = [
     { name = "matplotlib", specifier = ">=3.10.7" },
 ]
 standalone = [
-    { name = "libopencor", git = "https://github.com/opencor/libopencor.git" },
+    { name = "libopencor", specifier = "==1.20260803.0" },
     { name = "rich", specifier = ">=14.2.0" },
     { name = "structlog", specifier = ">=25.5.0" },
 ]
@@ -964,9 +964,17 @@ wheels = [
 [[package]]
 name = "libopencor"
 version = "1.20260803.0"
-source = { git = "https://github.com/opencor/libopencor.git#423a252b3cfcbbbfb8b3bf2eaacd6e1c24b025f2" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/48/be4ec89499a427889703a508a932a7c4ff4701d3df579a870b18985e7bc1/libopencor-1.20260803.0-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:f8a1788121cef294666ee2346b55113b46ea0c12ebe47c006c8d7048105d6628", size = 38319065, upload-time = "2026-08-02T15:55:42.316Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/dc/397153729e35d6eb6259eef4c8138b5444a0e1220fa3e9f2b1ea8f1fcc16/libopencor-1.20260803.0-cp313-cp313-macosx_14_0_x86_64.whl", hash = "sha256:142c8c1f7c81846c3fa097ba84bc52c3f647753b4b4657ab326ed4a93bb99614", size = 41009874, upload-time = "2026-08-02T15:55:45.022Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/40/8d5ecf65ea421820ca06dc2a096751391633c417e3e271ec1c48110e7e31/libopencor-1.20260803.0-cp313-cp313-manylinux_2_34_aarch64.whl", hash = "sha256:8f265e18ea264e0ae007cd8dfe2609a4d073da56e9487ff73c3d1b065d951bf5", size = 54085546, upload-time = "2026-08-02T15:55:47.928Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/e9/d12853cc494708241c5a43cf519bfabbc3e18a77663ae2e495081de9769a/libopencor-1.20260803.0-cp313-cp313-manylinux_2_34_x86_64.whl", hash = "sha256:eaa87167a063f4504990238db4e399850df98364eb203a6fc45d5456399e8ed3", size = 56939393, upload-time = "2026-08-02T15:55:51.138Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/11/7cd8bdd68ba24d0ff11e2d147c49f994e6a6f4fde3f3d7e1f61b7a3d9f6a/libopencor-1.20260803.0-cp313-cp313-win_amd64.whl", hash = "sha256:eb963af3602ee3d93758748902bb14132e0eabd147d5b0474375cbdcfc3677ec", size = 36182472, upload-time = "2026-08-02T15:55:54.244Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/e3/cd43ce17520fe951129ebdda3444d59701c22d7488a79ade83ec6f11e731/libopencor-1.20260803.0-cp313-cp313-win_arm64.whl", hash = "sha256:5abd9606622eb6334558fda39c9328ba04d589ff20effd944f2c2c2b432259be", size = 32118462, upload-time = "2026-08-02T15:55:56.955Z" },
 ]
 
 [[package]]

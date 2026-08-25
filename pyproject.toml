@@ -28,16 +28,13 @@ notebook = [
     "matplotlib>=3.10.7",
 ]
 standalone = [
-    "libopencor",
+    "libopencor==1.20260803.0",
     "rich>=14.2.0",
     "structlog>=25.5.0",
 ]
 
 [tool.uv]
 package = true
-
-[tool.uv.sources]
-libopencor = { git = "https://github.com/opencor/libopencor.git" }
 
 [build-system]
 requires = ["hatchling"]
