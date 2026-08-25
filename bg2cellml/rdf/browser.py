@@ -117,7 +117,11 @@ class RdfGraph:
 
     async def serialise(self, prefixes: dict[str, str]|None=None) -> str:
     #====================================================================
-        return self.__store.serialise(prefixes=prefixes)  #  base_iri=None
+        if self.__pyodide:
+            serialised = await self.__store.serialise(prefixes=prefixes)
+            return serialised
+        else:
+            return self.__store.serialise(prefixes=prefixes)  #  base_iri=None
 
     def statements(self) -> list[Triple]:
     #====================================
