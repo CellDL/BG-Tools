@@ -339,12 +339,14 @@ class CellMLModel:
                 for id, vars in bg_vars.items()
         ]
 
-    def metadata(self, cellml_uri: str) -> str:
-    #==========================================
+    async def metadata(self, cellml_uri: str|None) -> str:
+    #=====================================================
         namespaces = METADATA_NAMESPACES.copy()
         namespaces['model'] = str(CELLML_MODEL_NS)
         namespaces['diagram'] = f'{self.__model.uri.value}#'
-        metadata = self.__metadata.serialise(namespaces).replace(CELLML_MODEL_URI, cellml_uri)
+        metadata = await self.__metadata.serialise(namespaces)
+        if cellml_uri is not None:
+            metadata = metadata.replace(CELLML_MODEL_URI, cellml_uri)
         return metadata
 
     def to_xml(self) -> str:

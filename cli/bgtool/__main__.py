@@ -82,7 +82,7 @@ class OmexMaker:
 
 #===========================================================================
 
-def model2cellml(bgrdf_model: BondgraphModel, source_path: Path, output: str|None,
+async def model2cellml(bgrdf_model: BondgraphModel, source_path: Path, output: str|None,
                  omex: str|None=None, bgrdf: bool=False, annotate: bool=False,
                  save_if_errors: bool=False):
     cellml_model = bgrdf_model.make_cellml_model()
@@ -116,7 +116,7 @@ def model2cellml(bgrdf_model: BondgraphModel, source_path: Path, output: str|Non
                 # Save the CellML annotation in the archive
                 annotation_file = cellml_file.with_suffix('.ttl')
                 # After adjusting file paths in the serialised annotation
-                cellml_annotation = cellml_model.metadata(cellml_file_uri)
+                cellml_annotation = await cellml_model.metadata(cellml_file_uri)
                 source_uri = source_path.resolve().as_uri()
                 source_omex_uri = (build_path / source_path.name).resolve().as_uri()
                 cellml_annotation = cellml_annotation.replace(source_uri, source_omex_uri)
@@ -183,8 +183,8 @@ async def bg2cellml(source_file: str, output: str|None, omex: str|None=None,
                 print(issue.reason)
         sys.exit('Issues loading Bondgraph Model')
 
-    model2cellml(bgrdf_model, source_path, output, omex=omex, bgrdf=bgrdf,
-                 annotate=annotate, save_if_errors=save_if_errors)
+    await model2cellml(bgrdf_model, source_path, output, omex=omex, bgrdf=bgrdf,
+                        annotate=annotate, save_if_errors=save_if_errors)
 
 #===============================================================================
 
