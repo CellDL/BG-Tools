@@ -204,12 +204,9 @@ class Variable:
 
     def set_value(self, value: Value):
     #=================================
+        if self.__units is not None:
+            value.set_units(self.__units)
         self.__value = value
-        if self.__value.units is None:
-            self.__value.set_units(self.__units)                        # type: ignore
-        elif not self.__units.is_compatible_with(self.__value.units):   # type: ignore
-            self.__report_issue(
-                f'Value for variable {self.__name} has incompatible units ({self.__units} != {self.__value.units})') # type: ignore
 
 #===============================================================================
 

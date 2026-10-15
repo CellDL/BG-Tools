@@ -96,6 +96,9 @@ class Units:
         ## if not PREFERRED_BASE_ITEMS start by going through
         ## self.__pint_units.unit_items() and only go to_base_units() if not a known
         ## CELLML_UNIT...
+    def convert(self, value: float, other: Units) -> float:
+        return pint.Quantity(value, self.__units).m_as(other.__units)
+
 
     def is_compatible_with(self, other: Self):
     #=========================================
@@ -140,12 +143,11 @@ class Value:
     #=================================
         if self.__units is None:
             self.__units = units
+        elif not self.__units.is_compatible_with(units):
+            raise ValueError(f'Can not change Units of a Value ({self.__units} != {units})')
         elif units != self.__units:
-            raise ValueError(f'Can not reassign Units of a Value ({self.__units} != {units})')
-
-    def set_value(self, value: float):
-    #================================
-        self.__value = value
+            self.__value = self.__units.convert(self.__value, units)
+            self.__units = units
 
 #===============================================================================
 
