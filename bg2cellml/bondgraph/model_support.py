@@ -382,8 +382,8 @@ class BondgraphElement(ModelElement):
                 elif element.__intrinsic_variable is None:
                     self.report_issue(f'Value for {self.pretty_name} is an element with no intrinsic variable: {var_value.value}')
                     continue
-                elif variable.units != element.__intrinsic_variable.units:
-                    self.report_issue(f'Units incompatible for {self.pretty_name} value: {var_value.value}')
+                elif variable.unit != element.__intrinsic_variable.unit:
+                    self.report_issue(f'Units are incompatible for {self.pretty_name} value: {var_value.value}')
                     continue
                 else:
                     self.__variables[var_name] = element.__intrinsic_variable
@@ -532,9 +532,9 @@ class BondgraphJunction(ModelElement):
         assert self.__type != TRANSFORM_JUNCTION
         if (domain := self.__get_domain(bond_graph.nodes[self.uri.value])) is not None:
             if self.__type == ONENODE_JUNCTION:
-                self.__variables[''] = Variable(self, self.symbol, units=domain.flow.units, value=self.__value, type=BGF.FlowVariable)
+                self.__variables[''] = Variable(self, self.symbol, unit=domain.flow.unit, value=self.__value, type=BGF.FlowVariable)
             elif self.__type == ZERONODE_JUNCTION:
-                self.__variables[''] = Variable(self, self.symbol, units=domain.potential.units, value=self.__value, type=BGF.PotentialVariable)
+                self.__variables[''] = Variable(self, self.symbol, unit=domain.potential.unit, value=self.__value, type=BGF.PotentialVariable)
 
     def assign_transform_variables(self, bond_graph: nx.DiGraph):
     #============================================================
@@ -576,12 +576,12 @@ class BondgraphJunction(ModelElement):
                     port_uri = namedNode(port_uri_id)
                     if junction_type == ONENODE_JUNCTION:
                         self.__variables[flow_var_name] = variable
-                        potential = Variable(self, potential_name, units=domain.potential.units)
+                        potential = Variable(self, potential_name, unit=domain.potential.unit)
                         self.__variables[potential_var_name] = potential
                         power_port = PowerPort(port_uri, NamedPortVariable(flow_name, variable),    # pyright: ignore[reportArgumentType]
                                                          NamedPortVariable(potential_name, potential))
                     elif junction_type == ZERONODE_JUNCTION:
-                        flow = Variable(self, flow_name, units=domain.flow.units)
+                        flow = Variable(self, flow_name, unit=domain.flow.unit)
                         self.__variables[flow_var_name] = flow
                         self.__variables[potential_var_name] = variable
                         power_port = PowerPort(port_uri, NamedPortVariable(flow_name, flow),        # pyright: ignore[reportArgumentType]

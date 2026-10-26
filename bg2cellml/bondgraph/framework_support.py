@@ -26,7 +26,7 @@ from typing import Self, TYPE_CHECKING
 from ..mathml import MathML
 from ..rdf import literal_as_string, uri_fragment
 from ..rdf import isLiteral, Literal, literal, NamedNode, namedNode, RdfGraph
-from ..units import Units, Value
+from ..units import Unit, Value
 from ..utils import Issue
 
 from .namespaces import BGF, CDT
@@ -119,35 +119,35 @@ TRANSFORMER_EQUATIONS = MathML.from_string(f"""
 
 class Variable:
     def __init__(self, element: Labelled|ModelElement|None, name: str,
-                        units: Literal|Units|None=None,
+                        unit: Literal|Unit|None=None,
                         value: Literal|None=None,
                         type: NamedNode|str|None=None):
         self.__element = element
         self.__name = clean_name(name)
         self.__symbol: str|None = None
         self.__type = type.value if isinstance(type, NamedNode) else type
-        if isLiteral(units):
-            self.__units = Units.from_ucum(units)   # pyright: ignore[reportArgumentType]
+        if isLiteral(unit):
+            self.__unit = Unit.from_ucum(unit)     # pyright: ignore[reportArgumentType]
         else:
-            self.__units: Units|None = units   # pyright: ignore[reportAttributeAccessIssue]
+            self.__unit: Unit|None = unit          # pyright: ignore[reportAttributeAccessIssue]
         if value is not None:
             self.__value = Value.from_literal(value)
-            if self.__units is None and self.__value.units is not None:
-                self.__units = self.__value.units
+            if self.__unit is None and self.__value.unit is not None:
+                self.__unit = self.__value.unit
         else:
             self.__value = None
-        if self.__units is None:
-            self.__report_issue(f'Variable {name} for {self.element_uri} has no Units specified')
+        if self.__unit is None:
+            self.__report_issue(f'Variable {name} for {self.element_uri} has no Unit specified')
             return
 
         if self.__value is not None:
-            if self.__value.units is None:
-                self.__value.set_units(self.__units)
-            elif not self.__units.is_compatible_with(self.__value.units):
-                self.__report_issue(f'Value for variable {name} has incompatible units ({self.__value.units} != {self.__units})')
+            if self.__value.unit is None:
+                self.__value.set_unit(self.__unit)
+            elif not self.__unit.is_compatible_with(self.__value.unit):
+                self.__report_issue(f'Value for variable {name} has incompatible unit ({self.__value.unit} != {self.__unit})')
 
     def __str__(self):
-        return f'{self.symbol} ({self.__value if self.__value is not None else self.__units}) [{self.type}]'
+        return f'{self.symbol} ({self.__value if self.__value is not None else self.__unit}) [{self.type}]'
 
     def __report_issue(self, issue: str):
         if isinstance(self.__element, ModelElement):
@@ -176,8 +176,8 @@ class Variable:
         return self.__value
 
     @property
-    def units(self) -> Units:
-        return self.__units         # type: ignore
+    def unit(self) -> Unit:
+        return self.__unit          # type: ignore
 
     def copy(self, suffix: str|None=None, domain: 'Domain|None'=None) -> 'Variable':
     #===============================================================================
@@ -194,7 +194,7 @@ class Variable:
                     name = suffix
                 else:
                     name = f'{self.__name}_{suffix}'
-        copy = Variable(self.__element, name, units=self.__units, type=self.__type)
+        copy = Variable(self.__element, name, unit=self.__unit, type=self.__type)
         copy.__value = self.__value.copy() if self.__value is not None else None
         return copy
 
@@ -204,13 +204,13 @@ class Variable:
 
     def set_value(self, value: Value):
     #=================================
-        if self.__units is not None:
-            value.set_units(self.__units)
+        if self.__unit is not None:
+            value.set_unit(self.__unit)
         self.__value = value
 
 #===============================================================================
 
-VOI_VARIABLE = Variable(None, VOI_SYMBOL, units=VOI_UCUMUNIT, type=BGF.VariableOfIntergration)
+VOI_VARIABLE = Variable(None, VOI_SYMBOL, unit=VOI_UCUMUNIT, type=BGF.VariableOfIntergration)
 
 #===============================================================================
 #===============================================================================
@@ -230,13 +230,13 @@ DOMAIN_CONSTANTS = """
 
 class Domain(Labelled):
     def __init__(self, id: str, label: str|None,
-                    flow_name: str, flow_units: Literal,
-                    potential_name: str, potential_units: Literal,
-                    quantity_name: str, quantity_units: Literal):
+                    flow_name: str, flow_unit: Literal,
+                    potential_name: str, potential_unit: Literal,
+                    quantity_name: str, quantity_unit: Literal):
         super().__init__(id, label)
-        self.__flow = Variable(self, flow_name, units=flow_units, type=BGF.FlowVariable)
-        self.__potential = Variable(self, potential_name, units=potential_units, type=BGF.PotentialVariable)
-        self.__quantity = Variable(self, quantity_name, units=quantity_units, type=BGF.QuantityVariable)
+        self.__flow = Variable(self, flow_name, unit=flow_unit, type=BGF.FlowVariable)
+        self.__potential = Variable(self, potential_name, unit=potential_unit, type=BGF.PotentialVariable)
+        self.__quantity = Variable(self, quantity_name, unit=quantity_unit, type=BGF.QuantityVariable)
         self.__intrinsic_symbols = [
             self.__flow.symbol,
             self.__potential.symbol,
@@ -466,7 +466,7 @@ class ElementTemplate(Labelled):
     #==============================================================================================
         port_var_name = f'{domain_variable.name}{suffix}'
         return NamedPortVariable(name=port_var_name,
-                                variable=Variable(self, port_var_name, units=domain_variable.units, type=domain_variable.type))
+                                variable=Variable(self, port_var_name, unit=domain_variable.unit, type=domain_variable.type))
 
     def __add_variables(self, graph: RdfGraph):
     #==========================================

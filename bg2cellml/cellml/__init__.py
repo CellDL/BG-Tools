@@ -36,7 +36,7 @@ from ..bondgraph.utils import clean_name, ModelElement
 from ..mathml import Equation, MATHML_NS
 from ..rdf import literal, namedNode, RdfGraph, Triple, uri_fragment
 from ..rdf.namespace import Namespace, RDF, RDFS
-from ..units import Units
+from ..units import Unit
 from ..utils import XMLNamespace
 from ..version import __version__
 
@@ -158,8 +158,10 @@ class CellMLVariable:
     def __init__(self, component: CellMLComponent, variable: Variable):
         self.__id = f'{component.id}-{variable.symbol}'
         self.__symbol = variable.symbol
-        self.__units = variable.units.name
+        self.__unit = variable.unit
         if variable.value is not None:
+            if variable.value.unit is not None:
+                self.__unit = variable.value.unit
             self.__initial_value = variable.value.value
         else:
             self.__initial_value = None
@@ -169,9 +171,14 @@ class CellMLVariable:
     #============
         return self.__id
 
+    @property
+    def unit(self) -> Unit:
+    #======================
+        return self.__unit
+
     def get_element(self) -> etree.Element:
     #======================================
-        element = cellml_element('variable', name=self.__symbol, units=self.__units, id=self.__id)
+        element = cellml_element('variable', name=self.__symbol, units=self.__unit.name, id=self.__id)
         if self.__initial_value is not None:
             element.attrib['initial_value'] = f'{self.__initial_value}'
         return element
@@ -233,8 +240,8 @@ class CellMLModel:
     def __add_fixed(self, variable: Variable):
     #===========================================
         if variable.symbol not in self.__known_fixed:
-            self.__add_units(variable.units)
             cellml_variable = CellMLVariable(self.__current_component, variable)
+            self.__add_units(cellml_variable.unit)
             self.__current_component.add_variable(cellml_variable)
             self.__known_fixed.add(variable.symbol)
 
@@ -252,9 +259,9 @@ class CellMLModel:
             # This won't create duplicate statements
             self.__metadata.add(Triple(namedNode(model_element.id), RDFS.label, literal(model_element.label)))
 
-    def __add_units(self, units: Units):
-    #===================================
-        elements = self.__elements_from_units(units)
+    def __add_units(self, unit: Unit):
+    #=================================
+        elements = self.__elements_from_units(unit)
         if len(elements):
             for element in elements:
                 self.__add_unit_xml(element)
@@ -275,15 +282,15 @@ class CellMLModel:
     #=======================================
         for symbol in sorted(self.__known_variables.keys(), key=symbol_sort_key):
             variable, model_element = self.__known_variables[symbol]
-            self.__add_units(variable.units)
             cellml_variable = CellMLVariable(self.__current_component, variable)
+            self.__add_units(cellml_variable.unit)
             self.__current_component.add_variable(cellml_variable, model_element.id)
             self.__add_metadata(cellml_variable, variable, model_element)
 
-    def __elements_from_units(self, units: Units) -> list[list[str]]:
+    def __elements_from_units(self, units: Unit) -> list[list[str]]:
     #================================================================
         result = []
-        def elements_from_units(units: Units) -> list[str]:
+        def elements_from_units(units: Unit) -> list[str]:
             if units.name in self.__known_units or units.name in CELLML_UNITS:
                 return []
             elements = []

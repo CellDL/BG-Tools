@@ -107,8 +107,8 @@ class Units:
 #===============================================================================
 
 class Value:
-    def __init__(self, value: float, units: Units|None):
-        self.__units = units
+    def __init__(self, value: float, unit: Unit|None):
+        self.__unit = unit
         self.__value = value
 
     @classmethod
@@ -116,45 +116,43 @@ class Value:
         if literal_value.datatype.value == CDT.ucum.value:  # pyright: ignore[reportAttributeAccessIssue]
             parts = str(literal_value.value).split()
             value = float(parts[0])
-            units = Units.from_ucum(parts[1])
+            unit = Unit.from_ucum(parts[1])
         elif literal_value.datatype is None:                # pyright: ignore[reportAttributeAccessIssue]
             value = float(literal_value.value)
-            units = None
+            unit = None
         else:
             raise TypeError(f'Literal value has unexpected datatype: {literal_value.datatype}') # pyright: ignore[reportAttributeAccessIssue]
-        return cls(value, units)
+        return cls(value, unit)
 
     def __str__(self):
-        return f'{self.__value} {self.__units}'
+        return f'{self.__value} {self.__unit}'
 
     @property
-    def units(self):
-        return self.__units
+    def unit(self):
+        return self.__unit
 
     @property
     def value(self) -> float:
         return self.__value
 
     def copy(self) -> 'Value':
-    #=========================
-        return Value(self.__value, self.__units)
+        return Value(self.__value, self.__unit)
 
-    def set_units(self, units: Units):
-    #=================================
-        if self.__units is None:
-            self.__units = units
-        elif not self.__units.is_compatible_with(units):
-            raise ValueError(f'Can not change Units of a Value ({self.__units} != {units})')
-        elif units != self.__units:
-            self.__value = self.__units.convert(self.__value, units)
-            self.__units = units
+    def set_unit(self, unit: Unit):
+        if self.__unit is None:
+            self.__unit = unit
+        elif not self.__unit.is_compatible_with(unit):
+            raise ValueError(f'Can not change Unit of a Value ({self.__unit} != {unit})')
+        elif unit != self.__unit:
+            self.__value = self.__unit.convert(self.__value, unit)
+            self.__unit = unit
 
 #===============================================================================
 
 class Quantity:
-    def __init__(self, uri: NamedNode, units: Literal, label: Literal|None=None, variable: Literal|None=None):
+    def __init__(self, uri: NamedNode, unit: Literal, label: Literal|None=None, variable: Literal|None=None):
         self.__uri = uri
-        self.__units = Units.from_ucum(units)
+        self.__unit = Unit.from_ucum(unit)
         self.__label = str(label) if label is not None else str(uri)
         self.__variable = str(variable) if variable is not None else self.__label
 
@@ -163,8 +161,8 @@ class Quantity:
         return self.__label
 
     @property
-    def units(self):
-        return self.__units
+    def unit(self):
+        return self.__unit
 
     @property
     def uri(self):
