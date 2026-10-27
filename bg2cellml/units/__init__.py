@@ -36,7 +36,7 @@ from .parser import create_unit_expression, UnitComponent, unit_name
 #===============================================================================
 
 ureg = pint.UnitRegistry()
-ucum = PintUcumRegistry()
+ucum = PintUcumRegistry().from_ucum
 
 #===============================================================================
 
