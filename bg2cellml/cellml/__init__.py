@@ -336,14 +336,10 @@ class CellMLModel:
             base = base_units(component.unit)
             for (n, base_exponent) in enumerate(base[1]):
                 (base_name, exponent) = base_exponent
-                multiplier = sigfig.round(base[0], 5) if n == 0 else 1
-                unit_key = unit_name_with_exponent(base_name, exponent)
-                if multiplier != 1:
-                    unit_key = f'{unit_key}_{multiplier}'
-                if unit_key not in self.__known_units and unit_key not in CELLML_UNITS:
-                    elements.append(unit_xml(base_name,
-                                             exponent=exponent,
-                                             multiplier=multiplier))
+                multiplier = sigfig.round(base[0], 5, warn=False) if n == 0 else 1
+                elements.append(unit_xml(base_name,
+                                         exponent=exponent,
+                                         multiplier=multiplier))
             self.__known_units.add(unit_name)
             if len(elements) > 1:
                 elements.append('  </units>')
@@ -359,7 +355,7 @@ class CellMLModel:
                                      exponent=component.exponent,
                                      prefix=component.prefix,
                                      multiplier=component.multiplier))
-            if name not in self.__known_units:
+            if name not in self.__known_units and name not in CELLML_UNITS:
                 xml_components[name] = component
         self.__known_units.add(unit.name)
         if len(elements) > 1:

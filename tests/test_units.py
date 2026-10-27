@@ -32,14 +32,10 @@ def elements_from_units(unit: Unit) -> list[list[str]]:
         base = base_units(component.unit)
         for (n, base_exponent) in enumerate(base[1]):
             (base_name, exponent) = base_exponent
-            multiplier = sigfig.round(base[0], 5) if n == 0 else 1
-            unit_key = unit_name_with_exponent(base_name, exponent)
-            if multiplier != 1:
-                unit_key = f'{unit_key}_{multiplier}'
-            if not unit_seen(unit_key) and unit_key not in CELLML_UNITS:
-                elements.append(unit_xml(base_name,
-                                         exponent=exponent,
-                                         multiplier=multiplier))
+            multiplier = sigfig.round(base[0], 5, warn=False) if n == 0 else 1
+            elements.append(unit_xml(base_name,
+                                     exponent=exponent,
+                                     multiplier=multiplier))
         seen_unit(unit_name)
         if len(elements) > 1:
             elements.append('</units>')
@@ -55,7 +51,7 @@ def elements_from_units(unit: Unit) -> list[list[str]]:
                                  exponent=component.exponent,
                                  prefix=component.prefix,
                                  multiplier=component.multiplier))
-        if not unit_seen(name):
+        if not unit_seen(name) and name not in CELLML_UNITS:
             xml_components[name] = component
     seen_unit(unit.name)
     if len(elements) > 1:
