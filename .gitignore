@@ -5,3 +5,7 @@ output/
 .venv/
 dist/
 .ipynb_checkpoints/
+testing/
+*.cellml
+*.omex
+*.ipynb
