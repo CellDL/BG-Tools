@@ -124,7 +124,7 @@ def base_units(unit: PlainUnit) -> tuple[int|float, list[tuple[str, int|float]]]
 def unit_xml(name: str, exponent: int|float=1, prefix: int=0, multiplier:int|float=1) -> str:
 #============================================================================================
 
-    attributes: dict[str, str] = { 'name': name }
+    attributes: dict[str, str] = { 'units': name }
     if multiplier != 1:
         attributes['multiplier'] = str(multiplier)
     if prefix != 0:
