@@ -20,16 +20,15 @@
 
 from collections import defaultdict
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 #===============================================================================
 
 import lxml.etree as etree
-import sympy
 import pint
 from pint.facets.plain import PlainUnit
 import sigfig
+import sympy
 
 #===============================================================================
 
@@ -274,7 +273,7 @@ class CellMLModel:
             self.__add_variable(variable, element)
 
     def __add_fixed(self, variable: Variable):
-    #===========================================
+    #=========================================
         if variable.symbol not in self.__known_fixed:
             cellml_variable = CellMLVariable(self.__current_component, variable)
             self.__add_units(cellml_variable.unit)
@@ -309,7 +308,7 @@ class CellMLModel:
             self.__first_component_element.addprevious(units_element)
 
     def __add_variable(self, variable: Variable, element: ModelElement):
-    #==================================================================
+    #===================================================================
         if variable.symbol not in self.__known_variables:
             # variables/component
             self.__known_variables[variable.symbol] = (variable, element)

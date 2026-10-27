@@ -151,7 +151,7 @@ class BondgraphModel(Labelled):   ## Component ??
         for row in self.__rdf_graph.query(MODEL_ELEMENTS.replace('%MODEL%', self.uri.value)):
             # ?uri ?type ?domain ?symbol ?species ?location ?label ORDER BY ?uri ?type
             if row['type'].value.startswith(NAMESPACES['bgf']):                     # pyright: ignore[reportOptionalMemberAccess]
-                element_uri = row['uri'] .value                                     # pyright: ignore[reportAssignmentType]
+                element_uri = row['uri'].value                                      # pyright: ignore[reportAssignmentType]
                 element_type = row['type']                                          # pyright: ignore[reportAssignmentType]
                 assert element_type is not None
                 if element_uri != last_element_uri:                                 # pyright: ignore[reportOptionalMemberAccess]
@@ -186,7 +186,7 @@ class BondgraphModel(Labelled):   ## Component ??
 
         for row in self.__rdf_graph.query(MODEL_JUNCTIONS.replace('%MODEL%', self.uri.value)):
             # ?uri ?type ?value ?symbol ?species ?location ?label
-            if row['type'].value.startswith(NAMESPACES['bgf']):                                 # pyright: ignore[reportOptionalMemberAccess]
+            if row['type'].value.startswith(NAMESPACES['bgf']):                             # pyright: ignore[reportOptionalMemberAccess]
                 symbol = make_symbolic_name(row)
                 junction = BondgraphJunction(self, row['uri'].value, row['type'], row.get('value'),     # pyright: ignore[reportArgumentType]
                                              symbol, literal_as_string(row.get('label')))               # pyright: ignore[reportArgumentType]
@@ -194,9 +194,9 @@ class BondgraphModel(Labelled):   ## Component ??
 
         for row in self.__rdf_graph.query(MODEL_BONDS.replace('%MODEL%', self.uri.value)):
             # ?powerBond ?source ?target ?label ?bondCount
-            bond_id: NamedNode = row['powerBond'].value                                    # pyright: ignore[reportAssignmentType]
-            source: NamedNode|None = row.get('source')                                     # pyright: ignore[reportAssignmentType]
-            target: NamedNode|None = row.get('target')                                     # pyright: ignore[reportAssignmentType]
+            bond_id: NamedNode = row['powerBond'].value                                     # pyright: ignore[reportAssignmentType]
+            source: NamedNode|None = row.get('source')                                      # pyright: ignore[reportAssignmentType]
+            target: NamedNode|None = row.get('target')                                      # pyright: ignore[reportAssignmentType]
             if (source is None or isBlankNode(source)
              or target is None or isBlankNode(target)):
                 self.report_issue(f'Bond {pretty_uri(bond_id)} is missing source and/or target node')

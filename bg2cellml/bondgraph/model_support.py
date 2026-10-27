@@ -104,16 +104,14 @@ def clean_latex(latex: str) -> str:
 
 def make_symbolic_name(result_row: dict) -> str|None:
 #====================================================
-    symbol = literal_as_string(result_row.get('symbol'))
-    if symbol is None:
-        symbol = uri_fragment(result_row['uri'].value)
-    species = literal_as_string(result_row.get('species'))
-    location = literal_as_string(result_row.get('location'))
-    if species is not None:
-        symbol += f'_{clean_latex(species)}'
-    if location is not None:
-        symbol += f'_{clean_latex(location)}'
-    return symbol
+    name = []
+    if (symbol := literal_as_string(result_row.get('symbol'))) is not None:
+        name.append(symbol)
+    if (species := literal_as_string(result_row.get('species'))) is not None:
+        name.append(clean_latex(species))
+    if (location := literal_as_string(result_row.get('location'))) is not None:
+        name.append(clean_latex(location))
+    return '-'.join(name)
 
 #===============================================================================
 #===============================================================================
