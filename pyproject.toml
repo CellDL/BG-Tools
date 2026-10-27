@@ -1,37 +1,37 @@
 [project]
 name = "bg2cellml"
 description = "Bondgraph RDF tools"
-version = "0.11.2"
+version = "0.12.0"
 authors = [
     { name = "David Brooks", email = "d.brooks@auckland.ac.nz"}
 ]
-requires-python = "==3.13.*"
+requires-python = ">=3.14.8,<3.15"
 dependencies = [
-    "lxml>=5.4.0",
-    "networkx>=3.5",
-    "pint>=0.24.4",
+    "lxml>=6.1.3",
+    "networkx>=3.7",
+    "pint>=0.25.3,<0.26",
     "sympy>=1.14.0",
-    "pyoxigraph>=0.5.2",
-    "ucumvert>=0.2.2",
+    "pyoxigraph>=0.5.13",
+    "ucumvert>=0.3.2",
     "sigfig>=1.4.0",
 ]
 
 [dependency-groups]
 dev = [
-    "pip>=25.3",
-    "pyodide-build>=0.30.9",
-    "pytest>=8.4.0",
+    "pip>=26.2.2",
+    "pyodide-build>=0.39.3",
+    "pytest>=9.1.1",
 ]
 notebook = [
     "ipycytoscape>=1.3.3",
-    "ipympl>=0.9.8",
-    "jupyterlab>=4.4.10",
-    "matplotlib>=3.10.7",
+    "ipympl>=0.10.0",
+    "jupyterlab>=4.6.4",
+    "matplotlib>=3.11.2",
 ]
 standalone = [
-    "libopencor==1.20260803.0",
-    "rich>=14.2.0",
-    "structlog>=25.5.0",
+    "libopencor>=1.20261020.0",
+    "rich>=15.0.0",
+    "structlog>=26.1.0",
 ]
 
 [tool.uv]
