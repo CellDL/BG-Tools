@@ -131,7 +131,7 @@ def unit_xml(name: str, exponent: int|float=1, prefix: int=0, multiplier:int|flo
         attributes['prefix'] = str(prefix)
     if exponent != 1:
         attributes['exponent'] = str(exponent)
-    return f'  <unit {' '.join([f'{key}="{value}"' for key, value in attributes.items()])}/>'
+    return f'    <unit {' '.join([f'{key}="{value}"' for key, value in attributes.items()])}/>'
 
 #===============================================================================
 
@@ -140,8 +140,8 @@ CELLML_UNITS_ATTRIB = CELLML_NS('units')
 
 DIMENSIONLESS_UNIT_DEFINITION = [
     f'<units name="{DIMENSIONLESS_UNITS_NAME}">',
-    '<unit units="dimensionless"/>',
-    '</units>'
+    '    <unit units="dimensionless"/>',
+    '  </units>'
 ]
 
 #===============================================================================
@@ -305,7 +305,7 @@ class CellMLModel:
     def __add_unit_xml(self, unit_xml: list[str]):
     #=============================================
         if len(unit_xml):
-            units_element = etree.fromstring(''.join(unit_xml))
+            units_element = etree.fromstring('\n'.join(unit_xml))
             self.__first_component_element.addprevious(units_element)
 
     def __add_variable(self, variable: Variable, element: ModelElement):
@@ -346,7 +346,7 @@ class CellMLModel:
                                              multiplier=multiplier))
             self.__known_units.add(unit_name)
             if len(elements) > 1:
-                elements.append('</units>')
+                elements.append('  </units>')
                 result.append(elements)
 
         elements: list[str] = [
@@ -363,7 +363,7 @@ class CellMLModel:
                 xml_components[name] = component
         self.__known_units.add(unit.name)
         if len(elements) > 1:
-            elements.append('</units>')
+            elements.append('  </units>')
             result.append(elements)
             for name, component in xml_components.items():
                 add_component_xml(name, component)
