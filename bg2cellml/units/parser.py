@@ -186,48 +186,4 @@ class UnitEvaluator(ast.NodeVisitor):
         raise ValueError(f"Malicious or unsupported expression structure: {type(node).__name__}")
 
 #===============================================================================
-
-def from_ucum(ucum_string: str):
-    evaluator = UnitEvaluator()
-    unit_string = str(ucum(ucum_string).u)
-    tree = ast.parse(unit_string, mode='eval')
-    return (unit_name(unit_string), evaluator.visit(tree))
-
-#===============================================================================
-
-if __name__ == "__main__":
-    expressions = [
-        "mJ/fmol/fmol/fmol",
-        "mJ.fmol.fmol",
-        "fmol/nl",
-        "1/fmol",
-        "uF",
-        "kg",
-        "mg"
-#        "ampere ** 2 * second ** 4 / kilogram / meter ** 2"
-    ]
-
-    for expr in expressions:
-        try:
-            result = from_ucum(expr)
-            print(f"'{expr}'  =>  {result[0]}: {result[1]}")
-        except:
-            print(f"'{expr}'  =>  INVALID")
-
-
-## 'ampere ** 2 * second ** 4 / kilogram / meter ** 2'  =>  ampere * second / gram / meter: -3
-
-"""
-from ucumvert import PintUcumRegistry
-ur = PintUcumRegistry()
-x = ur.from_ucum('mJ/fmol/fmol')
-str(x.u) == 'millijoule / femtomole ** 2'
-ur.from_ucum('mJ/fmol/fmol')
-Quantity(1.0, "millijoule / femtomole ** 2")
->>>
->>> x.to_base_units()
-Quantity(9.999999999999999e+26, "kilogram * meter ** 2 / second ** 2 / mole ** 2")
-"""
-
-#===============================================================================
 #===============================================================================
