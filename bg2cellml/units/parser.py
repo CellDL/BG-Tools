@@ -15,12 +15,10 @@ logging.basicConfig(level=LOGLEVEL)
 
 import pint
 from pint.facets.plain import PlainUnit
-from ucumvert import PintUcumRegistry
 
 #===============================================================================
 
 ureg = pint.UnitRegistry()
-ucum = PintUcumRegistry()
 
 #===============================================================================
 
@@ -33,11 +31,6 @@ CELLML_UNITS = [
     'dimensionless', 'joule', 'lumen', 'ohm', 'steradian',
 ]
 
-SUBSTITUTIONS = {
-    'kilopascal': 'kPa',
-    'liter': 'litre',
-    'meter': 'metre'
-}
 #===============================================================================
 
 BASE_UNITS = set(CELLML_UNITS)
@@ -66,18 +59,8 @@ def unit_prefix(unit: str) -> tuple[str, int]:
             return (base_name, exponent)
     return (unit, 0)
 
+#===============================================================================
 
-def unit_name(name: str) -> str:
-#===============================
-    name = (name.replace(' * ', '_')
-                .replace(' / ', '_per_')
-                .replace(' ** 2', '_squared')
-                .replace(' ** 3', '_cubed')
-                .replace(' ** ', '_power_')
-                .replace('1_per_', 'per_'))
-    for fullname, replacement in SUBSTITUTIONS.items():
-        name = name.replace(fullname, replacement)
-    return name
 @dataclass
 class Component:
     unit: str
@@ -245,6 +228,12 @@ class UnitEvaluator(ast.NodeVisitor):
     def generic_visit(self, node):
         # Raise an error for any syntax node that isn't explicitly allowed (e.g., Calls, Attributes)
         raise ValueError(f"Malicious or unsupported expression structure: {type(node).__name__}")
+
+#===============================================================================
+
+def create_unit_expression(unit_string: str) -> UnitExpression:
+    tree = ast.parse(unit_string, mode='eval')
+    return UnitEvaluator().visit(tree)
 
 #===============================================================================
 #===============================================================================

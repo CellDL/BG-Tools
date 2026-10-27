@@ -23,7 +23,6 @@ from typing import Self
 #===============================================================================
 
 import pint
-from pint import Quantity
 from ucumvert import PintUcumRegistry
 
 #===============================================================================
@@ -31,9 +30,14 @@ from ucumvert import PintUcumRegistry
 from ..bondgraph.namespaces import CDT
 from ..rdf import isLiteral, Literal, NamedNode
 
+from .parser import create_unit_expression, PrefixedUnit, UnitExpression
+
 #===============================================================================
 
-ucum_registry = PintUcumRegistry()
+ureg = pint.UnitRegistry()
+ucum = PintUcumRegistry()
+
+#===============================================================================
 
 PREFERRED_BASE_ITEMS = {
     'kilopascal': [
@@ -50,39 +54,39 @@ SUBSTITUTIONS = {
 
 #===============================================================================
 
-class Units:
-    def __init__(self, units: str|pint.Unit):
-        if isinstance(units, str):
-            single_unit = ucum_registry(units)
-            units = single_unit.u               # type: ignore
-        self.__units: pint.Unit = units         # type: ignore
-        self.__name = Units.normalise_name(str(self.__units))
+def unit_name(name: str) -> str:
+#===============================
+    name = (name.replace(' * ', '_')
+                .replace(' / ', '_per_')
+                .replace(' ** 2', '_squared')
+                .replace(' ** 3', '_cubed')
+                .replace(' ** ', '_power_')
+                .replace('1_per_', 'per_'))
+    for fullname, replacement in SUBSTITUTIONS.items():
+        name = name.replace(fullname, replacement)
+    return name
+
+#===============================================================================
+
+class Unit:
+    def __init__(self, unit_string: str):
+        self.__expression = create_unit_expression(unit_string)
+        self.__name = unit_name(unit_string)
+        self.__unit_quantity = ureg(unit_string)
 
     @classmethod
-    def from_ucum(cls, ucum_units: Literal|str) -> Self:
-        if isLiteral(ucum_units):
-            if (ucum_units.datatype is not None                     # pyright: ignore[reportAttributeAccessIssue]
-            and ucum_units.datatype.value != CDT.ucumunit.value):   # pyright: ignore[reportAttributeAccessIssue]
-                raise TypeError(f'Units value has unexpected datatype: {ucum_units.datatype}')  # pyright: ignore[reportAttributeAccessIssue]
-            return cls(ucum_registry.from_ucum(ucum_units.value).u) # pyright: ignore[reportAttributeAccessIssue]
-        return cls(ucum_registry.from_ucum(ucum_units).u)
+    def from_ucum(cls, ucum_unit: Literal|str) -> Self:
+        print('UCUM', ucum_unit)
+        if isLiteral(ucum_unit):
+            if (ucum_unit.datatype is not None                      # pyright: ignore[reportAttributeAccessIssue]
+            and ucum_unit.datatype.value != CDT.ucumunit.value):    # pyright: ignore[reportAttributeAccessIssue]
+                raise TypeError(f'Unit value has unexpected datatype: {ucum_unit.datatype}')    # pyright: ignore[reportAttributeAccessIssue]
+            return cls(str(ucum(ucum_unit.value).units))            # pyright: ignore[reportAttributeAccessIssue]
+        return cls(str(ucum(ucum_unit).units))                      # pyright: ignore[reportArgumentType]
 
-    @staticmethod
-    def normalise_name(name: str) -> str:
-    #====================================
-        name = (name.replace(' * ', '_')
-                    .replace(' / ', '_per_')
-                    .replace(' ** 2', '_squared')
-                    .replace('1_per_', 'per_'))
-        for fullname, replacement in SUBSTITUTIONS.items():
-            name = name.replace(fullname, replacement)
-        return name
-
-    def __eq__(self, other):
-        return self.__units == other.__units
-
-    def __str__(self):
-        return str(self.__units)
+    @property
+    def base_units(self) -> list[PrefixedUnit]:
+        return self.__expression.units
 
     @property
     def name(self):
@@ -96,13 +100,11 @@ class Units:
         ## if not PREFERRED_BASE_ITEMS start by going through
         ## self.__pint_units.unit_items() and only go to_base_units() if not a known
         ## CELLML_UNIT...
-    def convert(self, value: float, other: Units) -> float:
-        return pint.Quantity(value, self.__units).m_as(other.__units)
+    def convert(self, value: float, other: Unit) -> float:
+        return pint.Quantity(value, self.__unit_quantity.u).m_as(other.__unit_quantity)
 
-
-    def is_compatible_with(self, other: Self):
-    #=========================================
-        return self.__units.is_compatible_with(other.__units)
+    def is_compatible_with(self, other: Unit):
+        return self.__unit_quantity.is_compatible_with(other.__unit_quantity)
 
 #===============================================================================
 
