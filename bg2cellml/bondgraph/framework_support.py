@@ -475,13 +475,13 @@ class ElementTemplate(Labelled):
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
                 raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
-            self.__parameters[var_name] = Variable(self, row['name'].value, units=row.get('units'), value=row.get('value'))   # type: ignore
+            self.__parameters[var_name] = Variable(self, row['name'].value, unit=row.get('units'), value=row.get('value'))   # type: ignore
         for row in graph.query(TEMPLATE_VARIABLES.replace('%TEMPLATE_URI%', self.uri.value, True)):
             # ?name ?units ?value
             var_name = row['name'].value             # pyright: ignore[reportOptionalMemberAccess]
             if var_name in self.__domain.intrinsic_symbols:
                 raise Issue(f'Cannot specify domain symbol {var_name} as a variable for {self.uri}')
-            self.__variables[var_name] = Variable(self, row['name'].value, units=row.get('units'), value=row.get('value'))   # type: ignore
+            self.__variables[var_name] = Variable(self, row['name'].value, unit=row.get('units'), value=row.get('value'))   # type: ignore
         # A variable that is intrinsic to the element's class
         # Values of intrinsic variables are set by bgf:hasValue
         if self.__element_class == QUANTITY_STORE:
