@@ -46,7 +46,7 @@ PREFIXES: set[str] = set()
 for _prefix in ureg._prefixes.values():
     if _prefix.name != '' and _prefix.name not in PREFIXES:
         PREFIXES.add(_prefix.name)
-        exponent = math.log10(_prefix.value)     # pyright: ignore[reportArgumentType]
+        exponent = round(math.log10(_prefix.value), 5)     # pyright: ignore[reportArgumentType]
         if exponent == int(exponent):
             PREFIX_TO_EXPONENT[_prefix.name] = int(exponent)
 
