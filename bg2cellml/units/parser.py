@@ -22,18 +22,23 @@ ureg = pint.UnitRegistry()
 
 #===============================================================================
 
-CELLML_UNITS = [
-    'ampere', 'farad', 'katal', 'lux', 'pascal', 'tesla',
-    'becquerel', 'gram', 'kelvin', 'meter', 'radian', 'volt',
-    'candela', 'gray', 'kilogram', 'metre', 'second', 'watt',
-    'celsius', 'henry', 'liter', 'mole', 'siemens', 'weber',
-    'coulomb', 'hertz', 'litre', 'newton', 'sievert',
-    'dimensionless', 'joule', 'lumen', 'ohm', 'steradian',
-]
+SUBSTITUTIONS = {
+    'kilopascal': 'kPa',
+    'liter': 'litre',
+    'meter': 'metre'
+}
 
-#===============================================================================
-
-BASE_UNITS = set(CELLML_UNITS)
+def unit_name(name: str|PlainUnit) -> str:
+#=========================================
+    name = (str(name).replace(' * ', '_')
+                     .replace(' / ', '_per_')
+                     .replace(' ** 2', '_squared')
+                     .replace(' ** 3', '_cubed')
+                     .replace(' ** ', '_power_')
+                     .replace('1_per_', 'per_'))
+    for fullname, replacement in SUBSTITUTIONS.items():
+        name = name.replace(fullname, replacement)
+    return name
 
 #===============================================================================
 
@@ -56,36 +61,34 @@ def unit_prefix(unit: str) -> tuple[str, int]:
             if base_name == 'gram' and exponent > 0:
                 base_name = 'kilogram'
                 exponent -= 3
+            elif base_name == 'pascal' and exponent > 0:
+                base_name = 'kilopascal'
+                exponent -= 3
             return (base_name, exponent)
     return (unit, 0)
 
+def unit_name_with_exponent(unit: str|PlainUnit, exponent: int|float) -> str:
+    name = unit_name(unit)
+    if exponent == 1:
+        return name
+    elif exponent == -1:
+        return f'per_{name}'
+    elif exponent == 2:
+        return f'{name}_squared'
+    elif exponent == 3:
+        return f'{name}_cubed'
+    else:
+        return f'{name}_power_{exponent}'
+
 #===============================================================================
 
-@dataclass
-class Component:
-    unit: str
-    prefix: int=0
-    exponent: int|float=1
-    multiplier: int|float=1
-
-#===============================================================================
-
-class PrefixedUnit:
+class UnitComponent:
     def __init__(self, unit: PlainUnit, prefix: int, exponent: int|float=1, multiplier: int|float=1):
         logging.debug(f'PU: {prefix} {unit} {exponent}')
         self.__unit = unit
         self.__prefix = prefix
         self.__exponent = exponent
         self.__multiplier = multiplier
-        self.__component = Component(str(unit), prefix, exponent, multiplier)
-        if (str(unit)) in BASE_UNITS:
-            self.__components = [self.__component]
-        else:
-            self.__components = [
-                Component(u, 0, float(e))
-                    for (u, e) in pint.Quantity(1, self.__unit).to_base_units().unit_items()
-                        if not isinstance(e, complex)
-            ]
 
     @classmethod
     def from_string(cls, unit: str):
@@ -102,35 +105,23 @@ class PrefixedUnit:
     def __str__(self):
         if self.__exponent == 0:
             return f'{self.__multiplier}'
-        multiplier = f'{self.__multiplier}.' if self.__multiplier != 1 else ''
-        unit = str(self.__unit) if self.__prefix == 0 else f'10**{self.__prefix}.{self.__unit}'
+        multiplier = f'{self.__multiplier}*' if self.__multiplier != 1 else ''
+        unit = unit_name(self.__unit) if self.__prefix == 0 else f'10**{self.__prefix}.{unit_name(self.__unit)}'
         if self.__exponent == 1:
             return f'{multiplier}{unit}'
         else:
             return f'{multiplier}({unit})**{self.__exponent}'
 
-    def __truediv__(self, other: PrefixedUnit):
+    def __truediv__(self, other: UnitComponent):
         assert self.same(other)
-        return PrefixedUnit(self.__unit, self.__prefix, self.__exponent - other.__exponent, self.__multiplier)
+        return UnitComponent(self.__unit, self.__prefix, self.__exponent - other.__exponent, self.__multiplier)
 
     def __mul__(self, other):
         assert self.same(other)
-        return PrefixedUnit(self.__unit, self.__prefix, self.__exponent + other.__exponent, self.__multiplier)
+        return UnitComponent(self.__unit, self.__prefix, self.__exponent + other.__exponent, self.__multiplier)
 
     def __pow__(self, exponent):
-        return PrefixedUnit(self.__unit, self.__prefix, exponent*self.__exponent, self.__multiplier)
-
-    @property
-    def base_units(self):
-        return pint.Quantity(1, self.__unit).to_base_units()
-
-    @property
-    def base_components(self) -> list[Component]:
-        return self.__components
-
-    @property
-    def component(self) -> Component:
-        return self.__component
+        return UnitComponent(self.__unit, self.__prefix, exponent*self.__exponent, self.__multiplier)
 
     @property
     def exponent(self) -> int|float:
@@ -138,7 +129,7 @@ class PrefixedUnit:
 
     @property
     def name(self) -> str:
-        return str(self.__unit)
+        return unit_name_with_exponent(self.__unit, self.__exponent)
 
     @property
     def multiplier(self):
@@ -155,36 +146,36 @@ class PrefixedUnit:
 #===============================================================================
 
 class UnitExpression:
-    def __init__(self, *units: PrefixedUnit):
-        self.__units: dict[str, PrefixedUnit] = {
-            unit.id: unit for unit in units
+    def __init__(self, *components: UnitComponent):
+        self.__components: dict[str, UnitComponent] = {
+            unit.id: unit for unit in components
         }
 
     def __truediv__(self, other):
-        units = self.__units.copy()
-        for unit in other.__units.values():
-            if unit.id in units:
-                units[unit.id] /= unit
+        components = self.__components.copy()
+        for component in other.__components.values():
+            if component.id in components:
+                components[component.id] /= component
             else:
-                units[unit.id] = unit.__pow__(-1)
-        return UnitExpression(*units.values())
+                components[component.id] = component.__pow__(-1)
+        return UnitExpression(*components.values())
 
     def __mul__(self, other):
-        units = self.__units.copy()
-        for unit in other.__units.values():
-            if unit.id in units:
-                units[unit.id] *= unit
+        components = self.__components.copy()
+        for component in other.__components.values():
+            if component.id in components:
+                components[component.id] *= component
             else:
-                units[unit.id] = unit
-        return UnitExpression(*units.values())
+                components[component.id] = component
+        return UnitExpression(*components.values())
 
     def __pow__(self, exponent):
-        return UnitExpression(*[unit.__pow__(exponent)
-                                for unit in self.__units.values()])
+        return UnitExpression(*[component.__pow__(exponent)
+                                for component in self.__components.values()])
 
     @property
-    def units(self) -> list[PrefixedUnit]:
-        return list(self.__units.values())
+    def components(self) -> list[UnitComponent]:
+        return list(self.__components.values())
 
 #===============================================================================
 
@@ -221,7 +212,7 @@ class UnitEvaluator(ast.NodeVisitor):
     def visit_Name(self, node) -> UnitExpression:
         # Treat variable names in the expression as units (e.g., meters, kg, seconds)
         try:
-            return UnitExpression(PrefixedUnit.from_string(node.id))
+            return UnitExpression(UnitComponent.from_string(node.id))
         except pint.UndefinedUnitError:
             raise NameError(f"Unknown unit or variable: '{node.id}'")
 

@@ -1,7 +1,67 @@
 #===============================================================================
 #===============================================================================
 
+from bg2cellml.cellml import base_units, CELLML_NS, CELLML_UNITS, unit_xml
 from bg2cellml.units import Unit
+from bg2cellml.units.parser import unit_name, unit_name_with_exponent, UnitComponent
+
+#===============================================================================
+
+seen_units: list[str] = []
+
+def unit_seen(name: str):
+    return name in seen_units
+
+def seen_unit(name: str):
+    seen_units.append(name)
+
+#===============================================================================
+
+def elements_from_units(unit: Unit) -> list[list[str]]:
+#======================================================
+    if unit_seen(unit.name) or unit.name in CELLML_UNITS:
+        return []
+    result = []
+
+    def add_component_xml(unit_name: str, component: UnitComponent):
+        elements: list[str] = [
+            f'<units xmlns="{CELLML_NS}" name="{unit_name}">'
+        ]
+        base = base_units(component.unit)
+        for (n, base_exponent) in enumerate(base[1]):
+            (base_name, exponent) = base_exponent
+            multiplier = base[0] if n == 0 else 1
+            unit_key = unit_name_with_exponent(base_name, exponent)
+            if multiplier != 1:
+                unit_key = f'{unit_key}_{multiplier}'
+            if not unit_seen(unit_key) and unit_key not in CELLML_UNITS:
+                elements.append(unit_xml(base_name,
+                                         exponent=exponent,
+                                         multiplier=multiplier))
+        seen_unit(unit_name)
+        if len(elements) > 1:
+            elements.append('</units>')
+            result.append(elements)
+
+    elements: list[str] = [
+        f'<units xmlns="{CELLML_NS}" name="{unit.name}">'
+    ]
+    xml_components: dict[str, UnitComponent] = {}
+    for component in unit.unit_components:
+        name = unit_name(component.unit)
+        elements.append(unit_xml(unit_name(component.unit),
+                                 exponent=component.exponent,
+                                 prefix=component.prefix,
+                                 multiplier=component.multiplier))
+        if not unit_seen(name):
+            xml_components[name] = component
+    seen_unit(unit.name)
+    if len(elements) > 1:
+        elements.append('</units>')
+        result.append(elements)
+        for name, component in xml_components.items():
+            add_component_xml(name, component)
+    return result
 
 #===============================================================================
 
@@ -28,15 +88,12 @@ if __name__ == "__main__":
 
     for expr in expressions:
         try:
-            result = Unit.from_ucum(expr)
-            pu = result.base_units
-            d = {str(p): p.base_units for p in pu}
-            print(f'        =>  {result.name}: {d}')
-#            print(f'    (10**{pu.prefix} {pu.unit})**{pu.exponent}')
-#            print(f'    {pu.component}')
-#            print(f'    {pu.base_components}')
-#            print(f'    {pu.base_units}')
-#            print(f'    {list(pu.base_units.unit_items())}')
+            unit = Unit.from_ucum(expr)
+            print(unit.name)
+            xml_list = elements_from_units(unit)
+            for xml in xml_list:
+              print('\n'.join(xml))
+            print()
         except:
             print(f"'{expr}'  =>  INVALID")
             raise

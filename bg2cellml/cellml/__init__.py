@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING
 
 import lxml.etree as etree
 import sympy
+import pint
+from pint.facets.plain import PlainUnit
 
 #===============================================================================
 
@@ -37,6 +39,7 @@ from ..mathml import Equation, MATHML_NS
 from ..rdf import literal, namedNode, RdfGraph, Triple, uri_fragment
 from ..rdf.namespace import Namespace, RDF, RDFS
 from ..units import Unit
+from ..units.parser import unit_name, unit_name_with_exponent, UnitComponent
 from ..utils import XMLNamespace
 from ..version import __version__
 
@@ -96,6 +99,38 @@ CELLML_UNITS = [
     'coulomb', 'hertz', 'litre', 'newton', 'sievert',
     'dimensionless', 'joule', 'lumen', 'ohm', 'steradian',
 ]
+
+#===============================================================================
+
+PREFERRED_BASE_UNITS = {
+    'kPa': (1, [
+        ('joule', 0),
+        ('litre', -1),
+    ])
+}
+
+def base_units(unit: PlainUnit) -> tuple[int|float, list[tuple[str, int|float]]]:
+#================================================================================
+    name = unit_name(unit)
+    if name in CELLML_UNITS:
+        return (1, [(name, 1)])
+    elif name in PREFERRED_BASE_UNITS:
+        return PREFERRED_BASE_UNITS[name]       # pyright: ignore[reportReturnType]
+    else:
+        base_units = pint.Quantity(1, unit).to_base_units()
+        return (base_units.magnitude, [(unit_name(u), e) for (u, e) in base_units.unit_items()])    # pyright: ignore[reportReturnType]
+
+def unit_xml(name: str, exponent: int|float=1, prefix: int=0, multiplier:int|float=1) -> str:
+#============================================================================================
+
+    attributes: dict[str, str] = { 'name': name }
+    if multiplier != 1:
+        attributes['multiplier'] = str(multiplier)
+    if prefix != 0:
+        attributes['prefix'] = str(prefix)
+    if exponent != 1:
+        attributes['exponent'] = str(exponent)
+    return f'  <unit {' '.join([f'{key}="{value}"' for key, value in attributes.items()])}/>'
 
 #===============================================================================
 
@@ -287,25 +322,50 @@ class CellMLModel:
             self.__current_component.add_variable(cellml_variable, model_element.id)
             self.__add_metadata(cellml_variable, variable, model_element)
 
-    def __elements_from_units(self, units: Unit) -> list[list[str]]:
-    #================================================================
+    def __elements_from_units(self, unit: Unit) -> list[list[str]]:
+    #==============================================================
+        if unit.name in self.__known_units or unit.name in CELLML_UNITS:
+            return []
         result = []
-        def elements_from_units(units: Unit) -> list[str]:
-            if units.name in self.__known_units or units.name in CELLML_UNITS:
-                return []
-            elements = []
-            elements.append(f'<units xmlns="{CELLML_NS}" name="{units.name}">')
-            for item in units.base_items():
-                if item[0] not in self.__known_units:
-                    item_elements = elements_from_units(Units(item[0]))
-                    result.append(item_elements)
-                name = Units.normalise_name(item[0])
-                if item[1] == 0: elements.append(f'<unit units="{name}"/>')
-                else: elements.append(f'<unit units="{name}" exponent="{item[1]}"/>')
+
+        def add_component_xml(unit_name: str, component: UnitComponent):
+            elements: list[str] = [
+                f'<units xmlns="{CELLML_NS}" name="{unit_name}">'
+            ]
+            base = base_units(component.unit)
+            for (n, base_exponent) in enumerate(base[1]):
+                (base_name, exponent) = base_exponent
+                multiplier = base[0] if n == 0 else 1
+                unit_key = unit_name_with_exponent(base_name, exponent)
+                if multiplier != 1:
+                    unit_key = f'{unit_key}_{multiplier}'
+                if unit_key not in self.__known_units and unit_key not in CELLML_UNITS:
+                    elements.append(unit_xml(base_name,
+                                             exponent=exponent,
+                                             multiplier=multiplier))
+            self.__known_units.add(unit_name)
+            if len(elements) > 1:
+                elements.append('</units>')
+                result.append(elements)
+
+        elements: list[str] = [
+            f'<units xmlns="{CELLML_NS}" name="{unit.name}">'
+        ]
+        xml_components: dict[str, UnitComponent] = {}
+        for component in unit.unit_components:
+            name = unit_name(component.unit)
+            elements.append(unit_xml(unit_name(component.unit),
+                                     exponent=component.exponent,
+                                     prefix=component.prefix,
+                                     multiplier=component.multiplier))
+            if name not in self.__known_units:
+                xml_components[name] = component
+        self.__known_units.add(unit.name)
+        if len(elements) > 1:
             elements.append('</units>')
-            self.__known_units.add(units.name)
-            return elements
-        result.append(elements_from_units(units))
+            result.append(elements)
+            for name, component in xml_components.items():
+                add_component_xml(name, component)
         return result
 
     def __output_equations(self, equations: list[Equation], description: str):

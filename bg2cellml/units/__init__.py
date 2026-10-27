@@ -23,6 +23,7 @@ from typing import Self
 #===============================================================================
 
 import pint
+from pint.facets.plain import PlainUnit
 from ucumvert import PintUcumRegistry
 
 #===============================================================================
@@ -30,41 +31,12 @@ from ucumvert import PintUcumRegistry
 from ..bondgraph.namespaces import CDT
 from ..rdf import isLiteral, Literal, NamedNode
 
-from .parser import create_unit_expression, PrefixedUnit, UnitExpression
+from .parser import create_unit_expression, UnitComponent, unit_name
 
 #===============================================================================
 
 ureg = pint.UnitRegistry()
 ucum = PintUcumRegistry()
-
-#===============================================================================
-
-PREFERRED_BASE_ITEMS = {
-    'kilopascal': [
-        ('joule', 0),
-        ('litre', -1),
-    ]
-}
-
-SUBSTITUTIONS = {
-    'kilopascal': 'kPa',
-    'liter': 'litre',
-    'meter': 'metre'
-}
-
-#===============================================================================
-
-def unit_name(name: str) -> str:
-#===============================
-    name = (name.replace(' * ', '_')
-                .replace(' / ', '_per_')
-                .replace(' ** 2', '_squared')
-                .replace(' ** 3', '_cubed')
-                .replace(' ** ', '_power_')
-                .replace('1_per_', 'per_'))
-    for fullname, replacement in SUBSTITUTIONS.items():
-        name = name.replace(fullname, replacement)
-    return name
 
 #===============================================================================
 
@@ -76,7 +48,6 @@ class Unit:
 
     @classmethod
     def from_ucum(cls, ucum_unit: Literal|str) -> Self:
-        print('UCUM', ucum_unit)
         if isLiteral(ucum_unit):
             if (ucum_unit.datatype is not None                      # pyright: ignore[reportAttributeAccessIssue]
             and ucum_unit.datatype.value != CDT.ucumunit.value):    # pyright: ignore[reportAttributeAccessIssue]
@@ -85,21 +56,13 @@ class Unit:
         return cls(str(ucum(ucum_unit).units))                      # pyright: ignore[reportArgumentType]
 
     @property
-    def base_units(self) -> list[PrefixedUnit]:
-        return self.__expression.units
+    def unit_components(self) -> list[UnitComponent]:
+        return self.__expression.components
 
     @property
     def name(self):
         return self.__name
 
-    def base_items(self) -> list[tuple[str, int]]:
-    #=============================================
-        unit_quantity: Quantity = pint.Quantity(1, self.__units)
-        return PREFERRED_BASE_ITEMS.get(str(self),
-                                        unit_quantity.unit_items())
-        ## if not PREFERRED_BASE_ITEMS start by going through
-        ## self.__pint_units.unit_items() and only go to_base_units() if not a known
-        ## CELLML_UNIT...
     def convert(self, value: float, other: Unit) -> float:
         return pint.Quantity(value, self.__unit_quantity.u).m_as(other.__unit_quantity)
 
