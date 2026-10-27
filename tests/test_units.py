@@ -1,6 +1,8 @@
 #===============================================================================
 #===============================================================================
 
+import sigfig
+
 from bg2cellml.cellml import base_units, CELLML_NS, CELLML_UNITS, unit_xml
 from bg2cellml.units import Unit
 from bg2cellml.units.parser import unit_name, unit_name_with_exponent, UnitComponent
@@ -30,7 +32,7 @@ def elements_from_units(unit: Unit) -> list[list[str]]:
         base = base_units(component.unit)
         for (n, base_exponent) in enumerate(base[1]):
             (base_name, exponent) = base_exponent
-            multiplier = base[0] if n == 0 else 1
+            multiplier = sigfig.round(base[0], 5) if n == 0 else 1
             unit_key = unit_name_with_exponent(base_name, exponent)
             if multiplier != 1:
                 unit_key = f'{unit_key}_{multiplier}'

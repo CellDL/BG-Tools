@@ -151,6 +151,7 @@ dependencies = [
     { name = "networkx" },
     { name = "pint" },
     { name = "pyoxigraph" },
+    { name = "sigfig" },
     { name = "sympy" },
     { name = "ucumvert" },
 ]
@@ -179,6 +180,7 @@ requires-dist = [
     { name = "networkx", specifier = ">=3.5" },
     { name = "pint", specifier = ">=0.24.4" },
     { name = "pyoxigraph", specifier = ">=0.5.2" },
+    { name = "sigfig", specifier = ">=1.4.0" },
     { name = "sympy", specifier = ">=1.14.0" },
     { name = "ucumvert", specifier = ">=0.2.2" },
 ]

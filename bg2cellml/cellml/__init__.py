@@ -29,6 +29,7 @@ import lxml.etree as etree
 import sympy
 import pint
 from pint.facets.plain import PlainUnit
+import sigfig
 
 #===============================================================================
 
@@ -335,7 +336,7 @@ class CellMLModel:
             base = base_units(component.unit)
             for (n, base_exponent) in enumerate(base[1]):
                 (base_name, exponent) = base_exponent
-                multiplier = base[0] if n == 0 else 1
+                multiplier = sigfig.round(base[0], 5) if n == 0 else 1
                 unit_key = unit_name_with_exponent(base_name, exponent)
                 if multiplier != 1:
                     unit_key = f'{unit_key}_{multiplier}'

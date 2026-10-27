@@ -13,6 +13,7 @@ dependencies = [
     "sympy>=1.14.0",
     "pyoxigraph>=0.5.2",
     "ucumvert>=0.2.2",
+    "sigfig>=1.4.0",
 ]
 
 [dependency-groups]
